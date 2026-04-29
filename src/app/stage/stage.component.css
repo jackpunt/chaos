@@ -1,0 +1,10 @@
+canvas[id^=mapCanvasT] {
+    position:relative; top:0px; left:0px; z-index:2;
+    background-color: rgb(255, 178, 77);
+}
+
+canvas#coverCanvas {
+    position:relative; top:0px; left:0px; z-index:1;
+    background-image:
+    radial-gradient(closest-side, rgba(255, 118, 118, 0.384) 5% ,rgba(200,200,200,0.5) 50%, rgba(100,100,100,0.9));
+}

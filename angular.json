@@ -16,6 +16,7 @@
             "browser": "src/main.ts",
             "tsConfig": "tsconfig.app.json",
             "assets": [
+              "src/assets",
               {
                 "glob": "**/*",
                 "input": "public"
@@ -56,6 +57,7 @@
               "buildTarget": "chaos:build:production"
             },
             "development": {
+              "port": 4215,
               "buildTarget": "chaos:build:development"
             }
           },
