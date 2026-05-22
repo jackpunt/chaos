@@ -44,8 +44,8 @@ class NullGameSetup extends GameSetupLib {
   }
 
   override loadImagesThenStartup() {
-    const demo = ['Recycle'];
-    AliasLoader.loader.fnames = [...demo];
+    const fnames: string[] = [];
+    AliasLoader.loader.fnames = [...fnames];
     super.loadImagesThenStartup();    // loader.loadImages(() => this.startup(qParams));
   }
 
