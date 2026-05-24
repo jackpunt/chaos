@@ -61,8 +61,8 @@ class NullGameSetup extends GameSetupLib {
   }
 
   override startup(scenario: Scenario): void {
-    super.startup(scenario);
-    Tile.gamePlay = this.gamePlay;
+    super.startup(scenario);        // --> startScenario(StartElt: this.initialScenario(qParms)) -->
+    Tile.gamePlay = this.gamePlay;  // so Tile drags can find gamePlay
     // this.initialScenario();
     // initialScenario produces a StartupElt from qParams (which could be a SetupElt)
     // const startElt = this.initialScenario(qParams);
