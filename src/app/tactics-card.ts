@@ -6,8 +6,8 @@ import { CardShape } from "./card-shape";
 import { type GamePlay } from "./game-play";
 import type { GameState } from "./game-state";
 import { ChaosHex2 as Hex2, type ChaosHex as Hex1, type HexMap2 } from "./chaos-hex";
-import { type PathTable, type PathTable as Table } from "./chaos-table";
-import { PathTile } from "./chaos-tile";
+import { type ChaosTable, type ChaosTable as Table } from "./chaos-table";
+import { ChaosTile } from "./chaos-tile";
 import type { Player } from "./player";
 import { TP } from "./table-params";
 import type { CountClaz } from "./tile-exporter";
@@ -130,7 +130,7 @@ export class TacticsCard extends Tile {
   // Identify il-legal sources of fromHex:
   override cantBeMovedBy(player: Player, ctx: DragContext): string | boolean | undefined {
     if (this.fromHex === TacticsCard.source.hex) return undefined;
-    const gameState = ctx.gameState as GameState, table = gameState.table as PathTable;
+    const gameState = ctx.gameState as GameState, table = gameState.table as ChaosTable;
     if (table.cardRack.includes(this.fromHex as Hex2)) return 'rule in play';
     const isDoneCard = (gameState.cardDone === this);
     if (!isDoneCard && this.fromHex === table.cardDiscard.hex) return 'discarded';

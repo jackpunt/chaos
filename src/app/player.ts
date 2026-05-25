@@ -1,10 +1,10 @@
 import { removeEltFromArray, stime } from "@thegraid/common-lib";
-import { newPlanner, NumCounterBox, Player as PlayerLib, type Hex1, type NumCounter } from "@thegraid/hexlib";
+import { newPlanner, NumCounter, NumCounterBox, Player as PlayerLib, type Hex1 } from "@thegraid/hexlib";
 import { GamePlay } from "./game-play";
 import { CardPanel, TacticsCard } from "./tactics-card";
 import { ChaosHex2 as Hex2 } from "./chaos-hex";
-import { type PathTable as Table } from "./chaos-table";
-import { PathTile } from "./chaos-tile";
+import { type ChaosTable as Table } from "./chaos-table";
+import { ChaosTile } from "./chaos-tile";
 import { TP } from "./table-params";
 
 // do not conflict with AF.Colors
@@ -81,6 +81,13 @@ export class Player extends PlayerLib {
     mnl.boxAlign('left');
     this.panel.addChild(mnl);
   }
+
+  /** count gems for this player */
+  gemCounter = new NumCounter('gems', 0); // set by layoutCounters: `${'Coin'}Counter`
+  get gems() { return this.gemCounter?.value; }
+  set gems(v) { this.gemCounter?.updateValue(v); }
+
+
   netMaxLenCounter!: NumCounter;
   netNumNetsCounter!: NumCounter;
 
@@ -106,10 +113,10 @@ export class Player extends PlayerLib {
   get tiles() { return this.cardRack.map(hex => hex.tile) }
 
   /** placeTile on Player's panel, in empty hex. */
-  addTile(tile?: PathTile ) {
+  addTile(tile?: ChaosTile ) {
     const hex2 = this.tileRack.find(hex => !hex.tile) as Hex2;
     if (!hex2) return;
-    if (!tile) tile = PathTile.source.takeUnit();
+    if (!tile) tile = ChaosTile.source.takeUnit();
     tile?.placeTile(hex2);
     return tile;
   }
@@ -142,10 +149,10 @@ export class Player extends PlayerLib {
     return this.cardRack.filter(h => h.card).map(h => h.card!.phaseEffect);
   }
 
-  get myTiles() { return PathTile.allPathTiles.filter(tile => tile.hex?.isOnMap && tile.player === this) }
+  get myTiles() { return ChaosTile.allChaosTiles.filter(tile => tile.hex?.isOnMap && tile.player === this) }
   // Each of myTiles has a Network that appears in allNetworks:
   // ASSERT: tileToNetwork.values.forEach(net => allNetworks.includes(net));
-  tileToNetwork = new Map<PathTile, Network>();
+  tileToNetwork = new Map<ChaosTile, Network>();
   // Each of myTiles appears exactly ONCE in allNetworks.
   // ASSERT: elements are disjoint; concat(...allNetworks) === myTiles
   allNetworks: Array<Network> = [];
@@ -159,7 +166,7 @@ export class Player extends PlayerLib {
   };
 
   /** add or remove Tile from its Network */
-  adjustNetwork(tile: PathTile, add = tile.hex?.isOnMap && tile.player == this) {
+  adjustNetwork(tile: ChaosTile, add = tile.hex?.isOnMap && tile.player == this) {
     if (add) {
       // if Shift-drop moves tile to new hex:
       if (this.tileToNetwork.get(tile)) this.removeNetwork(tile);
@@ -172,7 +179,7 @@ export class Player extends PlayerLib {
     this.updateNetCounters();
   }
 
-  removeNetwork(tile: PathTile) {
+  removeNetwork(tile: ChaosTile) {
     const tileNet = this.tileToNetwork.get(tile);
     if (tileNet) {
       removeEltFromArray(tile, tileNet)
@@ -184,11 +191,11 @@ export class Player extends PlayerLib {
   }
 
   /** when ADD tile to map */
-  addToNetwork(tile: PathTile) {
+  addToNetwork(tile: ChaosTile) {
     // assert: all OWNED tiles are on a Hex1 (even if not tile.isOnMap)
-    const myLinks = (tile: PathTile) => (tile.hex as Hex1).linkHexes.filter(h => h.tile?.player == this) as HexT[];
-    const myAdjTiles = (tile: PathTile) => myLinks(tile).map(hext => hext.tile);
-    const newNet = (tile: PathTile) => {
+    const myLinks = (tile: ChaosTile) => (tile.hex as Hex1).linkHexes.filter(h => h.tile?.player == this) as HexT[];
+    const myAdjTiles = (tile: ChaosTile) => myLinks(tile).map(hext => hext.tile);
+    const newNet = (tile: ChaosTile) => {
       const net = [tile];
       this.allNetworks.push(net);
       this.tileToNetwork.set(tile, net);
@@ -210,6 +217,6 @@ export class Player extends PlayerLib {
   };
 
 }
-type HexT = Hex1 & { tile: PathTile } // with definite PathTile
+type HexT = Hex1 & { tile: ChaosTile } // with definite PathTile
 /** collection of Tiles mutually linked by adjacency, of same Player */
-type Network = Array<PathTile>;
+type Network = Array<ChaosTile>;

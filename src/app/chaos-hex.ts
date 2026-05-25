@@ -3,7 +3,7 @@ import { CenterText, CircleShape, type Paintable } from "@thegraid/easeljs-lib";
 import { Hex1 as Hex1Lib, Hex2Mixin, HexMap, LegalMark, type Hex } from "@thegraid/hexlib";
 import { CardShape } from "./card-shape";
 import type { TacticsCard } from "./tactics-card";
-import type { PathTile } from "./chaos-tile";
+import type { ChaosTile } from "./chaos-tile";
 
 
 // Hex1 has get/set tile/meep -> _tile/_meep
@@ -13,7 +13,7 @@ export class ChaosHex extends Hex1Lib {
   // cannot override set/get tile(); prevents other components from setting a simple Tile.
   // Type 'Hex1 | undefined' is not assignable to type 'ChaosHex | undefined'.
   /** read hex.tile as ChaosTile */
-  get ptile() { return super.tile as PathTile | undefined; }
+  get ptile() { return super.tile as ChaosTile | undefined; }
 
   get card() { return super.meep as TacticsCard | undefined }
   set card(card) { super.meep = card; }

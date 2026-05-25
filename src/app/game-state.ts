@@ -1,8 +1,8 @@
 import { GameState as GameStateLib, Phase, type Tile } from "@thegraid/hexlib";
 import type { GamePlay } from "./game-play";
 import type { TacticsCard } from "./tactics-card";
-import { PathTable as Table } from "./chaos-table";
-import type { PathTile } from "./chaos-tile";
+import { ChaosTable as Table } from "./chaos-table";
+import type { ChaosTile } from "./chaos-tile";
 import { Player } from "./player";
 
 export type ActionIdent = 'Act0' | 'Act2';
@@ -23,7 +23,7 @@ export class GameState extends GameStateLib {
     return;
   }
 
-  _tileDone?: PathTile = undefined;
+  _tileDone?: ChaosTile = undefined;
   _cardDone?: TacticsCard = undefined;
   get tileDone() { return this._tileDone; }
   get cardDone() { return this._cardDone; }

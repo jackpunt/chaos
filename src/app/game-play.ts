@@ -3,11 +3,11 @@ import { GamePlay as GamePlayLib, Scenario, type HexMap, TP as TPLib } from "@th
 import { GameSetup } from "./game-setup";
 import { GameState } from "./game-state";
 import type { ChaosHex } from "./chaos-hex";
-import type { PathTable } from "./chaos-table";
+import type { ChaosTable } from "./chaos-table";
 import type { Player } from "./player";
 import { TP } from "./table-params";
 import { stime } from "@thegraid/common-lib";
-import { PathTile } from "./chaos-tile";
+import { ChaosTile } from "./chaos-tile";
 
 
 export class GamePlay extends GamePlayLib {
@@ -17,7 +17,7 @@ export class GamePlay extends GamePlayLib {
   override readonly gameState: GameState = new GameState(this);
   declare gameSetup: GameSetup;
   declare hexMap: HexMap<ChaosHex>
-  declare table: PathTable;
+  declare table: ChaosTable;
 
   override get allPlayers() { return super.allPlayers as Player[] }
 
@@ -33,8 +33,8 @@ export class GamePlay extends GamePlayLib {
 
   // during setNextPlayer
   override paintForPlayer(): void {
-    if (!PathTile.source?.sourceHexUnit) PathTile.source.nextUnit();
-    PathTile.source.sourceHexUnit?.setPlayerAndPaint(this.curPlayer);
+    if (!ChaosTile.source?.sourceHexUnit) ChaosTile.source.nextUnit();
+    ChaosTile.source.sourceHexUnit?.setPlayerAndPaint(this.curPlayer);
   }
 
   brake = false; // for debugger

@@ -5,29 +5,52 @@ import type { GamePlay } from "./game-play";
 import type { GameState } from "./game-state";
 import { CardHex } from "./tactics-card";
 import { type ChaosHex as Hex1, type ChaosHex2 as Hex2 } from "./chaos-hex";
-import { type PathTable } from "./chaos-table";
+import { type ChaosTable } from "./chaos-table";
 import { Player } from "./player";
 
 const Hdirs = TP.useEwTopo ? H.ewDirs : H.nsDirs;
 
-// TODO: make a TileSource (bag of tile)
-// specialize Player & PlayerPanel, also GameState (see hexmarket)
-// dispense several PathTiles to each Player; to slots (see acquire)
-// Create RuleCard: -- (see hexcity?) with Source, and Panel for placement (Pos or Neg slots)
-// make a place on PlayerPanel for 'hand' of Rules
-//
-// may also have a deck of 'bonus' or 'goal' cards;
-// dispense 2 or 3 as public;
-// each player may acquire 1..3? private until reveal to claim points (& discard?)
-// 'group of tiles sum to X', 'group of tiles in tri/hex/line'
-// public bonus scored when tile is played
-// private can be delayed until player is ready to reveal
-// (risk that configuration may be broken)
-//
-// per turn:
-// -- choose action: Tile or Rule
-// DrawTile or PlaceTile (updating gameState) drag tile to map, rotate to satisfy Rules
-// DrawRule or PlaceRule
+
+/** the resource and/or action that can be harvested from a ChaosTile */
+class HarvestToken {
+  harvestId!: HARVEST;
+  getValue(player: Player, id = this.harvestId): boolean {
+    switch(id) {
+      case 'energy':
+        player.coins += 2;
+        return false;
+      case 'energy1':
+        player.coins += 1;
+        return false;
+      case 'gem':
+        player.gems += 1;
+        return false;
+      case 'recruit1':
+        // single recruit action (AI Base)
+        return true;
+      case 'recruit3':
+        // 3 recruit actions (the buff)
+        return true;
+    }
+    return false;
+  }
+}
+const terrainIds = ['Hills', 'Swamp', 'Plains'] as const;
+const resourceIds = ['energy', 'gem', 'card', 'energy1', 'recruit1', ] as const;
+// energy1 on AI Base; 'recruit1' on Oxytaya Base
+/** upgrade tokens which can be flipped */
+const harvestTokenId = ['research', 'recruit3'] as const;
+
+type TERRAIN = typeof terrainIds[number];
+type RESOURCE = typeof resourceIds[number];
+type HARVEST_UPGRADE = typeof harvestTokenId[number];
+type HARVEST = RESOURCE | HARVEST_UPGRADE;
+
+const flipBuff: Partial<Record<HARVEST_UPGRADE, string>> = {
+  research: 'energy',
+  recruit3: 'energy',
+};
+
 
 /** MapTile
  * ChaosTile: Tile with Terrain & Harvest icon.
@@ -36,51 +59,48 @@ const Hdirs = TP.useEwTopo ? H.ewDirs : H.nsDirs;
  *
  * Chaos does not need a 'source' of tiles.
  */
-export class PathTile extends MapTile {
+export class ChaosTile extends MapTile {
 
-  static readonly allPathTiles: PathTile[] = [];
+  /** 9 TERRAIN x HARVEST combinations; convert thid [0..8] to [TERRAIN, HARVEST] */
+  static t_h(thid: number) {
+    const terr = thid % 3;
+    const harv = Math.floor(thid / 3);
+    return [terrainIds[terr], resourceIds[harv]];
+  }
+
+  static readonly allChaosTiles: ChaosTile[] = [];
 
   declare gamePlay: GamePlay;
 
-  static curTable: PathTable;
-  static source: TileSource<PathTile>;
+  static curTable: ChaosTable;
+  static source: TileSource<ChaosTile>;
 
   // make a source for the given PathTile[]
-  static makeSource(hex: Hex2Lib, tiles = PathTile.allPathTiles) {
-    const source = PathTile.makeSource0(TileSource<PathTile>, PathTile, hex);
+  static makeSource(hex: Hex2Lib, tiles = ChaosTile.allChaosTiles) {
+    const source = ChaosTile.makeSource0(TileSource<ChaosTile>, ChaosTile, hex);
     tiles.forEach(unit => source.availUnit(unit));
     return source;
   }
 
+  // use plyrDisk to show Player controlling Region
   readonly plyrDisk = new CircleShape(C.white, TP.hexRad * .5, '');
-  readonly _valueText = new CenterText('', TP.hexRad * .5, C.WHITE);
-  get valueText() { return this._valueText.text }
-  set valueText(value: string) {
-    this._valueText.text = value;
-    this.reCache()
-  }
-  _placeValue = 0;
-  /** last computed value from table rules this tile@rot on targetHex (as pulled from legalMark.valuesAtRot) */
-  get placeValue() { return this._placeValue }
-  set placeValue(v) {
-    this._placeValue = v;
-    this.valueText = (v < 0) ? '' :`${v}`;
-  }
+  readonly terrain!: TERRAIN; // immutable
+  harvest!: HARVEST;          // can place harvest buff token to change
+  harvest_buff?: HARVEST;     // TODO: need additional HARVEST types
 
-  constructor(Aname: string, player: PlayerLib | undefined) {
+  constructor(Aname: string, thid: number, player?: PlayerLib) {
     super(Aname, player);
+    const [terrain, harvest] = ChaosTile.t_h(thid);
     this.nameText.y = this.radius * .66;
     this.addChild(this.nameText);        // re-add above afHex
     this.addChild(this.plyrDisk);
-    this.addChild(this._valueText);
     this.setPlayerAndPaint(player);
-    PathTile.allPathTiles.push(this);
+    ChaosTile.allChaosTiles.push(this);
   }
 
   // paint the [player] color onto the plyrDisk; for baseShape use paintBase()
   override paint(colorn = C.transparent, force?: boolean): void {
     if (force || colorn !== this.plyrDisk.colorn) {
-      this._valueText.color = C.pickTextColor(colorn)
       this.plyrDisk.paint(colorn, force);
       this.updateCache();
     }
@@ -117,9 +137,8 @@ export class PathTile extends MapTile {
   // dragStart -> markLegal; dragFunc(ctx.info.first) -> setLegalColors
   override markLegal(table: Table, setLegal = (hex: IHex2) => { hex.setIsLegal(false); }, ctx = table.dragContext) {
     this.maxV = -1;  // dragStart is before markLegal()
-    ;(table as PathTable).gamePlay.curPlayer.tileRack.forEach(setLegal)
+    ;(table as ChaosTable).gamePlay.curPlayer.tileRack.forEach(setLegal)
     table.hexMap.forEachHex(setLegal);
-    if (ctx.tile) (ctx.tile as PathTile).placeValue = this.maxV;
   }
 
   /** max of maxV found during markLegal->isLegalTarget */
@@ -134,7 +153,7 @@ export class PathTile extends MapTile {
 
   // dragStart->markLegal; dragFunc
   override dragFunc(hex: IHex2 | undefined, ctx: DragContext): void {
-    const hex2 = hex as Hex2 | undefined, table = ctx.gameState.table as PathTable; // hex2 is LEGAL hexUnder
+    const hex2 = hex as Hex2 | undefined, table = ctx.gameState.table as ChaosTable; // hex2 is LEGAL hexUnder
     const hexAny = table.hexUnderObj(this, false);
     const hex3 = ((!hexAny || CardHex.allCardHex.includes(hexAny)) ? this.fromHex as Hex2 : hexAny);
     if (ctx.info.first) this.setLegalColors();
@@ -162,9 +181,7 @@ export class PathTile extends MapTile {
         otile.moveTo(plyr.tileRack[ndx]) // move otile to open slot
       }
     }
-    if (this.placeValue == -1) {
-      targetHex = this.fromHex; // bad rotation: return to sender
-    }
+
     super.dropFunc(targetHex, ctx); // this.placeTile(targetHex)
 
     // maybe set gameState.tileDone;
@@ -180,18 +197,17 @@ export class PathTile extends MapTile {
 }
 
 /** resize/repaint Tiles for TileExporter */
-export class PrintTile extends PathTile {
+export class PrintTile extends ChaosTile {
   static rotateBack = 0;
   static colorBack = C.WHITE;
-  constructor(Aname: string, color: string) {
+  constructor(Aname: string, thid: number, color = C.WHITE) {
     const TP_hexRad = TP.hexRad, printRad = 200;
     TP.hexRad = printRad;
-    super(Aname, undefined)
+    super(Aname, thid, undefined)
     TP.hexRad = TP_hexRad;
     this.paintBase(color);
   }
   override paint(colorn = C.BLACK, force?: boolean): void {
-    this.plyrDisk.paint(C.transparent, true)
     this.paintBase(colorn)
   }
 }

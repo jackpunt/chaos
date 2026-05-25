@@ -6,9 +6,9 @@ import type { GamePlay } from "./game-play";
 import type { Scenario } from "./game-setup";
 import { CardPanel, TacticsCard, type CardBack } from "./tactics-card";
 import { type HexMap2, type ChaosHex2 } from "./chaos-hex";
-import { PathTile } from "./chaos-tile";
+import { ChaosTile } from "./chaos-tile";
 
-export class PathTable extends Table {
+export class ChaosTable extends Table {
   constructor(stage: Stage) {
     super(stage);
     this.initialVis = true;
@@ -60,10 +60,10 @@ export class PathTable extends Table {
   override layoutTable2() {
     this.initialVis = false;
     super.layoutTable2();
-    PathTile.makeAllTiles();      // populate PathTile.allTiles
+    ChaosTile.makeAllTiles();      // populate PathTile.allTiles
     const toprow = Math.min(1, TP.nHexes - 5), lefcol = 1;
-    this.makeSourceAtRowCol(PathTile.makeSource, 'tileBag', toprow, lefcol + 1.3, { y: +1.2 });
-    PathTile.source.nextUnit();   // TODO: decide how many to expose; & saveState.
+    this.makeSourceAtRowCol(ChaosTile.makeSource, 'tileBag', toprow, lefcol + 1.3, { y: +1.2 });
+    ChaosTile.source.nextUnit();   // TODO: decide how many to expose; & saveState.
 
     const [source, discard] = TacticsCard.makeCardSources(this, {row: toprow + .9, col: lefcol})
     this.cardSource = source;
@@ -120,9 +120,9 @@ export class PathTable extends Table {
   }
 
   /** identify dragTile so it can be rotated by keybinding */
-  get dragTile(): PathTile | undefined {
+  get dragTile(): ChaosTile | undefined {
     const dragging = this.isDragging;
-    return (dragging instanceof PathTile) ? dragging : undefined;
+    return (dragging instanceof ChaosTile) ? dragging : undefined;
   }
 
   override startGame() {
@@ -152,7 +152,7 @@ export class PathTable extends Table {
 
     const setColor = (value: string) => {
       const tColor = C.pickTextColor(value);
-      PathTile.allPathTiles.forEach(tile => tile.paintBase(value, tColor))
+      ChaosTile.allChaosTiles.forEach(tile => tile.paintBase(value, tColor))
     }
     const colors = [C.black, C.white];
     gui.makeParamSpec('color', colors).onChange = (item: ParamItem) => setColor(item.value);
