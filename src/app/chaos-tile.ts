@@ -3,9 +3,9 @@ import { CenterText, CircleShape, PaintableShape } from "@thegraid/easeljs-lib";
 import { type DragContext, H, Hex2 as Hex2Lib, HexShape, type IHex2, MapTile, Player as PlayerLib, type Table, TileSource, TP } from "@thegraid/hexlib";
 import type { GamePlay } from "./game-play";
 import type { GameState } from "./game-state";
-import { CardHex, type PathRule } from "./path-card";
-import { type PathHex as Hex1, type PathHex2 as Hex2 } from "./path-hex";
-import { type PathTable } from "./path-table";
+import { CardHex } from "./tactics-card";
+import { type ChaosHex as Hex1, type ChaosHex2 as Hex2 } from "./chaos-hex";
+import { type PathTable } from "./chaos-table";
 import { Player } from "./player";
 
 const Hdirs = TP.useEwTopo ? H.ewDirs : H.nsDirs;
@@ -103,84 +103,6 @@ export class PathTile extends MapTile {
     // make a Tile for each AfHex.
   }
 
-  /**
-   * Evaluate rules for this tile at given Hex, for each value of rotation = 0..5;
-   *
-   * For each rotation: rules.map --> fails ? -1 : sum(rule.value)
-   *
-   * Note: original rotation is restored after evaluation
-   * @param toHex
-   * @param rules rules that can/must be satisfied; each giving a value
-   * @return total_value[] for each rotation. (a value is -1 if toHex w/rotation is prohibited)
-   */
-  ruleValuesOnHex(toHex: Hex1, commit = false, rules: PathRule[] = this.allRules()) {
-    const valueAtRotation = Hdirs.map((dir, n) => {
-      const values = this.ruleValueAtRotation(n, toHex, commit, rules)
-      const fails = values.filter(v => v < 0).length > 0; // if any rule failed
-      return fails ? -1 : Math.sum(...values.filter(v => v >= 0));
-    })
-    return valueAtRotation;
-  }
-
-  /** rule.value() at given rotation, for each rule */
-  ruleValueAtRotation(rot: number, toHex: Hex1, commit = false, rules: PathRule[] = this.allRules()) {
-    let veto_n = -1;
-    return rules.map((rule, n) => {
-      if (rule.Aname?.startsWith('veto')) { veto_n = n + 1 }
-      return (n == veto_n) ? 0 : rule.value(this, toHex, commit)
-    }); // [rv(0), rv(1),rv(3)] for each rule
-  }
-
-  /**
-   * Join player rules and table rules;
-   * @param plyr Player; if undefined THEN rules for allPlayers
-   * @returns
-   */
-  allRules(plyr = this.player as Player) {
-    const plyrRules = plyr.cardRules;
-    const tableRules = this.rulesFromTable(PathTile.curTable);
-    return [...plyrRules, ...tableRules];
-  }
-
-  rulesFromCtx (ctx: DragContext) {
-    // retain curTable for later calls where ctx is not available
-    PathTile.curTable = (ctx.gameState as GameState).table; // retain to find rules
-    const rules = this.allRules((ctx.gameState.curPlayer as Player));
-    return rules;
-  }
-  rulesFromTable(table = PathTile.curTable) {
-    return table.cardPanel.rules ?? [];
-  }
-
-  /** re-evaluate all rules for this tile on hex w/rotation.
-   *
-   * compute each rule's contribution and set into rule.card.value for display
-   * @param hex
-   * @param rot [this.rotated]
-   */
-  showRuleValues(hex: Hex2) {
-    const rules = this.allRules();
-  }
-
-  maxValueOnHex(toHex: Hex1, ctx: DragContext) {
-    const rules = this.rulesFromCtx(ctx); // may be []
-    const values = this.ruleValuesOnHex(toHex, false, rules); // [v(r=0), v(r=1), ..., v(r=5)]
-    if (toHex.isOnMap && ctx.lastShift == true) {
-      values.splice(0, values.length, ...values.map(v => Math.max(v, 0))) // c/-1/0/g
-    } else if (!toHex.isOnMap) { // tileRack always legal, maxV = 0
-      values.splice(0, values.length, ...values.map(v => 0)) // c/*/0/g
-    }
-    const mark = (toHex as Hex2).legalMark;
-    mark.valuesAtRot = values; // sets maxV & label.text
-    return mark.maxV;
-  }
-
-  /** keybinder rotation during drag; set placeValue & show valueAtRot[] */
-  rotateNext(drot = 0, hex = this.targetHex) {
-    if (this.hex) return; // this tile not being dragged
-    this.stage?.update(); // tile is not cached?
-  }
-
   override cantBeMovedBy(player: PlayerLib, ctx: DragContext): string | boolean | undefined {
     // if ((ctx.gameState as GameState).notDoneTile(this)) return 'cardDone';
     if (this.hex?.isOnMap && !ctx.lastShift) return 'tile on map';
@@ -205,13 +127,7 @@ export class PathTile extends MapTile {
 
   override isLegalTarget(toHex: Hex1, ctx: DragContext): boolean {
     const plyr = (ctx.gameState as GameState).curPlayer;
-    if (plyr.tileRack.includes(toHex as Hex2)) return true;
-
-    if (toHex.isOnMap && !!toHex.tile) return false; // isOnMap redundant...
-    const maxV = this.maxValueOnHex(toHex, ctx)
-    this.maxV = Math.max(maxV, this.maxV);
-    if (ctx.lastCtrl) return true;
-    return (maxV >= 0)
+    return true;
   }
 
   targetHex!: Hex2; // latest targetHex from dragFunc -> ctx.targetHex;

@@ -2,36 +2,36 @@ import { C, type Constructor } from "@thegraid/common-lib";
 import { CenterText, CircleShape, type Paintable } from "@thegraid/easeljs-lib";
 import { Hex1 as Hex1Lib, Hex2Mixin, HexMap, LegalMark, type Hex } from "@thegraid/hexlib";
 import { CardShape } from "./card-shape";
-import type { PathCard } from "./path-card";
-import type { PathTile } from "./path-tile";
+import type { TacticsCard } from "./tactics-card";
+import type { PathTile } from "./chaos-tile";
 
 
 // Hex1 has get/set tile/meep -> _tile/_meep
 // Hex1 has get/set -> setUnit(unit, isMeep) & unitCollision(unit1, unit2)
-export class PathHex extends Hex1Lib {
+export class ChaosHex extends Hex1Lib {
 
   // cannot override set/get tile(); prevents other components from setting a simple Tile.
-  // Type 'Hex1 | undefined' is not assignable to type 'PathHex | undefined'.
-  /** read hex.tile as PathTile */
+  // Type 'Hex1 | undefined' is not assignable to type 'ChaosHex | undefined'.
+  /** read hex.tile as ChaosTile */
   get ptile() { return super.tile as PathTile | undefined; }
 
-  get card() { return super.meep as PathCard | undefined }
+  get card() { return super.meep as TacticsCard | undefined }
   set card(card) { super.meep = card; }
 }
 
-class PathHex2Lib extends Hex2Mixin(PathHex) {};
+class ChaosHex2Lib extends Hex2Mixin(ChaosHex) {};
 
-export class PathHex2 extends PathHex2Lib {
-  // declare tile: PathTile | undefined; // uses get/set from Hex2Mixin(PathHex)
-  // declare meep: PathCard | undefined;
-  override makeLegalMark(): PathLegalMark {
-    return new PathLegalMark();
+export class ChaosHex2 extends ChaosHex2Lib {
+  // declare tile: ChaosTile | undefined; // uses get/set from Hex2Mixin(ChaosHex)
+  // declare meep: ChaosCard | undefined;
+  override makeLegalMark(): ChaosLegalMark {
+    return new ChaosLegalMark();
   }
-  declare legalMark: PathLegalMark;
+  declare legalMark: ChaosLegalMark;
 }
 
-export class HexMap2 extends HexMap<PathHex2> {
-  constructor(radius?: number, addToMapCont?: boolean, hexC: Constructor<PathHex2> = PathHex2, Aname?: string) {
+export class HexMap2 extends HexMap<ChaosHex2> {
+  constructor(radius?: number, addToMapCont?: boolean, hexC: Constructor<ChaosHex2> = ChaosHex2, Aname?: string) {
     super(radius, addToMapCont, hexC, Aname)
     this.cardMark = new CardShape(C.nameToRgbaString(C.grey128, .3), '');
     this.cardMark.mouseEnabled = false; // prevent objectUnderPoint!
@@ -49,10 +49,10 @@ export class HexMap2 extends HexMap<PathHex2> {
 
 
 /** LegalMark agumented to hold: label, maxV, valuesAtRot */
-class PathLegalMark extends LegalMark {
+class ChaosLegalMark extends LegalMark {
   label = new CenterText('0');
   maxV!: number;
-  // set by markLegal() -> PathTile.isLegalTarget()
+  // set by markLegal() -> ChaosTile.isLegalTarget()
   _valuesAtRot = [0,0,0,0,0,0,] as number[];
   get valuesAtRot() { return this._valuesAtRot}
   set valuesAtRot(values: number[]) {

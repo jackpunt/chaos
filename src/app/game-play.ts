@@ -2,12 +2,12 @@ import { KeyBinder } from "@thegraid/easeljs-lib";
 import { GamePlay as GamePlayLib, Scenario, type HexMap, TP as TPLib } from "@thegraid/hexlib";
 import { GameSetup } from "./game-setup";
 import { GameState } from "./game-state";
-import type { PathHex } from "./path-hex";
-import type { PathTable } from "./path-table";
+import type { ChaosHex } from "./chaos-hex";
+import type { PathTable } from "./chaos-table";
 import type { Player } from "./player";
 import { TP } from "./table-params";
 import { stime } from "@thegraid/common-lib";
-import { PathTile } from "./path-tile";
+import { PathTile } from "./chaos-tile";
 
 
 export class GamePlay extends GamePlayLib {
@@ -16,7 +16,7 @@ export class GamePlay extends GamePlayLib {
   }
   override readonly gameState: GameState = new GameState(this);
   declare gameSetup: GameSetup;
-  declare hexMap: HexMap<PathHex>
+  declare hexMap: HexMap<ChaosHex>
   declare table: PathTable;
 
   override get allPlayers() { return super.allPlayers as Player[] }
@@ -60,8 +60,8 @@ export class GamePlay extends GamePlayLib {
     const table = this.table;
     KeyBinder.keyBinder.setKey('C-z', () => this.undoCardDraw());
     KeyBinder.keyBinder.setKey('C-d', () => this.toggleBrake());
-    KeyBinder.keyBinder.setKey('w', () => table.dragTile?.rotateNext(-1))
-    KeyBinder.keyBinder.setKey('e', () => table.dragTile?.rotateNext( 1))
+    // KeyBinder.keyBinder.setKey('w', () => table.dragTile?.rotateNext(-1))
+    // KeyBinder.keyBinder.setKey('e', () => table.dragTile?.rotateNext( 1))
     KeyBinder.keyBinder.setKey('M-c', () => {
       const tp=TP, tpl=TPLib
       const scale = TP.cacheTiles

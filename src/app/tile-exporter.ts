@@ -1,8 +1,8 @@
 import { C, Constructor, stime } from "@thegraid/common-lib";
 import { Container, DisplayObject } from "@thegraid/easeljs-module";
 import { ImageGrid, type GridSpec, type PageSpec } from "@thegraid/easeljs-lib";
-import { CardBack, PathCard } from "./path-card";
-import { PrintTile } from "./path-tile";
+import { CardBack, TacticsCard } from "./tactics-card";
+import { PrintTile } from "./chaos-tile";
 import { Player } from "./player";
 // end imports
 
@@ -112,9 +112,9 @@ class TileExporterLib {
 export class TileExporter extends TileExporterLib {
   override makeImagePages() {
     const u = undefined;
-    const pc = PathCard.colorMap;
+    const pc = TacticsCard.colorMap;
     const cardSingle = [
-      ...PathCard.countClaz(3), // [count, claz, ...constructorArgs]
+      ...TacticsCard.countClaz(3), // [count, claz, ...constructorArgs]
       [0, CardBack, u, '', pc['edge']],
       [0, CardBack, u, '', pc['own']],
       [0, CardBack, u, '', pc['atk']],

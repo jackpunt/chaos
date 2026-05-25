@@ -106,6 +106,10 @@ class NullGameSetup extends GameSetupLib {
 }
 
 export class GameSetup extends NullGameSetup {
+  override makeHexMap(hexMC?: Constructor<HexMap<Hex>>, hexC?: Constructor<Hex>, cNames?: string[]): HexMap<Hex> {
+    let map = super.makeHexMap(hexMC, hexC, cNames);
+    return map;
+  }
 
 }
 

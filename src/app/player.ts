@@ -1,10 +1,10 @@
 import { removeEltFromArray, stime } from "@thegraid/common-lib";
 import { newPlanner, NumCounterBox, Player as PlayerLib, type Hex1, type NumCounter } from "@thegraid/hexlib";
 import { GamePlay } from "./game-play";
-import { CardPanel, PathCard } from "./path-card";
-import { PathHex2 as Hex2 } from "./path-hex";
-import { type PathTable as Table } from "./path-table";
-import { PathTile } from "./path-tile";
+import { CardPanel, TacticsCard } from "./tactics-card";
+import { ChaosHex2 as Hex2 } from "./chaos-hex";
+import { type PathTable as Table } from "./chaos-table";
+import { PathTile } from "./chaos-tile";
 import { TP } from "./table-params";
 
 // do not conflict with AF.Colors
@@ -126,10 +126,10 @@ export class Player extends PlayerLib {
     cardPanel.fillAryWithCardHex(table, this.panel, this.cardRack, row, ncols)
   }
 
-  addCard(card?: PathCard) {
+  addCard(card?: TacticsCard) {
     const hex2 = this.cardRack.find(hex => !hex.tile) as Hex2;
     if (!hex2) return;
-    if (!card) card = PathCard.source.takeUnit();
+    if (!card) card = TacticsCard.source.takeUnit();
     card?.placeTile(hex2);
     return card;
 
@@ -139,7 +139,7 @@ export class Player extends PlayerLib {
 
   /** rules in Player's cardRack */
   get cardRules() {
-    return this.cardRack.filter(h => h.card).map(h => h.card!.rule);
+    return this.cardRack.filter(h => h.card).map(h => h.card!.phaseEffect);
   }
 
   get myTiles() { return PathTile.allPathTiles.filter(tile => tile.hex?.isOnMap && tile.player === this) }

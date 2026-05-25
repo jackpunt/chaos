@@ -4,9 +4,9 @@ import { Stage, type Container, type DisplayObject } from "@thegraid/easeljs-mod
 import { Hex2, Table, Tile, TileSource, TP, type DragContext, type IHex2 } from "@thegraid/hexlib";
 import type { GamePlay } from "./game-play";
 import type { Scenario } from "./game-setup";
-import { CardPanel, PathCard, type CardBack } from "./path-card";
-import { type HexMap2, type PathHex2 } from "./path-hex";
-import { PathTile } from "./path-tile";
+import { CardPanel, TacticsCard, type CardBack } from "./tactics-card";
+import { type HexMap2, type ChaosHex2 } from "./chaos-hex";
+import { PathTile } from "./chaos-tile";
 
 export class PathTable extends Table {
   constructor(stage: Stage) {
@@ -17,7 +17,7 @@ export class PathTable extends Table {
   declare hexMap: HexMap2;
   // return type declaration:
   override hexUnderObj(dragObj: DisplayObject, legalOnly?: boolean) {
-    return super.hexUnderObj(dragObj, legalOnly) as PathHex2 | undefined;
+    return super.hexUnderObj(dragObj, legalOnly) as ChaosHex2 | undefined;
   }
 
   // bgRect tall enough for 3 X 3.5 player panels
@@ -65,11 +65,11 @@ export class PathTable extends Table {
     this.makeSourceAtRowCol(PathTile.makeSource, 'tileBag', toprow, lefcol + 1.3, { y: +1.2 });
     PathTile.source.nextUnit();   // TODO: decide how many to expose; & saveState.
 
-    const [source, discard] = PathCard.makeCardSources(this, {row: toprow + .9, col: lefcol})
+    const [source, discard] = TacticsCard.makeCardSources(this, {row: toprow + .9, col: lefcol})
     this.cardSource = source;
     this.cardDiscard = discard;
 
-    PathCard.makeAllCards(); // populate PathCard.cardByName
+    TacticsCard.makeAllCards(); // populate PathCard.cardByName
 
     this.addDoneButton();
     this.setToRowCol(this.doneButton, toprow - .4, lefcol); // between cardDeck & discards
@@ -77,8 +77,8 @@ export class PathTable extends Table {
     return;
   }
 
-  cardSource!: TileSource<PathCard>
-  cardDiscard!: TileSource<PathCard>
+  cardSource!: TileSource<TacticsCard>
+  cardDiscard!: TileSource<TacticsCard>
 
   cardBack!: CardBack;
   cardPanel!: CardPanel;
