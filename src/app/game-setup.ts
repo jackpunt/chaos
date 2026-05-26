@@ -35,10 +35,10 @@ class NullGameSetup extends GameSetupLib {
     // Enable right-click:
     window.addEventListener('contextmenu', (evt: MouseEvent) => evt.preventDefault())
     // useEwTopo, size 3.
-    const { host, port, file, nH } = qParams;
+    const { host, port, file } = qParams;
     TP.useEwTopo = false;
     TP.numPlayers = 4;    // default until qParams (for ex: ?n=3)
-    TP.nHexes = nH || 3;
+    TP.nHexes = 4;
     TP.ghost = host || TP.ghost
     TP.gport = Number.parseInt(port || TP.gport.toString(10), 10)
     TP.networkGroup = 'chaos:game1';

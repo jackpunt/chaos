@@ -37,8 +37,8 @@ class HarvestToken {
     return false;
   }
 }
-const terrainIds = ['Hills', 'Swamp', 'Plains'] as const; // TODO: also need lake & mountain
-const resourceIds = ['energy', 'gem', 'card', 'energy1', 'recruit1', ] as const;
+const terrainIds = ['Mtn', 'Hills', 'Swamp', 'Plains', 'Lake'] as const;
+const resourceIds = ['none', 'energy', 'gem', 'card', 'energy1', 'recruit1', ] as const;
 // energy1 on AI Base; 'recruit1' on Oxytaya Base
 /** upgrade tokens which can be flipped */
 const harvestTokenId = ['research', 'recruit3'] as const;
@@ -54,9 +54,11 @@ const flipBuff: Partial<Record<HARVEST_UPGRADE, string>> = {
 };
 
 const colorOfTerrain: Record<TERRAIN, string> = {
+  Mtn: C.grey32,
   Hills: C.nameToRgbaString(C.dimYellow, .5),
   Swamp: C.nameToRgbaString(C.BROWN, .5),
   Plains: C.nameToRgbaString(C.lightgreen, .5),
+  Lake: C.BLUE,
 }
 
 
@@ -70,10 +72,10 @@ const colorOfTerrain: Record<TERRAIN, string> = {
 export class ChaosTile extends MapTile {
 
   /** 9 TERRAIN x HARVEST combinations; convert thid [0..8] to [TERRAIN, HARVEST] */
-  static t_h(thid: number): [TERRAIN, HARVEST] {
-    const terr = thid % 3;
-    const harv = Math.floor(thid / 3);
-    return [terrainIds[terr], resourceIds[harv]];
+  static h_t(thid: number): [HARVEST, TERRAIN] {
+    const harv = Math.floor(thid / 10);
+    const terr = thid % 10;
+    return [resourceIds[harv], terrainIds[terr]];
   }
 
   static readonly allChaosTiles: ChaosTile[] = [];
@@ -89,39 +91,28 @@ export class ChaosTile extends MapTile {
     tiles.forEach(unit => source.availUnit(unit));
     return source;
   }
-/*
-ChaosTile 0 T2,3:Hills energy
-ChaosTile 1 T2,4:Swamp energy
-ChaosTile 2 T2,5:Plain energy
-ChaosTile 3 T3,3:Hills gem
-ChaosTile 4 T3,4:Swamp gem
-ChaosTile 5 T3,5:Plain gem
-ChaosTile 6 T4,3:Hills card
-ChaosTile 7 T5,4:Swamp card
-ChaosTile 8 T4,5:Plain card
-ChaosTile 9 T4,4:Hills energy1
-*/
 
   /** configure hexMap with terrain tiles, mountains, adjust adjacency, mark open base locations
    *
-   *
+   * ['none' 'energy', 'gem', 'card', 'energy1', 'recruit1', ]
+   *    0        1        2        3        4
+   * ['Mtn', 'Hills', 'Swamp', 'Plains', 'Lake']
    */
   static setupMapTiles(map: HexMap<IHex2>, xtraTiles = [] as TileSpec[]) {
     const baseTiles: TileSpec[] = [
-      // {row: 2, col: 3, thid: 0}, // demo: mtn
-      // {row: 2, col: 4, thid: 1},
-      // {row: 2, col: 5, thid: 2},
-      {row: 3, col: 3, thid: 5}, // Plain:gem
-      {row: 3, col: 4, thid: 7}, // Swamp:card
-      {row: 3, col: 5, thid: 3}, // Hills:gem
-      {row: 4, col: 3, thid: 7}, // s:ca
-      {row: 4, col: 4, thid: 0}, // H:en
-      {row: 4, col: 5, thid: 4}, // swamp:gem
-      {row: 5, col: 4, thid: 2}, // Plain:energy
+      {row: 2, col: 3, thid: 0}, // demo: mtn
+      {row: 2, col: 5, thid: 0},
+      {row: 3, col: 3, thid: 23}, // Plain:gem
+      {row: 3, col: 4, thid: 32}, // Swamp:card
+      {row: 3, col: 5, thid: 21}, // Hills:gem
+      {row: 4, col: 3, thid: 32}, // S:card
+      {row: 4, col: 4, thid: 11}, // H:en
+      {row: 4, col: 5, thid: 22}, // swamp:gem
+      {row: 5, col: 4, thid: 13}, // Plain:energy
     ];
     const placeTile = (tileSpec: TileSpec) => {
       const {row, col, thid} = tileSpec;
-      const [t, h] = ChaosTile.t_h(thid);
+      const [h, t] = ChaosTile.h_t(thid);
       const tile = new ChaosTile(`T${row},${col}:${t.slice(0,1)}:${h}`, thid);
       const hex = map.getHex({row, col});
       tile.placeTile(hex);
@@ -146,9 +137,9 @@ ChaosTile 9 T4,4:Hills energy1
 
   constructor(Aname: string, thid: number, player?: PlayerLib) {
     super(Aname, player);
-    const [terrain, harvest] = ChaosTile.t_h(thid);
-    this.terrain = terrain;
-    this.harvest = harvest;
+    const [h, t] = ChaosTile.h_t(thid);
+    this.terrain = t;
+    this.harvest = h;
     this.nameText.y = this.radius * .66;
     this.addChild(this.terrFill);
     this.addChild(this.nameText);        // re-add above afHex
