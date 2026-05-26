@@ -8,9 +8,9 @@ export class TP extends TPLib {
   static {
     const tp = TPLib;
     // do not 'override' --> set lib value
-    tp.useEwTopo = true;
-    tp.maxPlayers = 6;       // allows space for CardPanel
-    tp.numPlayers = 2;
+    tp.useEwTopo = false;    // Use NS Topo
+    tp.maxPlayers = 5;       // allows space for CardPanel
+    tp.numPlayers = 4;
     tp.cacheTiles = 2.5;
     PaintableShape.defaultRadius = tp.hexRad;
   }

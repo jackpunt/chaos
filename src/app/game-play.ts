@@ -1,13 +1,13 @@
+import { stime } from "@thegraid/common-lib";
 import { KeyBinder } from "@thegraid/easeljs-lib";
-import { GamePlay as GamePlayLib, Scenario, type HexMap, TP as TPLib } from "@thegraid/hexlib";
+import { GamePlay as GamePlayLib, Scenario, TP as TPLib, type HexMap, type IHex2 } from "@thegraid/hexlib";
+import type { ChaosTable } from "./chaos-table";
+import { ChaosTile } from "./chaos-tile";
 import { GameSetup } from "./game-setup";
 import { GameState } from "./game-state";
-import type { ChaosHex } from "./chaos-hex";
-import type { ChaosTable } from "./chaos-table";
 import type { Player } from "./player";
+import { ScenarioParser } from "./scenario-parser";
 import { TP } from "./table-params";
-import { stime } from "@thegraid/common-lib";
-import { ChaosTile } from "./chaos-tile";
 
 
 export class GamePlay extends GamePlayLib {
@@ -16,7 +16,7 @@ export class GamePlay extends GamePlayLib {
   }
   override readonly gameState: GameState = new GameState(this);
   declare gameSetup: GameSetup;
-  declare hexMap: HexMap<ChaosHex>
+  declare hexMap: HexMap<IHex2>
   declare table: ChaosTable;
 
   override get allPlayers() { return super.allPlayers as Player[] }
@@ -25,16 +25,21 @@ export class GamePlay extends GamePlayLib {
   override startTurn() {
   }
 
+  /** parseScenario() makes a new ScenarioParser for each invocation */
+  override makeScenarioParser(hexMap = this.hexMap): ScenarioParser {
+    return new ScenarioParser(hexMap, this);
+  }
+
   // Demo from Acquire to draw some tiles:
   playerDone() {
     const plyr = this.curPlayer;
     plyr.gamePlay.hexMap.update(); // TODO: this.playerDone(ev)
   }
 
-  // during setNextPlayer
+  // during setNextPlayer; if we need to highlight something...
   override paintForPlayer(): void {
-    if (!ChaosTile.source?.sourceHexUnit) ChaosTile.source.nextUnit();
-    ChaosTile.source.sourceHexUnit?.setPlayerAndPaint(this.curPlayer);
+    // if (!ChaosTile.source?.sourceHexUnit) ChaosTile.source.nextUnit();
+    // ChaosTile.source.sourceHexUnit?.setPlayerAndPaint(this.curPlayer);
   }
 
   brake = false; // for debugger

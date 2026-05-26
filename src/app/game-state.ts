@@ -33,7 +33,7 @@ export class GameState extends GameStateLib {
   }
   set cardDone(v) {
     this._cardDone = v;
-    this.table.cardBack.dim(!!v)
+    this.table.cardBack?.dim(!!v)
     if (this.allDone) this.done();
   }
 

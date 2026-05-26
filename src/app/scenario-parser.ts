@@ -1,4 +1,7 @@
-import { SetupElt as SetupEltLib, ScenarioParser as SPLib, type GamePlay, type Hex2, type HexMap } from "@thegraid/hexlib";
+import { stime } from "@thegraid/common-lib";
+import { SetupElt as SetupEltLib, ScenarioParser as SPLib, } from "@thegraid/hexlib";
+import { ChaosTile, type TileSpec } from "./chaos-tile";
+import type { GamePlay } from "./game-play";
 
 
 
@@ -14,6 +17,9 @@ export interface SetupElt extends SetupEltLib {
   // layout: each Hex & adjacency (mtns, lakes, tunnels) <== prefer this to be in gameState.map & is invariant
   // derived in initial setup, at top of log file.
   // circadian ship has 2 adjacent hex locs
+
+  xtraTiles?: TileSpec[];  // the initial map setup for nPlayers
+  gems?: number[];         // like coins; one for each player
 }
 
 export class ScenarioParser extends SPLib {
@@ -36,4 +42,23 @@ export class ScenarioParser extends SPLib {
    *
    * @param setup
    */
+
+  declare gamePlay: GamePlay;
+
+  override parseScenario(setup: SetupElt): void {
+    console.info(stime(this, `.parseScenario: curState =`), this.saveState()); // log current state for debug...
+    console.log(stime(this, `.parseScenario: newState =`), setup);
+    const { xtraTiles, turn, coins, gems, gameState } = setup;
+    const gamePlay = this.gamePlay, table = gamePlay.table;
+    const turnSet = (turn !== undefined); // indicates a Saved Scenario: assign & place everything
+    if (turnSet) {
+        gamePlay.turnNumber = turn;
+        table?.logText(`turn = ${turn}`, `parseScenario`);
+        // this.gamePlay.allTiles.forEach(tile => tile.hex?.isOnMap ? tile.sendHome() : undefined); // clear existing map
+    }
+    if (xtraTiles) {
+      ChaosTile.setupMapTiles(gamePlay.hexMap, xtraTiles);
+    }
+    this.gamePlay.hexMap.update();
+  }
 }

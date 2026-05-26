@@ -60,10 +60,10 @@ export class ChaosTable extends Table {
   override layoutTable2() {
     this.initialVis = false;
     super.layoutTable2();
-    ChaosTile.makeAllTiles();      // populate PathTile.allTiles
     const toprow = Math.min(1, TP.nHexes - 5), lefcol = 1;
-    this.makeSourceAtRowCol(ChaosTile.makeSource, 'tileBag', toprow, lefcol + 1.3, { y: +1.2 });
-    ChaosTile.source.nextUnit();   // TODO: decide how many to expose; & saveState.
+    // ChaosTile.makeAllTiles();      // populate PathTile.allTiles
+    // this.makeSourceAtRowCol(ChaosTile.makeSource, 'tileBag', toprow, lefcol + 1.3, { y: +1.2 });
+    // ChaosTile.source.nextUnit();   // TODO: decide how many to expose; & saveState.
 
     const [source, discard] = TacticsCard.makeCardSources(this, {row: toprow + .9, col: lefcol})
     this.cardSource = source;

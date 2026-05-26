@@ -12,6 +12,10 @@ ng serve
 
 Once the server is running, open your browser and navigate to `http://localhost:4200/`. The application will automatically reload whenever you modify any of the source files.
 
+still using webpack because [vite sourcemap problem](https://stackoverflow.com/questions/76750947/vite-dev-server-sourcemaps-dont-work-or-point-to-wrong-lines-files-in-vscode-de/79458228#79458228)
+
+[vite bug 15047](https://github.com/vitejs/vite/issues/15047) closed as not reproduced
+
 ## Code scaffolding
 
 Angular CLI includes powerful code scaffolding tools. To generate a new component, run:

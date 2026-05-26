@@ -10,11 +10,18 @@ import type { ChaosTile } from "./chaos-tile";
 // Hex1 has get/set -> setUnit(unit, isMeep) & unitCollision(unit1, unit2)
 export class ChaosHex extends Hex1Lib {
 
+  override toString(color = (this.tile ?? this.meep)?.player?.plyrId) {
+    color = color ?? (this.tile as ChaosTile)?.terrain.slice(0, 5) ?? 'Empty';
+    return `${color}@${this.rcs}` // hex.toString => COLOR@[r,c] | COLOR@Skip , COLOR@Resign
+  }
   // cannot override set/get tile(); prevents other components from setting a simple Tile.
   // Type 'Hex1 | undefined' is not assignable to type 'ChaosHex | undefined'.
   /** read hex.tile as ChaosTile */
-  get ptile() { return super.tile as ChaosTile | undefined; }
+  get ctile() { return super.tile as ChaosTile | undefined; }
 
+  // TacticsCard is modeled as a Tile, placed on CardHex [tactics-card.ts] (from HexPath);
+  // hexcity uses the way old CardContainer and card.useDropFunc
+  // See CardPanel.makeDragable(table) -> table.dragger.makeDragable(... dropFunc)
   get card() { return super.meep as TacticsCard | undefined }
   set card(card) { super.meep = card; }
 }
@@ -24,47 +31,10 @@ class ChaosHex2Lib extends Hex2Mixin(ChaosHex) {};
 export class ChaosHex2 extends ChaosHex2Lib {
   // declare tile: ChaosTile | undefined; // uses get/set from Hex2Mixin(ChaosHex)
   // declare meep: ChaosCard | undefined;
-  override makeLegalMark(): ChaosLegalMark {
-    return new ChaosLegalMark();
-  }
-  declare legalMark: ChaosLegalMark;
 }
 
 export class HexMap2 extends HexMap<ChaosHex2> {
   constructor(radius?: number, addToMapCont?: boolean, hexC: Constructor<ChaosHex2> = ChaosHex2, Aname?: string) {
     super(radius, addToMapCont, hexC, Aname)
-    this.cardMark = new CardShape(C.nameToRgbaString(C.grey128, .3), '');
-    this.cardMark.mouseEnabled = false; // prevent objectUnderPoint!
-  }
-  /** the Mark to display on cardMarkhexes */
-  cardMark: Paintable
-  /** Hexes for which we show the CardMark */
-  cardMarkHexes: Hex[] = []
-  override showMark(hex?: Hex): void {
-    const isCardHex = (hex && this.cardMarkHexes.includes(hex))
-    super.showMark(hex, isCardHex ? this.cardMark : this.mark);
-    if (!hex) this.cardMark.visible = false;
-  }
-}
-
-
-/** LegalMark agumented to hold: label, maxV, valuesAtRot */
-class ChaosLegalMark extends LegalMark {
-  label = new CenterText('0');
-  maxV!: number;
-  // set by markLegal() -> ChaosTile.isLegalTarget()
-  _valuesAtRot = [0,0,0,0,0,0,] as number[];
-  get valuesAtRot() { return this._valuesAtRot}
-  set valuesAtRot(values: number[]) {
-    this._valuesAtRot = values;
-    this.maxV = Math.max(...values);
-    const n = values.filter(v => v == this.maxV).length;
-    this.label.text = (n <= 1 || n == 6) ? `${this.maxV}` : `${this.maxV}:${n}`
-  }
-
-  override doGraphics(color = C.legalGreen): void {
-    this.removeAllChildren();
-    this.addChild(new CircleShape(color, this.hex2.radius / 2, '')); // @(0,0)
-    this.addChild(this.label)
   }
 }

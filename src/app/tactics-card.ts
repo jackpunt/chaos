@@ -37,7 +37,7 @@ class SpecGen {
   m1() {}
 
   cardSpecs: CardSpec[] = [
-    { id: "card1", d: "a card" },
+    { id: "card1", d: "a card", pE: { phase: 'Move', text: '1 Redeploy before moving', eFunc: () => {}} },
     { id: "card2", d: "second card", nL: 1, nR: 3, pE: { phase: 'Harvest', text: 'gain 5 energy if you do not act in this phase', eFunc: ()=>{}} },
     { id: "card3", d: "third card", nL: 5, nR: 0, pE: { phase: 'Relics', text: 'gain 1 fame', eFunc: ()=>{}} },
   ];
@@ -225,13 +225,13 @@ export class TacticsCard extends Tile {
     while (TacticsCard.cardByName.has(id)) { id = `${rsid}#${++n}` }
     return id;
   }
-  // TODO: we need one CardSource as the draw pile of TacticsCard.
+  /** make draw pile and discard pile for TacticCard */
   static makeCardSources(table: Table, rowcol: { row?: number, col?: number }) {
     CardHex.allCardHex.length = 0; // clear before we make all the new CardHex.
     const { row, col } = { row: 1.9, col: 1, ...rowcol }
     table.makeSourceAtRowCol(TacticsCard.makeSource, 'discards', row + 1.8, col, { x: 0, y: .6 }, CardHex)
     TacticsCard.discard = TacticsCard.source;
-    ;(TacticsCard.discard as any as NamedContainer).Aname = 'PathCardDiscard';
+    ;(TacticsCard.discard as any as NamedContainer).Aname = 'TacticsCardDiscard';
     table.makeSourceAtRowCol(TacticsCard.makeSource, 'cardDeck', row + 0.0, col, { x: 0, y: .6 }, CardHex)
 
     const cardback = table.cardBack = new CardBack(table); // it a Button, mostly.
@@ -272,8 +272,8 @@ export class TacticsCard extends Tile {
   }
 }
 
-/** special PathCard with no rule, never gets picked/placed,
- * just sits on PathCard.source.hex; acts as a button
+/** special TacticsCard with no rule, never gets picked/placed,
+ * just sits on TacticsCard.source.hex; acts as a button: clickToDraw
  */
 export class CardBack extends TacticsCard {
   static bColor = 'lightgreen'
