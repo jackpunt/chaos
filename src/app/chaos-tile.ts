@@ -1,13 +1,34 @@
-import { C } from "@thegraid/common-lib";
-import { CenterText, CircleShape, PaintableShape } from "@thegraid/easeljs-lib";
-import { type DragContext, H, Hex2 as Hex2Lib, type HexMap, HexShape, type IHex2, MapTile, Player as PlayerLib, type Table, TileSource, TP } from "@thegraid/hexlib";
+import { C, stime } from "@thegraid/common-lib";
+import { CircleShape, NamedContainer, PaintableShape, PathShape, PolyShape, RectShape } from "@thegraid/easeljs-lib";
+import { Shape } from "@thegraid/easeljs-module";
+import { type DragContext, H, Hex2 as Hex2Lib, type HexDir, type HexMap, HexShape, type IHex2, MapTile, Player as PlayerLib, type Table, TileSource, TP } from "@thegraid/hexlib";
+import { type ChaosHex as Hex1, type ChaosHex2 as Hex2 } from "./chaos-hex";
+import { type ChaosTable } from "./chaos-table";
 import type { GamePlay } from "./game-play";
 import type { GameState } from "./game-state";
-import { CardHex } from "./tactics-card";
-import { type ChaosHex as Hex1, type ChaosHex2 as Hex2, type HexMap2 } from "./chaos-hex";
-import { type ChaosTable } from "./chaos-table";
 import { Player } from "./player";
-
+import { CardHex } from "./tactics-card";
+declare module '@thegraid/easeljs-module' {
+    interface Graphics {
+        /**
+        * Draws a polygon from array of point arrays.
+        *
+        *      myGraphics.beginFill("#FF0").drawPolygon([100, 100], [150, 50], [200,100], [200,200], [100,200]);
+        *      // makes a house shape
+        *
+        * A tiny API method "pg" also exists.
+        *
+        * @method drawPolygon
+        * @param {Array} points An array of [x,y] points.
+        * @param {Boolean} close Whether to close the polygon - default is true.
+        * @return {Graphics} The Graphics instance the method is called on (useful for chaining calls.)
+        * @chainable
+        **/
+        drawPolygon(points: [number, number][], close: boolean): void;
+        /** short form of drawPolygon */
+        pg(points: [number, number][], close: boolean): void;
+    }
+}
 const Hdirs = TP.useEwTopo ? H.ewDirs : H.nsDirs;
 
 /** sufficient to layout tiles for map setup */
@@ -37,7 +58,7 @@ class HarvestToken {
     return false;
   }
 }
-const terrainIds = ['Mtn', 'Hills', 'Swamp', 'Plains', 'Lake'] as const;
+const terrainIds = ['Mtn', 'Hills', 'Swamp', 'Plains', 'Lake', 'Base'] as const;
 const resourceIds = ['none', 'energy', 'gem', 'card', 'energy1', 'recruit1', ] as const;
 // energy1 on AI Base; 'recruit1' on Oxytaya Base
 /** upgrade tokens which can be flipped */
@@ -54,11 +75,12 @@ const flipBuff: Partial<Record<HARVEST_UPGRADE, string>> = {
 };
 
 const colorOfTerrain: Record<TERRAIN, string> = {
-  Mtn: C.grey32,
+  Mtn: C.grey64,
   Hills: C.nameToRgbaString(C.dimYellow, .5),
   Swamp: C.nameToRgbaString(C.BROWN, .5),
   Plains: C.nameToRgbaString(C.lightgreen, .5),
-  Lake: C.BLUE,
+  Lake: C.lightblue,
+  Base: C.WHITE,
 }
 
 
@@ -95,32 +117,104 @@ export class ChaosTile extends MapTile {
   /** configure hexMap with terrain tiles, mountains, adjust adjacency, mark open base locations
    *
    * ['none' 'energy', 'gem', 'card', 'energy1', 'recruit1', ]
-   *    0        1        2        3        4
-   * ['Mtn', 'Hills', 'Swamp', 'Plains', 'Lake']
+   *    0        1        2        3        4       5
+   * ['Mtn', 'Hills', 'Swamp', 'Plains', 'Lake', 'Base']
    */
   static setupMapTiles(map: HexMap<IHex2>, xtraTiles = [] as TileSpec[]) {
-    const baseTiles: TileSpec[] = [
-      {row: 2, col: 3, thid: 0}, // demo: mtn
-      {row: 2, col: 5, thid: 0},
+    const initTiles: TileSpec[] = [
+      {row: 2, col: 5, thid: 5}, // Base
+      {row: 4, col: 1, thid: 5}, // Base
+
       {row: 3, col: 3, thid: 23}, // Plain:gem
       {row: 3, col: 4, thid: 32}, // Swamp:card
       {row: 3, col: 5, thid: 21}, // Hills:gem
+      {row: 4, col: 2, thid: 12}, // S:energy
       {row: 4, col: 3, thid: 32}, // S:card
       {row: 4, col: 4, thid: 11}, // H:en
       {row: 4, col: 5, thid: 22}, // swamp:gem
+      {row: 5, col: 2, thid: 33}, // Plain:card
       {row: 5, col: 4, thid: 13}, // Plain:energy
+
+      {row: 4, col: 6, thid:  4}, // Lake:none
+      {row: 5, col: 3, thid:  4}, // Lake:none
+      {row: 5, col: 5, thid: 31}, // Hills:card
+      {row: 6, col: 4, thid:  5}, // Base2|P3
     ];
+    const placeTunnel = (dir12: HexDir, hex1: IHex2, hex2: IHex2, fillc = C.BLUE) => {
+      const points = (xs = TP.hexRad * .33, ys = TP.hexRad * .4) => {
+        return [
+          {x: -xs/2, y: ys/2},
+          {x: xs/2, y: ys/2},
+          {x: xs/2, y: 0},
+          {x: 0, y: -ys/2},
+          {x: -xs/2, y: 0 },
+          {x: -xs/2, y: ys/2},
+        ];
+      }
+      const pent = (rad: number, fillc: string, tilt = 0, strokec = '') => {
+        const cont = new NamedContainer('tunnel');
+        const pent = new PathShape({ points: points(rad), fillc, strokec});
+        cont.addChild(pent);
+        cont.rotation = tilt;
+        return cont;
+      };
+      const pentt = (rad: number, fillc: string, tilt = 0, strokec = '') => {
+        const cont = new NamedContainer('tunnel');
+        const pent = new Shape(), g = pent.graphics;
+        g.beginFill(fillc).drawPolygon(points().map(pt => [pt.x, pt.y]), true)
+        cont.addChild(pent);
+        cont.rotation = tilt;
+        return cont;
+      }
+      const tunnelFrom = (dir12: HexDir, hex1: IHex2, hex2: IHex2, fillc = C.BLUE) => {
+        hex1.links[dir12] = hex2;
+        const tilt = H.dirRot[dir12], rad = TP.hexRad/3;
+        const pent1 = new PolyShape({ rad, nsides: 5, pSize: 0, tilt:  tilt + 90, fillc, strokec: '' })
+        const pent2 = pentt(rad, fillc, tilt)
+        const icon = pent2;
+        hex1.edgePoint(dir12, 1.35, icon);
+        hex1.map.mapCont.tileCont.addChild(icon);
+      }
+      tunnelFrom(dir12, hex1, hex2, fillc)
+      tunnelFrom(H.dirRev[dir12], hex2, hex1, fillc)
+    }
+    const placeMtn = (hex1: IHex2, hex2: IHex2) => {
+      const dir12 = hex1.findLinkHex(hex => (hex == hex2));
+      if (!dir12) {
+        console.log(stime(this, '.placeMtn: hexes not adjacent'), hex1, hex2);
+        return;
+      }
+      const dx = TP.hexRad * .9, dy = dx/6;
+      const mtn = new RectShape({x: -dx/2, y: -dy/2, w: dx, h: dy}, C.PURPLE, '');
+      mtn.rotation = (H.dirRot[dir12]);
+      const pt = hex1.edgePoint(dir12, 1, mtn);
+      hex1.map.mapCont.tileCont.addChild(mtn); // set mountain on edge
+      // remove adjacency links:
+      delete hex1.links[dir12];
+      delete hex2.links[H.dirRev[dir12]];
+    }
+
     const placeTile = (tileSpec: TileSpec) => {
       const {row, col, thid} = tileSpec;
       const [h, t] = ChaosTile.h_t(thid);
       const tile = new ChaosTile(`T${row},${col}:${t.slice(0,1)}:${h}`, thid);
       const hex = map.getHex({row, col});
-      tile.placeTile(hex);
-      console.log(('ChaosTile'), thid, tile.toString(), tile.harvest);
+      if (!hex.occupied) {
+        tile.placeTile(hex);
+        console.log(('ChaosTile'), thid, tile.toString());
+      }
     }
-
-    baseTiles.forEach(ts => placeTile(ts));
     xtraTiles.forEach(ts => placeTile(ts));
+    initTiles.forEach(ts => placeTile(ts));
+    map.forEachHex(hex => {
+      hex.occupied || placeTile({row: hex.row, col: hex.col, thid: 0}); // fill with Mtn
+    })
+    placeMtn(map.getHex({row: 4, col: 4}), map.getHex({row: 3, col: 4}) );
+    placeMtn(map.getHex({row: 4, col: 4}), map.getHex({row: 4, col: 5}) );
+    placeMtn(map.getHex({row: 4, col: 2}), map.getHex({row: 5, col: 2}) );
+    placeTunnel(H.N, map.getHex({row: 3, col: 6}), map.getHex({row: 6, col: 2}), C.BLUE)
+    placeTunnel(H.WN, map.getHex({row: 3, col: 1}), map.getHex({row: 6, col: 6}), C.RED)
+
     // TODO: set mountains and LINKS
   }
 
