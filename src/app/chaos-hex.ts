@@ -1,14 +1,50 @@
 import { C, type Constructor } from "@thegraid/common-lib";
 import { CenterText, CircleShape, type Paintable } from "@thegraid/easeljs-lib";
-import { Hex1 as Hex1Lib, Hex2Mixin, HexMap, LegalMark, type Hex } from "@thegraid/hexlib";
+import { Hex1 as Hex1Lib, Hex2Mixin, HexMap, LegalMark, TileSource, type Hex, type Tile } from "@thegraid/hexlib";
 import { CardShape } from "./card-shape";
 import type { TacticsCard } from "./tactics-card";
-import type { ChaosTile } from "./chaos-tile";
+import { ChaosTile } from "./chaos-tile";
+import { Warrior, type Barracks, type Factory, type Leader, type Stronghold } from "./meeples";
+
+
+/** per-Player bit on map Hex */
+class PlayerOnHex {
+  leaders: Leader[] = [ ];              // 2 slots (own + Rhyzu), Zcharo: 3, Oxytaya: 4
+  warriors!: TileSource<Warrior>;       // Warrior in slot, followed by Leader(s)
+  factorys!: TileSource<Factory>;       // Players share same xy offsets
+  barracks!: TileSource<Barracks>;      // Players share same xy offsets
+  strongholds!: TileSource<Stronghold>; // Players share same xy offsets
+}
 
 
 // Hex1 has get/set tile/meep -> _tile/_meep
 // Hex1 has get/set -> setUnit(unit, isMeep) & unitCollision(unit1, unit2)
 export class ChaosHex extends Hex1Lib {
+
+  // each unit type has it's own 'slot', per Player in most cases.
+  //
+  override setUnit(unit?: Tile, isMeep?: boolean | undefined): void {
+    if (unit instanceof ChaosTile) {
+      super.setUnit(unit, isMeep);
+    } else {
+      super.setUnit(unit, isMeep);   // TODO handle ChaosMeeple & PlayerBitsOnHex
+    }
+  }
+  // all the Warriors on this Hex;
+  // Warriors.source[ndx] is the recruitHex for player[ndx] (hospital on player board)
+
+  warriorsSources!: TileSource<Warrior>[];  // initialized in parseScenario
+
+  override unitCollision(this_unit: Tile, unit: Tile, isMeep = false) {
+    if (unit instanceof Warrior && this_unit instanceof Warrior) {
+      this.warriorsSources[unit.player!.index].availUnit(this_unit);
+      return; // continue with setUnit(): this.meep = unit;
+    }
+    super.unitCollision(this_unit, unit, isMeep); // fall through
+    // if (this === this_unit.source?.hex && this === unit.source?.hex) {
+    //   this_unit.source.availUnit(this_unit);
+    // } else if ((this.constructor as typeof ChaosHex).debugCollision) debugger;
+  }
 
   override toString(color = (this.tile ?? this.meep)?.player?.plyrId) {
     color = color ?? (this.tile as ChaosTile)?.terrain.slice(0, 5) ?? 'Empty';

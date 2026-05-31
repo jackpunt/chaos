@@ -43,6 +43,8 @@ class NullGameSetup extends GameSetupLib {
     TP.gport = Number.parseInt(port || TP.gport.toString(10), 10)
     TP.networkGroup = 'chaos:game1';
     TP.networkUrl = TP.buildURL(undefined);
+    TP.meepleRad = TP.hexRad * .3;  // scale size of Meeples (factory...Leader, warrior)
+    TP.meepleY0 = 0;                // each is different, put it at {0, 0}
     super.initialize(canvasId);
     let rfn = document.getElementById('readFileName') as HTMLInputElement;
     rfn.value = file ?? 'setup@0';
@@ -56,19 +58,21 @@ class NullGameSetup extends GameSetupLib {
     super.loadImagesThenStartup();    // loader.loadImages(() => this.startup(qParams));
   }
 
-  // TODO: move these to Scenario & parser
+  /** presentation name of each Faction */  // TODO: move these to Scenario & parser?
   factionNames = ['Circadian', 'AI', 'Zcharo', 'Leyrein', 'Jrayek', 'Oxytaya'];
-  playerFactions = ['Oxytaya', 'Jrayek'];
+  /** Faction ID for each Player, in table order. */
+  factionIds = [5, 4];  // default for 2 players
 
+  /** set this.factionIds, return factionIds.length */
   override getNPlayers(qParams?: { [x: string]: any; }, nDefault = 4): number {
-    let fn = [ 4, 3, 2, 1, 0].slice(0, nDefault);
-    if (qParams?.['f']) {    // f=3,2,1
-      let f = qParams?.['f'] as string;
-      fn = f.split(',').map(fs => Number.parseInt(fs));
-    }
-    this.playerFactions = fn.map(ndx => this.factionNames[ndx]);
-    console.log("playerFactions:", this.playerFactions);
-    return this.playerFactions.length;
+    const fid = [ 4, 3, 2, 1, 0];        // faction ids in default selection order
+    const pf = qParams?.['f'] as string; // "4,3,2" user-specified selection
+    const pn = qParams?.['n'] as string; // "3" OR user-specified number of players
+    const np = pn ? Number.parseInt(pn) : nDefault; // fallback default number of players
+    this.factionIds = pf ? pf.split(',').map(fs => Number.parseInt(fs)) : fid.slice(-np); // factionIds in table order
+    const fns = this.factionIds.map(ndx => this.factionNames[ndx]);  // faction names
+    console.log("factions Names:", fns);
+    return this.factionIds.length;
   }
 
   override startup(scenario: Scenario): void {
@@ -99,10 +103,11 @@ class NullGameSetup extends GameSetupLib {
   // see also: gameSetup.resetState() which can cleanup or extend the Scenario.
   // for Chaos do it like Ankh: np & Faction names (use index number)
   // /?f=[0,2,3,1] --> ['Circadian', 'Zcharo', 'Leyrein', 'AI']
+  // /?n=3 --> use fn.slice(0, n)
   override initialScenario(qParams = this.qParams): StartElt {
     let nDefault = TP.numPlayers ?? 4;
     TP.numPlayers = 0;             // reset; use value from getNPlayers
-    // qParams may have: f=2,3,4
+    // qParams may have: f=2,3,4 OR n=3 (--> [4,3,2])
     const n = this.getNPlayers(qParams, nDefault);   // retain previous value if not supplied
     TP.numPlayers = n;
     return { Aname: 'defaultScenario', n, ...qParams, turn: 0, };

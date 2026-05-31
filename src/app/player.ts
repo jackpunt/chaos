@@ -1,16 +1,59 @@
-import { removeEltFromArray, stime } from "@thegraid/common-lib";
-import { newPlanner, NumCounter, NumCounterBox, Player as PlayerLib, type Hex1 } from "@thegraid/hexlib";
-import { GamePlay } from "./game-play";
-import { CardPanel, TacticsCard } from "./tactics-card";
-import { ChaosHex2 as Hex2 } from "./chaos-hex";
+import { Constructor, removeEltFromArray, stime, type XY } from "@thegraid/common-lib";
+import { RectShape, type Paintable } from "@thegraid/easeljs-lib";
+import { Meeple, newPlanner, NumCounter, NumCounterBox, Player as PlayerLib, type Hex1, type TileSource } from "@thegraid/hexlib";
+import { ChaosHex2 as Hex2, type ChaosHex2 } from "./chaos-hex";
 import { type ChaosTable as Table } from "./chaos-table";
 import { ChaosTile } from "./chaos-tile";
+import { GamePlay } from "./game-play";
+import type { Barracks, Factory, Leader, Stronghold, Warrior } from "./meeples";
 import { TP } from "./table-params";
+import { CardPanel, TacticsCard } from "./tactics-card";
 
-// do not conflict with AF.Colors
-const playerColors = ['gold', 'lightblue', 'violet', 'blue', 'orange', ] as const;
-
+// Faction colors, aligned with gameSetup.factionNames
+//                  Circadian   AI       Zcharo    Leyrein   JRayek   Oxytaya
+const playerColors = ['gold', 'grey', 'lightblue', 'green', 'orange', 'violet', ] as const;
 export type PlayerColor = typeof playerColors[number];
+
+// meeple.startHex retains initial hex for meeple.unMove
+const fids = ['stronghold', 'gemlock', 'harvest', 'adjacent', 'handlimit'] as const;
+type FoundationId = typeof fids[number];
+
+/** per-Player bits on PlayerPanel */
+class PlayerBits {
+  leaders: Leader[] = [ ];              // LeaderCard is a Tile, leader.homeHex is tile.hex (tile: card, meep: leader)
+  warriors!: TileSource<Warrior>[];     // TileSource[n] for each stage of Recruit (Base is ChaosTile, sans foundations)
+  factorys!: TileSource<Factory>;       // Spread TileSource.filterUnits((u)=>!u.hex.isOnMap) across board
+  barracks!: TileSource<Barracks>;      // Spread TileSource.filterUnits((u)=>!u.hex.isOnMap) across board
+  strongholds!: TileSource<Stronghold>; // Spread TileSource.filterUnits((u)=>!u.hex.isOnMap) across board
+  foundations!: Record<FoundationId, ChaosHex2>; // the 5 foundations in their places
+  // extend with Morale[], AI_Trap[], RhyzuToken[]
+}
+
+
+/** Tile/Meeple with a player.rack on which to put them.
+ *
+ * for: factory, barrack, stronghold, foundation, relic (rhy-zu, morale-strength, morale-fame)
+ */
+class Rackable extends Meeple {
+  /**
+   *
+   * @param Aname
+   * @param player
+   * @param opts
+   * -- offset: XY on player board
+   */
+  constructor(Aname: string, player: Player, opts: { claz: Constructor<Meeple>, n: number, offset: XY }) {
+    super(Aname, player);
+  }
+  /** @param size [1] meepleRadius, scale from default */
+  override makeShape(size = 1): Paintable {
+    // super.makeShape(size); // -> MeepleShape(size)
+    const w = size, h = size, fillc = this.player?.color;
+    return new RectShape({ x: -w/2, y: -h/2, w, h }, fillc, ''); // TODO: more explicit shapes for each...
+  }
+}
+
+
 export class Player extends PlayerLib {
   static initialCoins = 400;
   // {gold: 'gold', lightblue: 'lightblue', violet: 'Violet', blue: 'blue', orange: 'orange' };
@@ -26,6 +69,9 @@ export class Player extends PlayerLib {
 
   constructor(index: number, gamePlay: GamePlay) {
     super(index, gamePlay);
+  }
+  override get cname(): string | undefined {
+    return this.gamePlay.gameSetup.factionNames[this.index];
   }
 
   /**
@@ -59,7 +105,8 @@ export class Player extends PlayerLib {
 
   // Test/demo EditNumber
   override makePlayerBits(): void {
-    super.makePlayerBits()
+    super.makePlayerBits();  // this.coinCounter = new NumCounter('coins', 0)
+    // make racks for: factory, barracks, stronghold, foundations, relics
     this.makeTileRack(this.gamePlay.table, .75, 3);
     this.makeCardRack(this.gamePlay.table, 2.5, 3); // Player's cards on playerPanel
     // display coin counter:
@@ -104,6 +151,7 @@ export class Player extends PlayerLib {
     return rack.includes(fromHex) && rack.includes(toHex)
   }
 
+  /** Hex2[] on which to place Tiles */
   readonly tileRack: Hex2[] = [];
   makeTileRack(table: Table, row = 0, ncols = 4) {
     const rack = table.hexesOnPanel(this.panel, row, ncols) as Hex2[];

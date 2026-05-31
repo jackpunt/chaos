@@ -143,13 +143,13 @@ export class ChaosTile extends MapTile {
     const placeTunnel = (dir12: HexDir, hex1: IHex2, hex2: IHex2, fillc = C.BLUE) => {
       const points = (xs = TP.hexRad * .33, ys = TP.hexRad * .4) => {
         return [
-          {x: -xs/2, y: ys/2},
-          {x: xs/2, y: ys/2},
-          {x: xs/2, y: 0},
-          {x: 0, y: -ys/2},
-          {x: -xs/2, y: 0 },
-          {x: -xs/2, y: ys/2},
-        ];
+          [-xs/2, ys/2],
+          [ xs/2, ys/2],
+          [ xs/2, 0],
+          [ 0, -ys/2],
+          [-xs/2, 0 ],
+          [-xs/2, ys/2],
+        ] as [x: number, y: number][];
       }
       const pent = (rad: number, fillc: string, tilt = 0, strokec = '') => {
         const cont = new NamedContainer('tunnel');
@@ -161,7 +161,7 @@ export class ChaosTile extends MapTile {
       const pentt = (rad: number, fillc: string, tilt = 0, strokec = '') => {
         const cont = new NamedContainer('tunnel');
         const pent = new Shape(), g = pent.graphics;
-        g.beginFill(fillc).drawPolygon(points().map(pt => [pt.x, pt.y]), true)
+        g.beginFill(fillc).drawPolygon(points(), true);
         cont.addChild(pent);
         cont.rotation = tilt;
         return cont;
