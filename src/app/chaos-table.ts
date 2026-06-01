@@ -1,4 +1,4 @@
-import { C, type XY } from "@thegraid/common-lib";
+import { C, type Constructor, type XY } from "@thegraid/common-lib";
 import { ParamGUI, type DragInfo, type NamedObject, type ParamItem } from "@thegraid/easeljs-lib";
 import { Stage, type Container, type DisplayObject } from "@thegraid/easeljs-module";
 import { Hex2, Table, Tile, TileSource, TP, type DragContext, type IHex2 } from "@thegraid/hexlib";
@@ -97,12 +97,47 @@ export class ChaosTable extends Table {
     return rv;
   }
   orig_doneClick!: (evt?: any) => void;
-  override get panelHeight() {
-    return Math.max(super.panelHeight, 3.5)
-  }
+
+  override get panelHeight() { return Math.max(super.panelHeight, 3.85) }
+  override get panelWidth() { return 6.5 }
 
   override panelLocsForNp(np: number): number[] {
     return [[], [0], [0, 2], [0, 3, 2], [0, 3, 5, 2], [0, 3, 4, 5, 2], [0, 3, 4, 5, 2, 1]][np];
+  }
+
+  // maybe a super-class of CardPanel? *any* mapCont?
+  /** array of colN hexes across the width of panel, at row0 */
+  /**
+   *
+   * @param panel panel to hold the row of hexes
+   * @param row0 y coordinate of the row of hexes
+   * @param colN number of hexes in the row
+   * @param hexC class of hexes to create
+   * @param opts { vis, gap }
+   * @param gap - [0] either absolute dx OR per-unit fraction of dxdc
+   * @param vis - [false] set hex.visibility
+   * @returns IHex2[]
+   */
+  hexesOnCardPanel(panel: CardPanel, row0 = .75, colN = 4, hexC: Constructor<IHex2>, opts?: { vis?: boolean, gap?: number }) {
+    const { vis, gap } = { vis: false, gap: 0, ...opts };
+    const rv = [], map = this.hexMap;
+    const { x: x0, y: y0 } = map.xyFromMap(panel, 0, 0); // offset from hexCont to panel
+    // when ON the panel, do not subtract x0, y0!
+    const { width: panelw } = panel.getBounds();
+    const { x: xn, dydr, dxdc } = this.hexMap.xywh(undefined, 0, colN - 1); // x of last cell
+    const gpix = gap < 1 ? gap * dxdc : gap;
+    const dx = (panelw - xn - (colN - 1) * gpix) / 2; // allocate any extra space (width-xn) to either side
+    const dy = row0 * dydr;   // y for row0
+    for (let col = 0; col < colN; col++) {
+        // make hex at row=0, then offset by row0 !? legacy from hextowns half-offset?
+        const hex = this.newHex2(0, col, `CardPanel`, hexC); // child of map.mapCont.hexCont
+        rv.push(hex);
+        hex.cont.x += (dx - x0 + col * gpix);
+        hex.cont.y = (dy - y0);
+        hex.cont.visible = vis;
+        hex.legalMark.setOnHex(hex);
+    }
+    return rv;
   }
 
   /** identify dragTile so it can be rotated by keybinding */

@@ -1,7 +1,7 @@
 import { C, permute, S, stime, type Constructor, type XY } from "@thegraid/common-lib";
 import { CenterText, NamedContainer, RectShape, type DragInfo, type NamedObject, type Paintable } from "@thegraid/easeljs-lib";
 import { Container, DisplayObject, Graphics, MouseEvent } from "@thegraid/easeljs-module";
-import { H, NumCounter, Tile, TileSource, type DragContext, type HexDir, type IHex2, type Player as PlayerLib } from "@thegraid/hexlib";
+import { H, MapCont, NumCounter, Tile, TileSource, type DragContext, type HexDir, type IHex2, type Player as PlayerLib } from "@thegraid/hexlib";
 import { CardShape } from "./card-shape";
 import { type GamePlay } from "./game-play";
 import type { GameState } from "./game-state";
@@ -57,7 +57,7 @@ export class TacticsCard extends Tile {
 
   static colorMap: Partial<Record<ChaosPhase | 'back', string>> = {
     Discovery: 'lavender', Build: 'blue', Harvest: 'lightgreen', back: 'lightblue',
-    Recruit: 'orange', Move: 'yellow', Combat: 'pink', Income: 'green', Relic: C.grey92,
+    Recruit: 'orange', Move: 'yellow', Combat: 'pink', Income: 'green', Relic: C.grey224,
   };
   /** recompute if TP.hexRad has been changed */
   static get onScreenRadius() { return TP.hexRad * H.sqrt3 };
@@ -81,8 +81,8 @@ export class TacticsCard extends Tile {
     super(TacticsCard.uniqueId(cs.id!))      // Note: may need to tweak cache/reCache algo
     this.nameText.y += this.radius * .12;
     // maybe paint() per phaseEffect:
-    this.paint(TacticsCard.colorMap[this.phaseEffect?.phase])
     this.addChildren(cs)
+    this.paint(TacticsCard.colorMap[this.phaseEffect?.phase])
     TacticsCard.cardByName.set(this.Aname, this);  // Aname from CardSpec.id
     this.homeHex = TacticsCard.discard.hex; // unitCollision will stack if necessary.
   }
@@ -365,9 +365,10 @@ export class CardHex extends Hex2 {
 
 /** auxiliary Panel to position a cardRack on the Table (or PlayerPanel). */
 // TODO: review how Ankh made hidden panels
-export class CardPanel extends NamedContainer {
+export class CardPanel extends MapCont {
+
   /**
-   *
+   * A Container on table.map.mapCont.hexMap
    * @param table
    * @param high rows high
    * @param wide columns wide
@@ -376,12 +377,13 @@ export class CardPanel extends NamedContainer {
    */
   constructor(public table: Table, public high: number, public wide: number, row = 0, col = 0) {
     super(`CardPanel`)
+    this.addContainers(['hexCont', 'tileCont', 'markCont']);
+
     const { dxdc, dydr } = table.hexMap.xywh()
     const w = dxdc * wide, h = dydr * high;
-    const disp = this.disp = new RectShape({ w, h }, C.grey224, '');
-    this.addChild(disp)
-    table.hexMap.mapCont.hexCont.addChild(this);
-    this.table.setToRowCol(this, row, col);
+    this.disp = new RectShape({ w, h }, C.grey224, '');
+    this.addChild(this.disp);
+    table.hexMap.mapCont.addChild(this);
   }
 
   disp!: RectShape;
@@ -390,20 +392,40 @@ export class CardPanel extends NamedContainer {
     return this.disp.paint(colorn, force)
   }
 
+  // TODO: extend table.dragFunc and/or objectUnderPoint to scan our playerPanel.cardPanel (& buildingPanels)
+  // buildings don't need much D&D, just need self-drop, but then same for tacticsCards,
+  // except for rearrange; which is handled by unitCollision & tileSource?
+  //
+  // The goal is to have cards on cardPanel that we can scale up to view,
+  // and drag the cards from there to play/discard or use/combat or rearrange.
+  // So: TacticsCard.dragFunc & TacticsCard.dropFunc should suffice?
+  // The only 'legalTarget' is discard; else self-drop.
+  // Note: table.dragStart sets Tile.fromHex and start of drag, and inserts as ctx.targetHex
+  // then updates ctx.targetHex when object[0,0] is over a legal target.
+  // using hex.hexUnderObj(x,y,legalOnly) <--- specialize to look at playerPanel.cardPanel (then super for discard on markCont)
+
+  // treat cardPanel as a mapCont, with sub-cont for hexCont & markCont
+
+
   /** fill hexAry with row of CardHex above panel */
-  fillAryWithCardHex(table: Table, panel: Container, hexAry: IHex2[], row = 0, ncols = 4) {
-    const { w } = table.hexMap.xywh(); // hex WH
-    const { width } = (new CardShape()).getBounds(); // PathCard.onScreenRadius
-    const gap = .1 + (width / w) - 1;
-    const hexes = table.hexesOnPanel(panel, row, ncols, CardHex, { gap });
+  fillAryWithCardHex(table: Table, panel: CardPanel, hexAry: IHex2[], row = 0, ncols = 4) {
+    const { w } = table.hexMap.xywh(); // hex WH (per hexRad & topoNS/EW)
+    const { width } = (new CardShape()).getBounds(); // TacticsCard.onScreenRadius
+    const gap = .1 + (width / w) - 1;  // allocate space to fill
+    const hexes = table.hexesOnCardPanel(panel, row, ncols, CardHex, { gap });
+    const hex0 = hexes[0], hexCont = hex0.cont.parent; // table.hexMap.mapCont.hexCont
     // make row straight:
-    const hexy = hexes[0].cont.y;
-    const legy = hexes[0].legalMark.y;
-    hexes.forEach((hex, n) => { hex.Aname = `CR${n}`;
-      console.log(`${panel.id}: ${hex.toString()} ${hex.y}  ${hex.legalMark.y}`);
-      hex.cont.y = hexy;
-      hex.legalMark.y = legy;
-    })
+    // const hexy = hex0.cont.y;
+    // const legy = hex0.legalMark.y;
+    // hexes.forEach((hex, n) => { hex.Aname = `CP${n}`;
+    //   // panel.addChild(hex.cont);
+    //   console.log(`${panel.id}: ${hex.toString()} ${hex.y}  ${hex.legalMark.y}`);
+    //   // hex.cont.x -= pt.x;
+    //   hex.cont.y = hexy;// pt.y;
+    //   // panel.addChild(hex.legalMark);
+    //   // hex.legalMark.x += pt.x;
+    //   hex.legalMark.y = legy;
+    // })
     hexAry.splice(0, hexAry.length, ...hexes);
   }
 

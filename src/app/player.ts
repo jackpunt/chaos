@@ -1,5 +1,6 @@
 import { Constructor, removeEltFromArray, stime, type XY } from "@thegraid/common-lib";
 import { RectShape, type Paintable } from "@thegraid/easeljs-lib";
+import type { Container } from "@thegraid/easeljs-module";
 import { Meeple, newPlanner, NumCounter, NumCounterBox, Player as PlayerLib, type Hex1, type TileSource } from "@thegraid/hexlib";
 import { ChaosHex2 as Hex2, type ChaosHex2 } from "./chaos-hex";
 import { type ChaosTable as Table } from "./chaos-table";
@@ -108,7 +109,7 @@ export class Player extends PlayerLib {
     super.makePlayerBits();  // this.coinCounter = new NumCounter('coins', 0)
     // make racks for: factory, barracks, stronghold, foundations, relics
     this.makeUnitRack(this.gamePlay.table, .75, 3);
-    this.makeCardRack(this.gamePlay.table, 2.5, 6); // Player's cards on playerPanel
+    this.makeCardRack(this.gamePlay.table, 3.2, 6); // Player's cards on playerPanel
     // display coin counter:
     const { wide, gap } = this.panel.metrics;
     const fs = TP.hexRad * .7;
@@ -165,9 +166,19 @@ export class Player extends PlayerLib {
 
   readonly cardRack: Hex2[] = [];
   makeCardRack(table: Table, row = 0, ncols = 4) {
-    const cardPanel = new CardPanel(table, 0, 0); // infintessimal 'panel'; just for XY.
+    const ph = table.panelHeight, pw = table.panelWidth;
+    const cardPanel = new CardPanel(table, ph/2, pw); // infintessimal 'panel'; just for XY.
+    // cardPanel.y = 100; cardPanel.x += 80;
+    this.makeDragable(cardPanel, table);
     this.panel.addChild(cardPanel);
-    cardPanel.fillAryWithCardHex(table, this.panel, this.cardRack, row, ncols)
+    cardPanel.fillAryWithCardHex(table, cardPanel, this.cardRack, row, ncols)
+    // cardPanel.scaleX = cardPanel.scaleY = .5;
+  }
+
+  /** simple table.dragger.makeDragable(panel, panel) with default dragFunc, dropFunc */
+  makeDragable(panel: Container, table: Table) {
+    const dragger = table.dragger;
+    dragger.makeDragable(panel, panel);
   }
 
   addCard(card?: TacticsCard) {
