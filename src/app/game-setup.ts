@@ -37,6 +37,7 @@ class NullGameSetup extends GameSetupLib {
     window.addEventListener('contextmenu', (evt: MouseEvent) => evt.preventDefault())
     // useEwTopo, size 3.
     const { host, port, file } = qParams;
+    TP.hexRad = 70;
     TP.useEwTopo = false;
     TP.numPlayers = 4;    // default until qParams (for ex: ?n=3)
     TP.nHexes = 4;

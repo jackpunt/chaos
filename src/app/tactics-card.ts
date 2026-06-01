@@ -396,7 +396,14 @@ export class CardPanel extends NamedContainer {
     const { width } = (new CardShape()).getBounds(); // PathCard.onScreenRadius
     const gap = .1 + (width / w) - 1;
     const hexes = table.hexesOnPanel(panel, row, ncols, CardHex, { gap });
-    hexes.forEach((hex, n) => { hex.Aname = `CR${n}`})
+    // make row straight:
+    const hexy = hexes[0].cont.y;
+    const legy = hexes[0].legalMark.y;
+    hexes.forEach((hex, n) => { hex.Aname = `CR${n}`;
+      console.log(`${panel.id}: ${hex.toString()} ${hex.y}  ${hex.legalMark.y}`);
+      hex.cont.y = hexy;
+      hex.legalMark.y = legy;
+    })
     hexAry.splice(0, hexAry.length, ...hexes);
   }
 

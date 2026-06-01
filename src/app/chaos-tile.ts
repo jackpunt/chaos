@@ -267,6 +267,9 @@ export class ChaosTile extends MapTile {
     // make a Tile for each AfHex.
   }
 
+  // The only draggable ChaosTile will be the BaseTiles;
+  // Leaving this code for when we build them
+  // Also drag Building (as meeps) to Build and self-drop
   override cantBeMovedBy(player: PlayerLib, ctx: DragContext): string | boolean | undefined {
     if (this.hex?.isOnMap && !ctx.lastShift) return 'tile on map';
     return super.cantBeMovedBy(player, ctx);
@@ -280,7 +283,7 @@ export class ChaosTile extends MapTile {
   // dragStart -> markLegal; dragFunc(ctx.info.first) -> setLegalColors
   override markLegal(table: Table, setLegal = (hex: IHex2) => { hex.setIsLegal(false); }, ctx = table.dragContext) {
     this.maxV = -1;  // dragStart is before markLegal()
-    ;(table as ChaosTable).gamePlay.curPlayer.tileRack.forEach(setLegal)
+    ;(table as ChaosTable).gamePlay.curPlayer.unitRack.forEach(setLegal)
     table.hexMap.forEachHex(setLegal);
   }
 
@@ -309,11 +312,11 @@ export class ChaosTile extends MapTile {
     if (targetHex.tile && targetHex !== this.source.hex) {
       // collision on playerPanel:
       const otile = targetHex.tile;
-      const ndx = plyr.tileRack.findIndex(hex => !hex.tile)
+      const ndx = plyr.unitRack.findIndex(hex => !hex.tile)
       if (ndx < 0) {
         otile.sendHome();  // discard to make slot empty
       } else {
-        otile.moveTo(plyr.tileRack[ndx]) // move otile to open slot
+        otile.moveTo(plyr.unitRack[ndx]) // move otile to open slot
       }
     }
 
@@ -321,7 +324,7 @@ export class ChaosTile extends MapTile {
 
     // maybe set gameState.tileDone;
     const selfDrop = (this.hex == this.fromHex)
-    const rackSwap = plyr.rackSwap(this.fromHex, targetHex, plyr.tileRack)
+    const rackSwap = plyr.rackSwap(this.fromHex, targetHex, plyr.unitRack)
     if (selfDrop || rackSwap) return;
     {
       setTimeout(() => {

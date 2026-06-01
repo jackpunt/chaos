@@ -107,8 +107,8 @@ export class Player extends PlayerLib {
   override makePlayerBits(): void {
     super.makePlayerBits();  // this.coinCounter = new NumCounter('coins', 0)
     // make racks for: factory, barracks, stronghold, foundations, relics
-    this.makeTileRack(this.gamePlay.table, .75, 3);
-    this.makeCardRack(this.gamePlay.table, 2.5, 3); // Player's cards on playerPanel
+    this.makeUnitRack(this.gamePlay.table, .75, 3);
+    this.makeCardRack(this.gamePlay.table, 2.5, 6); // Player's cards on playerPanel
     // display coin counter:
     const { wide, gap } = this.panel.metrics;
     const fs = TP.hexRad * .7;
@@ -146,33 +146,22 @@ export class Player extends PlayerLib {
       this.netNumNetsCounter.updateValue(nn)
     }
   }
-  // here because: used by PathCard & PathTile; rack pro'ly belongs to this player
+  // here because: used by TacticsCard & ChaosTile; rack pro'ly belongs to this player
   rackSwap(fromHex: Hex1, toHex: Hex1, rack: Hex1[]) {
     return rack.includes(fromHex) && rack.includes(toHex)
   }
 
   /** Hex2[] on which to place Tiles */
-  readonly tileRack: Hex2[] = [];
-  makeTileRack(table: Table, row = 0, ncols = 4) {
+  readonly unitRack: Hex2[] = [];
+  makeUnitRack(table: Table, row = 0, ncols = 4) {
     const rack = table.hexesOnPanel(this.panel, row, ncols) as Hex2[];
     rack.forEach((hex, n) => hex.Aname = `${this.index}R${n}`)
-    this.tileRack.splice(0, this.tileRack.length, ...rack); // replace all elements
+    this.unitRack.splice(0, this.unitRack.length, ...rack); // replace all elements
   }
-  get tiles() { return this.cardRack.map(hex => hex.tile) }
-
-  /** placeTile on Player's panel, in empty hex. */
-  addTile(tile?: ChaosTile ) {
-    const hex2 = this.tileRack.find(hex => !hex.tile) as Hex2;
-    if (!hex2) return;
-    if (!tile) tile = ChaosTile.source.takeUnit();
-    tile?.placeTile(hex2);
-    return tile;
-  }
-
-  /** Draw tiles into tileRack until it is full. */
-  fillTileRack() {
-    while (this.tileRack.find(hex => !hex.tile) && this.addTile()) { }
-  }
+  /**
+   * all buildings on panel?
+   */
+  get units() { return this.unitRack.map(hex => hex.tile) }
 
   readonly cardRack: Hex2[] = [];
   makeCardRack(table: Table, row = 0, ncols = 4) {
