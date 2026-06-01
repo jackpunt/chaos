@@ -24,32 +24,22 @@ export class GameState extends GameStateLib {
   }
 
   _tileDone?: ChaosTile = undefined;
-  _cardDone?: TacticsCard = undefined;
   get tileDone() { return this._tileDone; }
-  get cardDone() { return this._cardDone; }
   set tileDone(v) {
     this._tileDone = v;
-    if (this.allDone) this.done();
-  }
-  set cardDone(v) {
-    this._cardDone = v;
-    this.table.cardBack?.dim(!!v)
     if (this.allDone) this.done();
   }
 
   /**
    * test if tile is special
    * @param tile Tile or Card to compare to doneTile or doneCard;
-   * @param card [false] false: check tileDone; true: check cardDone
-   * @returns true if given tile/card is NOT the current tileDone/cardDone
+   * @returns true if given tile is NOT the current tileDone
    */
-  notDoneTile(tile: Tile, card = false) {
-    return (card
-      ? (this.cardDone && tile !== this.cardDone)
-      : (this.tileDone && tile !== this.tileDone))
+  notDoneTile(tile: Tile) {
+    return ((this.tileDone && tile !== this.tileDone))
   }
 
-  get allDone() { return this.tileDone && this.cardDone }
+  get allDone() { return this.tileDone }
 
 
   get panel() { return this.curPlayer.panel; }
@@ -58,7 +48,7 @@ export class GameState extends GameStateLib {
   override readonly states: { [index: string]: Phase } = {
     BeginTurn: {
       start: () => {
-        this.cardDone = this.tileDone = undefined;
+        this.tileDone = undefined;
         this.gamePlay.saveGame();
         this.table.doneButton.activate()
         this.phase('ChooseAction');
@@ -71,7 +61,7 @@ export class GameState extends GameStateLib {
     // if (allDone) phase(EndTurn)
     ChooseAction: {
       start: () => {
-        if (this.tileDone && this.cardDone) this.phase('EndTurn');
+        if (this.tileDone) this.phase('EndTurn');
         this.doneButton(`End Turn`);
       },
       done: (ok = false) => {

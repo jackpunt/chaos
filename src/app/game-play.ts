@@ -51,19 +51,10 @@ export class GamePlay extends GamePlayLib {
     console.log(stime(this, `.toggleBreak:`), brake)
   }
 
-  undoCardDraw() {
-    const card = this.gameState.cardDone
-    if (card) {
-      // even from table.cardRack! [not a complete undo]
-      this.table.cardSource.availUnit(card);
-      this.gameState.cardDone = undefined;
-    }
-  }
-
   override bindKeys(): void {
     super.bindKeys();
     const table = this.table;
-    KeyBinder.keyBinder.setKey('C-z', () => this.undoCardDraw());
+    // KeyBinder.keyBinder.setKey('C-z', () => this.undoCardDraw());
     KeyBinder.keyBinder.setKey('C-d', () => this.toggleBrake());
     // KeyBinder.keyBinder.setKey('w', () => table.dragTile?.rotateNext(-1))
     // KeyBinder.keyBinder.setKey('e', () => table.dragTile?.rotateNext( 1))

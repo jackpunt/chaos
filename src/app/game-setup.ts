@@ -1,10 +1,11 @@
 import { stime, type Constructor } from '@thegraid/common-lib';
 import { AliasLoader, TileExporter } from '@thegraid/easeljs-lib';
-import { GameSetup as GameSetupLib, Hex2, HexMap, MapCont, Player, Scenario as Scenario0, Table, Tile, TP, type Hex, type IHex2, type SetupElt, type StartElt } from '@thegraid/hexlib';
+import { GameSetup as GameSetupLib, Hex2, HexMap, MapCont, Scenario as Scenario0, Table, Tile, TP, type Hex, type IHex2, type SetupElt, type StartElt } from '@thegraid/hexlib';
 import { ChaosTile } from './chaos-tile';
 import { ChaosHex2, HexMap2 } from './chaos-hex';
 import { GamePlay } from './game-play';
 import { ChaosTable } from './chaos-table';
+import { Player } from './player';
 
 type Params = Record<string, any>; // until common-lib supplies
 export interface Scenario extends Scenario0 {
@@ -90,8 +91,12 @@ class NullGameSetup extends GameSetupLib {
     // --- makeTable();
     // --- makeGamePlay();
     // --- makeAllPlayers();
-    // --- layoutTable();
-    // --- gamePlay.parseScenario
+    // --- layoutTable(); --> table.layoutTable2();
+    // --- --- table.makePerPlayer()
+    // --- --- --- table.makePlayerPanel(this, player, high, wide, row, col, dir); -> new PlayerPanel(...)
+    // --- --- --- table.makePlayerBits();
+    // --- --- --- table.setPlayerScore();
+    // --- gamePlay.parseScenario();
     // --- makeGUIs();
     // --- gamePlay.forEachPlayer.newGame(gamePlay);
     // --- startGame();
@@ -168,6 +173,7 @@ class NullGameSetup extends GameSetupLib {
     return gp;
   }
 
+  // invoked by makeAllPlayers
   override makePlayer(ndx: number, gamePlay: GamePlay): Player {
     return new Player(ndx, gamePlay); // TODO: define our class Player {}
   }

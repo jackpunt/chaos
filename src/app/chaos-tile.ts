@@ -160,8 +160,8 @@ export class ChaosTile extends MapTile {
       };
       const pentt = (rad: number, fillc: string, tilt = 0, strokec = '') => {
         const cont = new NamedContainer('tunnel');
-        const pent = new Shape(), g = pent.graphics;
-        g.beginFill(fillc).drawPolygon(points(), true);
+        const pent = new Shape();
+        pent.graphics.beginFill(fillc).drawPolygon(points(), true);
         cont.addChild(pent);
         cont.rotation = tilt;
         return cont;
@@ -170,7 +170,7 @@ export class ChaosTile extends MapTile {
         hex1.links[dir12] = hex2;
         const tilt = H.dirRot[dir12], rad = TP.hexRad/3;
         const pent1 = new PolyShape({ rad, nsides: 5, pSize: 0, tilt:  tilt + 90, fillc, strokec: '' })
-        const pent2 = pentt(rad, fillc, tilt)
+        const pent2 = pent(rad, fillc, tilt)
         const icon = pent2;
         hex1.edgePoint(dir12, 1.35, icon);
         hex1.map.mapCont.tileCont.addChild(icon);
@@ -201,7 +201,7 @@ export class ChaosTile extends MapTile {
       const hex = map.getHex({row, col});
       if (!hex.occupied) {
         tile.placeTile(hex);
-        console.log(('ChaosTile'), thid, tile.toString());
+        // console.log(('ChaosTile'), thid, tile.toString());
       }
     }
     xtraTiles.forEach(ts => placeTile(ts));
@@ -268,7 +268,6 @@ export class ChaosTile extends MapTile {
   }
 
   override cantBeMovedBy(player: PlayerLib, ctx: DragContext): string | boolean | undefined {
-    // if ((ctx.gameState as GameState).notDoneTile(this)) return 'cardDone';
     if (this.hex?.isOnMap && !ctx.lastShift) return 'tile on map';
     return super.cantBeMovedBy(player, ctx);
   }

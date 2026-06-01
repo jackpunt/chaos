@@ -32,8 +32,10 @@ export class ChaosTable extends Table {
     const { table, hexMap, gameSetup } = gamePlay;
     super.layoutTable(gamePlay);
   }
+
+  // panel with Hex for each of PlayerBits
   override makePerPlayer(): void {
-    super.makePerPlayer();
+    super.makePerPlayer(); // makePlayerPanel(); makePlayerBits(); setPlayerScore
   }
 
   override toggleText(vis = !this.isVisible): void {
@@ -47,9 +49,9 @@ export class ChaosTable extends Table {
   ) {
     const hex = this.newHex2(row, col, name, hexC) as IHex2;
     this.setToRowCol(hex.cont, row, col); // on hexCont!??
-    const source = ms(hex);
+    const source = ms(hex);     // some overload of Tile.makeSource0()
     source.permuteAvailable();
-    const { x: dx, y: dy } = { ... { x: .5, y: .5 }, ...counterXY }
+    const { x: dx, y: dy } = { x: .5, y: .5 , ...counterXY }
     const { x, y, width, height } = hex.cont.getBounds()
     source.counter.x = hex.cont.x + (x + dx * width);
     source.counter.y = hex.cont.y + (y + dy * height);
@@ -73,29 +75,13 @@ export class ChaosTable extends Table {
 
     this.addDoneButton();
     this.setToRowCol(this.doneButton, toprow - .4, lefcol); // between cardDeck & discards
-    this.addCardPanel();
     return;
   }
 
   cardSource!: TileSource<TacticsCard>
   cardDiscard!: TileSource<TacticsCard>
 
-  cardBack!: CardBack;
-  cardPanel!: CardPanel;
-  get cardRack() { return this.cardPanel.cardRack }
-  addCardPanel() {
-    const np = 6, pindex = np; // in slot 1 (left-center)
-    const [row, col, dir] = this.panelLoc(pindex, np);
-    const high = this.panelHeight, wide = this.panelWidth; // aligned with PlayerPanel
-    const cardPanel = this.cardPanel = new CardPanel(this, 1, wide, row - high / 2, col - wide / 2)
-    cardPanel.paint(C.nameToRgbaString(C.grey128, .4))
-    cardPanel.fillAryWithCardHex(this, cardPanel, cardPanel.cardRack, 1, 3)
-    cardPanel.makeDragable(this)
-    // interesting: cardPanel is in the display list, and is mouse sensitive,
-    // but does not get painted:
-    // hexCont is cached; so cardPanel does not get painted until hexCont.reCache
-    // But cardPanel can be clicked and moved to dragCont where it is visible.
-  }
+  cardBack!: CardBack;    // created & set from tactics-card.makeCardSources
 
   /**
    * last action of curPlayer is to draw their next tile.

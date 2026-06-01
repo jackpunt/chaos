@@ -1,22 +1,24 @@
-import { C, permute, S, stime, type XY } from "@thegraid/common-lib";
+import { C, permute, S, stime, type Constructor, type XY } from "@thegraid/common-lib";
 import { CenterText, NamedContainer, RectShape, type DragInfo, type NamedObject, type Paintable } from "@thegraid/easeljs-lib";
 import { Container, DisplayObject, Graphics, MouseEvent } from "@thegraid/easeljs-module";
-import { H, Tile, TileSource, type DragContext, type HexDir, type IHex2 } from "@thegraid/hexlib";
+import { H, NumCounter, Tile, TileSource, type DragContext, type HexDir, type IHex2, type Player as PlayerLib } from "@thegraid/hexlib";
 import { CardShape } from "./card-shape";
 import { type GamePlay } from "./game-play";
 import type { GameState } from "./game-state";
-import { ChaosHex2 as Hex2, type ChaosHex as Hex1, type HexMap2 } from "./chaos-hex";
+import { ChaosHex2 as Hex2, type ChaosHex, type ChaosHex as Hex1, type HexMap2 } from "./chaos-hex";
 import { type ChaosTable, type ChaosTable as Table } from "./chaos-table";
-import { ChaosTile } from "./chaos-tile";
 import type { Player } from "./player";
 import { TP } from "./table-params";
 import type { CountClaz } from "./tile-exporter";
 import type { Text } from "@thegraid/easeljs-module";
 
+// Temporary, should be in GamePlay
+const phaseNames = ['SetPrices', 'Discovery', 'Build', 'Harvest', 'Recruit', 'Move', 'Combat', 'Income', 'Relic',] as const;
+type ChaosPhase = typeof phaseNames[number];
 
 // TODO: define rectange 'Tiles' to hold the Rule/Constraint/Bonus items.
 type PhaseEffect = {
-  phase: string;   // one of ChaosPhase: SetPrices, Discovery, Build, Harvest, Recruit, Move, Combat, Income, Relics
+  phase: ChaosPhase | 'back';   // one of ChaosPhase: SetPrices, Discovery, Build, Harvest, Recruit, Move, Combat, Income, Relics
   text: string;    // presentation to Player
   eFunc: Function; // TBD
 }
@@ -24,10 +26,10 @@ type CombatEffect = {
   text: string;    // presentation to Player
   eFunc: Function; // executable to implement whatever (before, during, after combat...)
 }
-// TODO: nLeft, nRight, combatEffect, phaseAndEffect
-/** id: ident, d: description, nL: left#, nR: right#, cE: combatEffect, pE: PhaseEffect */
+
+/** id: ident, d: description, pE: PhaseEffect, cE: combatEffect, nL: left#, nR: right#, */
 type CardSpec = {
-  id: string, d: string, nL?: number, nR?: number, pE?: PhaseEffect, cE?: CombatEffect,
+  id: string, d: string, pE: PhaseEffect, cE?: CombatEffect, nL?: number, nR?: number,
 }
 const Hdirs = TP.useEwTopo ? H.ewDirs : H.nsDirs;
 const Hdir2 = Hdirs.slice(0, 3); // half of Hdirs
@@ -37,11 +39,12 @@ class SpecGen {
   m1() {}
 
   cardSpecs: CardSpec[] = [
-    { id: "card1", d: "a card", pE: { phase: 'Move', text: '1 Redeploy before moving', eFunc: () => {}} },
-    { id: "card2", d: "second card", nL: 1, nR: 3, pE: { phase: 'Harvest', text: 'gain 5 energy if you do not act in this phase', eFunc: ()=>{}} },
-    { id: "card3", d: "third card", nL: 5, nR: 0, pE: { phase: 'Relics', text: 'gain 1 fame', eFunc: ()=>{}} },
+    { id: "card1", d: "redloy", pE: { phase: 'Move', text: '1 Redeploy before moving', eFunc: () => {}}, cE: { text: 'combat1', eFunc: () =>{}} },
+    { id: "card2", d: "5 Energy", nL: 1, nR: 3, pE: { phase: 'Harvest', text: 'Gain 5 energy if you do not act in this phase', eFunc: ()=>{}}, cE: { text: 'combat2', eFunc: () =>{}} },
+    { id: "card3", d: "Gain Fame", nL: 5, nR: 0, pE: { phase: 'Relic', text: 'Gain 1 Fame', eFunc: ()=>{}}, cE: { text: 'combat3', eFunc: () =>{}} },
   ];
 
+  /** new TacticsCard(cardSpec) for each cardSpec. */
   allSpecs(specs = this.cardSpecs) {
     return specs.map(cs => new TacticsCard(cs));
   }
@@ -50,7 +53,12 @@ class SpecGen {
 
 export class TacticsCard extends Tile {
   static get allCards() { return Array.from(this.cardByName.values()) }
-  static colorMap = { edge: 'lavender', own: 'yellow', atk: 'pink', spcl: C.grey224, };
+  // map from phase to a color
+
+  static colorMap: Partial<Record<ChaosPhase | 'back', string>> = {
+    Discovery: 'lavender', Build: 'blue', Harvest: 'lightgreen', back: 'lightblue',
+    Recruit: 'orange', Move: 'yellow', Combat: 'pink', Income: 'green', Relic: C.grey92,
+  };
   /** recompute if TP.hexRad has been changed */
   static get onScreenRadius() { return TP.hexRad * H.sqrt3 };
   /** out-of-scope parameter to this.makeShape(); vs trying to tweak TP.hexRad for: get radius() */
@@ -60,21 +68,21 @@ export class TacticsCard extends Tile {
   override get isMeep() { return true; }
   declare gamePlay: GamePlay;
 
-  dText!: Text;
+  dText!: Text;            // descriptive text, name? id?
   nLeft!: number;          // set once: rs.nLeft
   nRight!: number;         // set once: rs.nRight
-  phaseEffect?: PhaseEffect;
+  phaseEffect!: PhaseEffect;
   combatEffect?: CombatEffect;
 
   // Tile { baseShape: RectShape , nameText, descr }
   // TileExporter supplies args = ...[rs, 750]
-  constructor(rs: CardSpec, size?: number) {
+  constructor(cs: CardSpec, size?: number) {
     if (size !== undefined) TacticsCard.nextRadius = size; // set before super calls makeShape()
-    super(TacticsCard.uniqueId(rs.id))      // Note: may need to tweak cache/reCache algo
+    super(TacticsCard.uniqueId(cs.id!))      // Note: may need to tweak cache/reCache algo
     this.nameText.y += this.radius * .12;
     // maybe paint() per phaseEffect:
-    // this.paint(TacticsCard.colorMap[this.rule.type])
-    this.addChildren(rs)
+    this.paint(TacticsCard.colorMap[this.phaseEffect?.phase])
+    this.addChildren(cs)
     TacticsCard.cardByName.set(this.Aname, this);  // Aname from CardSpec.id
     this.homeHex = TacticsCard.discard.hex; // unitCollision will stack if necessary.
   }
@@ -95,11 +103,11 @@ export class TacticsCard extends Tile {
    *
    * build up image of TacticsCard in this Tile > NamedContainer.
    */
-  addChildren(rs: CardSpec) {
+  addChildren(cs: CardSpec) {
     const { x, y, width, height } = this.getBounds()
-    const rad = width * .5, textX = width / 2 * .72, textY = height / 2 * .72;
-    const dSize = Math.min(height, width) * .2;
-    const setText = (txt: string, x = 0, y = 0, fs = dSize) => {
+    const dSize = Math.min(height, width) * .04;
+    const fSize = dSize * 3;
+    const setText = (txt: string, x = 0, y = 0, fs = fSize) => {
       const ctext = new CenterText(txt, fs);   // center & middle
       ctext.lineWidth = width * .9;   // wrap when needed; we may want textTweaks (citymap, hexcity, whist, cubitos, gambit)
       ctext.x = x; ctext.y = y;
@@ -107,49 +115,52 @@ export class TacticsCard extends Tile {
       return ctext;
     }
     const xc = x + width/2;
-    const xl = x + dSize + 2 * dSize;
-    const xr = x + width - 2 * dSize;
-    const ytop = y + dSize + 20;  //
-    const ycom = y - 4 * dSize;   // y for combat effect
-    const ypha = y + height - 40;   // y for phase effect
-    const ybot = y + width - 1 * dSize;
+    const xn = width * .35;
+    const xl = xc - xn;
+    const xr = xc + xn;
+    const ytop = y + fSize * .95;  // for numbers
+    const ycom = y + height - fSize * 8.1;   // y for combat effect
+    const ypha = y + height - fSize * 5.1;   // y for phase effect
+    const ybot = y + height - 1 * fSize;
+    const itext = cs.d ?? cs.id ?? '??';
+    const ctext = `${cs.cE?.text ?? ''}`;
+    const ptext = `${cs.pE.phase}: ${cs.pE.text}`;
 
-    this.nLeft = rs.nL ?? 0;       // combat buff value
-    this.nRight = rs.nR ?? 0;      // combat buff value
-    setText(`${rs.nL}`, xl, ytop);
-    setText(`${rs.nR}`, xr, ytop);
+    this.nLeft = cs.nL ?? 0;       // combat buff value
+    this.nRight = cs.nR ?? 0;      // combat buff value
+    setText(`${cs.nL ?? '0' }`, xl, ytop);
+    setText(`${cs.nR ?? '0' }`, xr, ytop);
 
-    // a description?
-    this.dText = setText(rs.d ?? rs.id, xc, ybot, dSize - 2);
-    setText(rs.cE?.text ?? '', xl, ycom);
-    setText(rs.pE?.text ?? '', xl, ypha);
-    this.phaseEffect = rs.pE;
-    this.combatEffect = rs.cE;
+    setText(ctext, xc, ycom);
+    setText(ptext ?? '', xc, ypha);
+    this.dText = setText(itext, xc, ytop, fSize - 2); // describe/id the card; CardBack.dim()
+    this.phaseEffect = cs.pE;
+    this.combatEffect = cs.cE;
   }
 
   // Identify il-legal sources of fromHex:
   override cantBeMovedBy(player: Player, ctx: DragContext): string | boolean | undefined {
     if (this.fromHex === TacticsCard.source.hex) return undefined;
     const gameState = ctx.gameState as GameState, table = gameState.table as ChaosTable;
-    if (table.cardRack.includes(this.fromHex as Hex2)) return 'rule in play';
-    const isDoneCard = (gameState.cardDone === this);
-    if (!isDoneCard && this.fromHex === table.cardDiscard.hex) return 'discarded';
+    if (this.fromHex === table.cardDiscard.hex) return 'discarded';
     return undefined; // player.cardRack OR (discard && isDoneCard)
   }
 
   override markLegal(table: Table, setLegal = (hex: Hex2) => { hex.setIsLegal(false); }, ctx?: DragContext): void {
     table.gamePlay.curPlayer.cardRack.forEach(setLegal)
-    setLegal(table.cardRack[0])
     setLegal(TacticsCard.discard.hex as Hex2)
   }
-  // cardDeck -> discard, table.cardPanel[0], player.cardRack
-  // cardRack -> discard, table.cardPanel[0], player.cardRack
-  // discard (== gameState.cardDone) -> discard, table.cardPanel, player.cardRack
+
+  // The only "card moves" are:
+  // Gain TacticsCard: table.cardDeck -> auto-drop(player.cardRack)
+  // Discard Card:    player.cardRack -> discard(Play)
+  // Rearrange Cards: player.cardRack -> player.cardRack(rearrange)
+  // Play phase Card: player.cardRack -> table.discard (in Phase)
+  // Use Combat Card: player.cardRack -> player.combatWheel(for Combat)
+  // Spurious click:  table.discard   -> discard, player.cardRack (undo-discard?, look behind?)
   override isLegalTarget(toHex: Hex2, ctx: DragContext): boolean {
-    // Ok to move from player.cardRack but not to table.cardRack (unless == cardDone)
+    // Ok to move from player.cardRack (to rearrange?)
     const gameState = ctx.gameState as GameState;
-    if (gameState.notDoneTile(this, true) &&
-      gameState.table.cardRack.includes(toHex)) return false;
     return true;
   }
 
@@ -158,26 +169,21 @@ export class TacticsCard extends Tile {
     super.showTargetMark(hex, ctx)
   }
 
+  // TODO: draw card to player's 'hand'
+  // Player can drag it to discard pile during appropriate phase: eval effect
+  // or drag it to combat wheel during Combat (discard after Combat)
+  //
   override dropFunc(targetHex: IHex2, ctx: DragContext): void {
     const toHex = targetHex as Hex2, card = toHex.card;
     if (card && card !== this) card.moveCard(toHex, ctx);
     super.dropFunc(targetHex ?? TacticsCard.discard.hex, ctx);
+    if (this.hex === TacticsCard.discard.hex) {
+      TacticsCard.discard.availUnit(this);
+    }
     if (!TacticsCard.discard.sourceHexUnit) TacticsCard.discard.nextUnit(); // reveal discard
     TacticsCard.discard.updateCounter();
     TacticsCard.source.updateCounter();
     ctx.targetHex?.map.showMark(undefined); // if (this.fromHex === undefined)
-    // maybe set gameState.cardDone
-    const gameState = ctx.gameState as GameState, fromHex = this.fromHex as Hex2;
-    const plyr = (gameState.curPlayer as Player)
-    const selfDrop = (fromHex == toHex);
-    const rackSwap = plyr.rackSwap(this.fromHex, targetHex, plyr.cardRack)
-    const discard = plyr.cardRack.includes(fromHex) && (toHex == TacticsCard.discard.hex)
-    if (selfDrop || rackSwap || discard) return;
-    {
-      setTimeout(() => {
-        gameState.cardDone = this; // triggers setNextPlayer; which confuses markLegal()
-      }, 0);
-    }
   }
 
   override moveTo(hex: Hex1 | undefined): void {
@@ -186,10 +192,10 @@ export class TacticsCard extends Tile {
 
   /** hex contains card, which needs to be moved: */
   moveCard(hex: Hex2, ctx: DragContext) {
-    // if hex is 'discards' --> let unitCollision stack them
+    // if hex is 'discards' --> let unitCollision stack them on source.available
     // if hex in player.cardRack[]: card.sendHome()
     // if hex is table.cardRack[0]: shift all cards up
-    if (hex.Aname == 'discards') return;
+    if (hex == TacticsCard.discard.hex) return;
     const plyr = ctx.gameState?.curPlayer as Player | undefined;
     if (plyr?.cardRack.includes(hex)) {
       const alt = plyr.cardRack.findIndex(hex => !hex.card)
@@ -198,19 +204,6 @@ export class TacticsCard extends Tile {
       } else {
         this.moveTo(plyr.cardRack[alt]); // swap into empty slot
       }
-    } else {
-      const hexAry = plyr?.gamePlay.table.cardRack ?? [];
-      const len = hexAry.length, ndx0 = hexAry.indexOf(hex);
-      if (ndx0 !== 0) debugger; // not allowed to drop on other slots...
-
-      const move1 = (card: TacticsCard, ndx: number) => {
-        if (ndx == len) { card.sendHome(); return }
-        const hex1 = hexAry[ndx], card1 = hex1.card;
-        if (card1) move1(card1, ndx + 1);
-        hex1.card = card;
-        card.moveTo(hex1)
-      }
-      move1(this, ndx0 + 1);
     }
   }
 
@@ -225,16 +218,22 @@ export class TacticsCard extends Tile {
     while (TacticsCard.cardByName.has(id)) { id = `${rsid}#${++n}` }
     return id;
   }
-  /** make draw pile and discard pile for TacticCard */
+  /** make draw pile and discard pile for TacticsCard */
   static makeCardSources(table: Table, rowcol: { row?: number, col?: number }) {
     CardHex.allCardHex.length = 0; // clear before we make all the new CardHex.
     const { row, col } = { row: 1.9, col: 1, ...rowcol }
-    table.makeSourceAtRowCol(TacticsCard.makeSource, 'discards', row + 1.8, col, { x: 0, y: .6 }, CardHex)
+    table.makeSourceAtRowCol(TacticsCard.makeSource, 'discards', row + 0.0, col + 1.5, { x: .5, y: 1.0 }, CardHex)
     TacticsCard.discard = TacticsCard.source;
+    // overwrite readonly Aname; else: class DiscardHex { that names itself... }
     ;(TacticsCard.discard as any as NamedContainer).Aname = 'TacticsCardDiscard';
-    table.makeSourceAtRowCol(TacticsCard.makeSource, 'cardDeck', row + 0.0, col, { x: 0, y: .6 }, CardHex)
+    table.makeSourceAtRowCol(TacticsCard.makeSource, 'cardDeck', row + 0.0, col, { x: .5, y: 1.0 }, CardHex)
 
-    const cardback = table.cardBack = new CardBack(table); // it a Button, mostly.
+    const discback = new CardBack(table, 'discard', '', '#aabbcc59');
+    discback.moveTo(TacticsCard.discard.hex as Hex1); // set position above source.hex
+    discback.moveTo(undefined);
+    discback.removeAllChildren(); discback.addChild(discback.baseShape); // just the baseShape
+
+    const cardback = table.cardBack = new CardBack(table, 'cardback'); // it a Button, mostly.
     cardback.moveTo(TacticsCard.source.hex as Hex1); // set position above source.hex
     cardback.moveTo(undefined);
     cardback.on(S.click, (evt) => cardback.clicked(evt), cardback )
@@ -242,8 +241,10 @@ export class TacticsCard extends Tile {
   }
 
   static makeAllCards(...specs: CardSpec[]) {
+    const specGen = new SpecGen();
+    if (specs.length === 0) specs = specGen.cardSpecs;
     TacticsCard.cardByName.clear();
-    const allCards = new SpecGen().allSpecs(specs); // are injected into TacticsCard.allCards
+    const allCards = specGen.allSpecs(specs); // are injected into TacticsCard.allCards
     permute(allCards);
     // enqueue all the cards on source:
     const source = TacticsCard.source;
@@ -265,10 +266,18 @@ export class TacticsCard extends Tile {
   static discard: TileSource<TacticsCard>;
   static source: TileSource<TacticsCard>;
 
+  // invoked by Table.makeSourceAtRowCol()
   static makeSource(hex: IHex2) {
-    const src = TacticsCard.makeSource0(TileSource<TacticsCard>, TacticsCard, hex);
-    ;(src as any as NamedContainer).Aname = `${src.hex.Aname}Source`; // put an Aname on it
+    const src = TacticsCard.makeSource0(TacticsTileSource, TacticsCard, hex);
+    ;(src as any as NamedContainer).Aname = `${src.hex.Aname}Source`; // rename readonly Aname
     return src;
+  }
+}
+
+class TacticsTileSource<T extends TacticsCard> extends TileSource<T> {
+  /** adjust fontsize and color of counter */
+  override makeCounter(name: string, initValue?: number, color?: string, fontSize?: number, fontName?: string, textColors?: string[]): NumCounter {
+    return new NumCounter('cardCounter', initValue, 'white', 12);
   }
 }
 
@@ -276,16 +285,21 @@ export class TacticsCard extends Tile {
  * just sits on TacticsCard.source.hex; acts as a button: clickToDraw
  */
 export class CardBack extends TacticsCard {
-  static bColor = 'lightgreen'
+  static bColor = TacticsCard.colorMap.back;
   static oText = 'click\nto\ndraw';
-  static nText = '\n';
+  static nText = 'DIM\n';
   dim(dim = true) {
     this.dText.text = dim ? CardBack.nText : CardBack.oText;
     this.stage?.update()
   }
 
-  constructor(public table: Table, text = CardBack.oText, color = CardBack.bColor) {
-    super({ id: 'cardback', d: text })
+  constructor(public table: Table, id = 'cardback', text = CardBack.oText, color = CardBack.bColor) {
+    const backEffect: PhaseEffect = {
+      phase: 'back',
+      text: CardBack.oText,
+      eFunc: () => {},
+    }
+    super({ id, d: text, pE: backEffect })
     this.baseShape.paint(color)
   }
   // makeDragable(), but do not let it actually drag:
@@ -297,15 +311,18 @@ export class CardBack extends TacticsCard {
   }
   clicked(evt?: MouseEvent) {
     if (!this.table) return; // printable CardBack...
-    if (this.table.gamePlay.gameState.cardDone) return;
-
-    if (TacticsCard.source.numAvailable === 0) TacticsCard.reshuffle();
-    const card = TacticsCard.source.nextUnit();  // card.moveTo(srchex)
+    const source = TacticsCard.source;
+    if (source.numAvailable === 0) TacticsCard.reshuffle();
+    const card = source.nextUnit();  // card.moveTo(srchex)
+    console.log(stime(this, `.clicked`), `source.numAvailable: ${source.numAvailable}`)
+    if (source.numAvailable === 0) {
+      this.dim(true); // indicate stack is empty
+    }
     if (card) {
       const pt = { x: evt?.localX ?? 0, y: evt?.localY ?? 0 }
       setTimeout(() => {
         this.dragNextCard(card, pt)
-      }, 4);
+      }, 4);   // exit click context, new thread for dragging
     }
     return;
   }
@@ -333,14 +350,14 @@ export class CardHex extends Hex2 {
 
   // when sendHome() hits top of discard:
   // when dropFunc() hits C0
-  override unitCollision(hexUnit: Tile, unit: Tile, isMeep?: boolean): void {
+  override unitCollision(unitOnHex: Tile, unitToHex: Tile, isMeep?: boolean): void {
     const disc = TacticsCard.discard;
     if (this === disc.hex) {   // sendHome preempts to do this path:
-      disc.availUnit(hexUnit as TacticsCard); // stack previous card; hexUnit.visible = false;
-      disc.availUnit(unit as TacticsCard);    // push new card
-      disc.nextUnit(unit as TacticsCard);     // pop into sourceHexUnit [unit.source = PC.discard]
+      disc.availUnit(unitOnHex as TacticsCard);    // stack previous card; hexUnit.visible = false;
+      disc.availUnit(unitToHex as TacticsCard);    // push new card (redundant: nextUnit() does it implicity)
+      disc.nextUnit(unitToHex as TacticsCard);     // pop into sourceHexUnit [unit.source = PC.discard]
     } else {
-      hexUnit.moveTo(disc.hex);// discard previous card === hexUnit.sendHome()
+      unitOnHex.moveTo(disc.hex);// discard previous card === hexUnit.sendHome()
     }
   }
 }
@@ -379,7 +396,7 @@ export class CardPanel extends NamedContainer {
     const { width } = (new CardShape()).getBounds(); // PathCard.onScreenRadius
     const gap = .1 + (width / w) - 1;
     const hexes = table.hexesOnPanel(panel, row, ncols, CardHex, { gap });
-    hexes.forEach((hex, n) => { hex.Aname = `C${n}`})
+    hexes.forEach((hex, n) => { hex.Aname = `CR${n}`})
     hexAry.splice(0, hexAry.length, ...hexes);
   }
 

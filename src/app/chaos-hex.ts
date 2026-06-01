@@ -1,10 +1,8 @@
-import { C, type Constructor } from "@thegraid/common-lib";
-import { CenterText, CircleShape, type Paintable } from "@thegraid/easeljs-lib";
-import { Hex1 as Hex1Lib, Hex2Mixin, HexMap, LegalMark, TileSource, type Hex, type Tile } from "@thegraid/hexlib";
-import { CardShape } from "./card-shape";
-import type { TacticsCard } from "./tactics-card";
+import { type Constructor } from "@thegraid/common-lib";
+import { Hex1 as Hex1Lib, Hex2Mixin, HexMap, TileSource, type Tile } from "@thegraid/hexlib";
 import { ChaosTile } from "./chaos-tile";
 import { Warrior, type Barracks, type Factory, type Leader, type Stronghold } from "./meeples";
+import type { TacticsCard } from "./tactics-card";
 
 
 /** per-Player bit on map Hex */

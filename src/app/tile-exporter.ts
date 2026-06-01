@@ -115,11 +115,7 @@ export class TileExporter extends TileExporterLib {
     const pc = TacticsCard.colorMap;
     const cardSingle = [
       ...TacticsCard.countClaz(3), // [count, claz, ...constructorArgs]
-      [0, CardBack, u, '', pc['edge']],
-      [0, CardBack, u, '', pc['own']],
-      [0, CardBack, u, '', pc['atk']],
-      [0, CardBack, u, '', pc['spcl']],
-      // [36, CardBack, u, '', C.BLUE],
+      [0, CardBack, u, '', pc.back],
     ] as CountClaz[];
     const circDouble = [ // [count, class],
     ] as CountClaz[];
