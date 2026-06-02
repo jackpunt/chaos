@@ -105,14 +105,6 @@ export class ChaosTile extends MapTile {
   declare gamePlay: GamePlay;
 
   static curTable: ChaosTable;
-  static source: TileSource<ChaosTile>;
-
-  // make a source for the given PathTile[]
-  static makeSource(hex: Hex2Lib, tiles = ChaosTile.allChaosTiles) {
-    const source = ChaosTile.makeSource0(TileSource<ChaosTile>, ChaosTile, hex);
-    tiles.forEach(unit => source.availUnit(unit));
-    return source;
-  }
 
   /** configure hexMap with terrain tiles, mountains, adjust adjacency, mark open base locations
    *
@@ -158,20 +150,11 @@ export class ChaosTile extends MapTile {
         cont.rotation = tilt;
         return cont;
       };
-      const pentt = (rad: number, fillc: string, tilt = 0, strokec = '') => {
-        const cont = new NamedContainer('tunnel');
-        const pent = new Shape();
-        pent.graphics.beginFill(fillc).drawPolygon(points(), true);
-        cont.addChild(pent);
-        cont.rotation = tilt;
-        return cont;
-      }
+
       const tunnelFrom = (dir12: HexDir, hex1: IHex2, hex2: IHex2, fillc = C.BLUE) => {
         hex1.links[dir12] = hex2;
         const tilt = H.dirRot[dir12], rad = TP.hexRad/3;
-        const pent1 = new PolyShape({ rad, nsides: 5, pSize: 0, tilt:  tilt + 90, fillc, strokec: '' })
-        const pent2 = pent(rad, fillc, tilt)
-        const icon = pent2;
+        const icon = pent(rad, fillc, tilt)
         hex1.edgePoint(dir12, 1.35, icon);
         hex1.map.mapCont.tileCont.addChild(icon);
       }
