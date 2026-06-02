@@ -382,7 +382,7 @@ export class CardPanel extends MapCont {
     const { dxdc, dydr } = table.hexMap.xywh()
     const w = dxdc * wide, h = dydr * high;
     this.disp = new RectShape({ w, h }, C.grey224, '');
-    this.addChild(this.disp);
+    this.addChildAt(this.disp, 0);
     table.hexMap.mapCont.addChild(this);
   }
 

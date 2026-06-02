@@ -7,7 +7,7 @@ import { type ChaosTable as Table } from "./chaos-table";
 import { GamePlay } from "./game-play";
 import type { Barracks, Factory, Leader, Stronghold, Warrior } from "./meeples";
 import { TP } from "./table-params";
-import { CardPanel, TacticsCard } from "./tactics-card";
+import { CardBack, CardPanel, TacticsCard } from "./tactics-card";
 
 // Faction colors, aligned with gameSetup.factionNames
 //                  Circadian   AI       Zcharo    Leyrein   JRayek   Oxytaya
@@ -111,7 +111,7 @@ export class Player extends PlayerLib {
     super.makePlayerBits();  // this.coinCounter = new NumCounter('coins', 0)
     // TODO: make racks for: factory, barracks, stronghold, foundations, relics
     this.makeUnitRack(this.gamePlay.table, .75, 3);
-    this.makeCardRack(this.gamePlay.table, 3.2, 6); // Player's cards on playerPanel
+    this.makeCardRack(this.gamePlay.table, undefined, 6); // Player's cards on playerPanel
     // display coin counter:
     const { wide, gap } = this.panel.metrics;
     const fs = TP.hexRad * .5;
@@ -146,13 +146,19 @@ export class Player extends PlayerLib {
 
   readonly cardRack: Hex2[] = [];
   /** put cardRack on a movable CardPanel; PlayerPanel ISA HexMap, and cardPanel is its mapCont. */
-  makeCardRack(table: Table, row = 0, ncols = 4) {
-    const ph = table.panelHeight, pw = table.panelWidth;
-    const cardPanel = new CardPanel(table, ph/2, pw);
-    this.panel.mapCont = cardPanel;
+  makeCardRack(table: Table, row?: number, ncols = 4) {
+    const dydr = table.hexMap.xywh().dydr;
+    const cardH = new CardBack(table).getBounds().height;
+    const high = cardH * 1.05 / dydr;  // units of hex.dydr
+    const wide = table.panelWidth;
+    const cardPanel = new CardPanel(table, high, wide); // directly on table.mapCont! (so localToLocal works?)
+    const pHeight = this.panel.getBounds().height;
+    row = (row !== undefined) ? row : - high * 1.025;   // dubious?
+    cardPanel.y = (row < 0 ? row + pHeight/dydr : row) * dydr;
     this.makeDragable(cardPanel, table);
+    this.panel.mapCont = cardPanel;
     this.panel.addChild(cardPanel);
-    cardPanel.fillAryWithCardHex(table, cardPanel, this.cardRack, row, ncols)
+    cardPanel.fillAryWithCardHex(table, cardPanel, this.cardRack, high/2, ncols)
 
     // cardPanel.scaleX = cardPanel.scaleY = .5;
   }
@@ -181,7 +187,7 @@ export class Player extends PlayerLib {
 }
 
 /** PlayerPanel with its own mapCont;
- * makePlayerPanel() injects prototype of HexMap
+ * GameSetup hacks PlayerPanel.prototype to inherit HexMap
  * so ancillary methods can be found (topo, xywh)
  */
 export class ChaosPlayerPanel extends PlayerPanel {
