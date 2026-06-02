@@ -30,9 +30,6 @@ export interface Scenario extends Scenario0 {
   nPlayers?: number;
 };
 
-// TODO:
-// ChaosHex, ChaosMap (makeHexMap),
-
 /** initialize & reset & startup the application/game.
  *
  * NullGameSetup is our local implementation.

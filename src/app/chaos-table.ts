@@ -64,27 +64,6 @@ export class ChaosTable extends Table {
     this.initialVis = false;
     super.layoutTable2();
     const toprow = Math.min(1, TP.nHexes - 5), lefcol = 1;
-    // ChaosTile.makeAllTiles();      // populate PathTile.allTiles
-    // this.makeSourceAtRowCol(ChaosTile.makeSource, 'tileBag', toprow, lefcol + 1.3, { y: +1.2 });
-    // ChaosTile.source.nextUnit();   // TODO: decide how many to expose; & saveState.
-
-    // const mapCont = this.hexMap.mapCont;
-    // mapCont.cNames.map((cname, ndx) => {
-    //   const cn = cname as keyof MapCont;
-    //   const cont = mapCont[cn] as Container;
-    //   const pt = cont.localToLocal(0, 0, mapCont.parent.parent)
-    //   console.log(cn, ':\t', cont.x, cont.y, pt.x, pt.y);
-    // })
-
-    // // show a box at each panelLoc
-    // this.getPanelLocs().map(([row, col, dir], ndx) => {
-    //   const high = this.panelHeight, wide = this.panelWidth;
-    //   const fillc = ['red', 'orange', 'yellow', 'green', 'blue', 'violet'][ndx];
-    //   const cont = new PolyShape({ rad: 10, nsides: 4, fillc, })
-    //   this.setToRowCol(cont, row - wide / 2, col - high / 2);
-    //   console.log(stime(this, `.layoutTable2: row=${row.toFixed(2)} -> y=${cont.y.toFixed(2)}  col=${col} -> x=${cont.x.toFixed(2)}`))
-    //   this.hexMap.mapCont.counterCont.addChild(cont);
-    // })
 
     const [source, discard] = TacticsCard.makeCardSources(this, {row: toprow + .9, col: lefcol})
     this.cardSource = source;
@@ -128,11 +107,6 @@ export class ChaosTable extends Table {
 
   override makePlayerPanel(table: Table, player: Player, high: number, wide: number, row: number, col: number, dir = -1): PlayerPanel {
     const playerPanel = new ChaosPlayerPanel(table, player, high, wide, row - high / 2, col - wide / 2, dir);
-
-    // const pp = playerPanel as any as PlayerPanel & HexMap<Hex2>;
-    // if (!pp.hexUnderObj) { debugger; Object.assign(playerPanel, table.hexMap) } // assign hexMap instance variables
-
-    // console.log(stime(this, `.makePlayerPanel: pid:${player.index} ppid:${pp.id} row=${row.toFixed(2)} -> y=${pp.y.toFixed(2)}  col=${col} -> x=${pp.x.toFixed(2)}`))
     return playerPanel;
   }
 
@@ -194,12 +168,9 @@ export class ChaosTable extends Table {
    * @returns
    */
   override newHex2(row = 0, col = 0, name: string, claz: Constructor<IHex2> = this.hexC, map: { mapCont: MapCont } = this.hexMap) {
-    // newHex2->new Hex2(map, ...); map used only for map?.mapCont... so we can cast
-    // console.log(`newHex: row=${row.toFixed(2)} col=${col.toFixed(2)} hex.map.topo=`, this.hexMap.topo, name, claz.name);
     const hex = new claz(map, row, col, name);
     hex.distText.text = name;
     this.newHexes.push(hex);
-    // console.log(`newHex: row=${row.toFixed(2)} col=${col.toFixed(2)} hex.map.topo=`, hex.map.topo, 'this.hexMap.topo=', this.hexMap.topo);
     return hex
   }
 

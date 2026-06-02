@@ -1,10 +1,9 @@
-import { Constructor, removeEltFromArray, stime, type XY } from "@thegraid/common-lib";
+import { C, Constructor, stime, type XY } from "@thegraid/common-lib";
 import { RectShape, type Paintable } from "@thegraid/easeljs-lib";
 import type { Container } from "@thegraid/easeljs-module";
-import { Meeple, newPlanner, NumCounter, NumCounterBox, Player as PlayerLib, PlayerPanel, type Hex1, type MapCont, type Table as TableLib, type TileSource } from "@thegraid/hexlib";
+import { Meeple, newPlanner, NumCounter, Player as PlayerLib, PlayerPanel, type Hex1, type MapCont, type Table as TableLib, type TileSource } from "@thegraid/hexlib";
 import { ChaosHex2 as Hex2, type ChaosHex2 } from "./chaos-hex";
 import { type ChaosTable as Table } from "./chaos-table";
-import { ChaosTile } from "./chaos-tile";
 import { GamePlay } from "./game-play";
 import type { Barracks, Factory, Leader, Stronghold, Warrior } from "./meeples";
 import { TP } from "./table-params";
@@ -56,7 +55,9 @@ class Rackable extends Meeple {
 
 
 export class Player extends PlayerLib {
-  static initialCoins = 400;
+  static initialCoins = 6;
+  static initialGems = 0;
+
   // {gold: 'gold', lightblue: 'lightblue', violet: 'Violet', blue: 'blue', orange: 'orange' };
   static {
     PlayerLib.colorScheme = playerColors.reduce((pv, cv) => (pv[cv] = cv, pv), {} as Record<string, string>)
@@ -108,50 +109,30 @@ export class Player extends PlayerLib {
   // Test/demo EditNumber
   override makePlayerBits(): void {
     super.makePlayerBits();  // this.coinCounter = new NumCounter('coins', 0)
-    // make racks for: factory, barracks, stronghold, foundations, relics
+    // TODO: make racks for: factory, barracks, stronghold, foundations, relics
     this.makeUnitRack(this.gamePlay.table, .75, 3);
     this.makeCardRack(this.gamePlay.table, 3.2, 6); // Player's cards on playerPanel
     // display coin counter:
     const { wide, gap } = this.panel.metrics;
-    const fs = TP.hexRad * .7;
-    const ic = this.coins;
-    const cc = this.coinCounter = new NumCounterBox('coins', ic, undefined, fs);
-    cc.x = wide - 2 * gap; cc.y = cc.high / 2 + 2 * gap;
-    cc.boxAlign('right');
+    const fs = TP.hexRad * .5;
+    const ic = Player.initialCoins;
+
+    const cc = this.coinCounter = new NumCounter('coins', ic, C.YELLOW, fs); // TODO: lightening bolt?
+    cc.x = 2 * gap; cc.y = cc.high / 2 + 2 * gap;
+    cc.boxAlign('left');
     this.panel.addChild(cc);
 
-    const nn = this.netNumNetsCounter = new NumCounterBox('net', 0, 'violet', fs)
-    nn.x = 2 * gap; nn.y = cc.high / 2 + 2 * gap;
-    nn.boxAlign('left');
-    this.panel.addChild(nn);
-
-    const mnl = this.netMaxLenCounter = new NumCounterBox('net', 0, 'violet', fs)
-    mnl.x = nn.wide + 3 * gap; mnl.y = cc.high / 2 + 2 * gap;
-    mnl.boxAlign('left');
-    this.panel.addChild(mnl);
+    const ig = Player.initialGems;
+    const gc = this.gemCounter = new NumCounter('gems', ig, C.RED, fs);
+    gc.x = cc.wide + 3 * gap; gc.y = cc.high / 2 + 2 * gap;
+    gc.boxAlign('left');
+    this.panel.addChild(gc);
   }
 
   /** count gems for this player */
-  gemCounter = new NumCounter('gems', 0); // set by layoutCounters: `${'Coin'}Counter`
+  gemCounter!: NumCounter;
   get gems() { return this.gemCounter?.value; }
   set gems(v) { this.gemCounter?.updateValue(v); }
-
-
-  netMaxLenCounter!: NumCounter;
-  netNumNetsCounter!: NumCounter;
-
-  updateNetCounters() {
-    this.allNetworks.sort((a, b) => b.length - a.length); // descending length
-    const nn = this.allNetworks.length;
-    if (nn > 0) {
-      this.netMaxLenCounter.updateValue(this.allNetworks[0].length)
-      this.netNumNetsCounter.updateValue(nn)
-    }
-  }
-  // here because: used by TacticsCard & ChaosTile; rack pro'ly belongs to this player
-  rackSwap(fromHex: Hex1, toHex: Hex1, rack: Hex1[]) {
-    return rack.includes(fromHex) && rack.includes(toHex)
-  }
 
   /** Hex2[] on which to place Tiles */
   readonly unitRack: Hex2[] = [];
@@ -160,17 +141,11 @@ export class Player extends PlayerLib {
     rack.forEach((hex, n) => hex.Aname = `${this.index}R${n}`)
     this.unitRack.splice(0, this.unitRack.length, ...rack); // replace all elements
   }
-  /**
-   * all buildings on panel?
-   */
+  /** all Buildings on panel? make racks for each Building type? use simple array/stack? */
   get units() { return this.unitRack.map(hex => hex.tile) }
 
   readonly cardRack: Hex2[] = [];
-
-  // PlayerPanel ISA HexMap, and cardPanel is its mapCont.
-  // TODO: why is player.panel in the wrong place?
-
-  /** put cardRack on a movable CardPanel */
+  /** put cardRack on a movable CardPanel; PlayerPanel ISA HexMap, and cardPanel is its mapCont. */
   makeCardRack(table: Table, row = 0, ncols = 4) {
     const ph = table.panelHeight, pw = table.panelWidth;
     const cardPanel = new CardPanel(table, ph/2, pw);
@@ -203,78 +178,7 @@ export class Player extends PlayerLib {
   get cardRules() {
     return this.cardRack.filter(h => h.card).map(h => h.card!.phaseEffect);
   }
-
-  get myTiles() { return ChaosTile.allChaosTiles.filter(tile => tile.hex?.isOnMap && tile.player === this) }
-  // Each of myTiles has a Network that appears in allNetworks:
-  // ASSERT: tileToNetwork.values.forEach(net => allNetworks.includes(net));
-  tileToNetwork = new Map<ChaosTile, Network>();
-  // Each of myTiles appears exactly ONCE in allNetworks.
-  // ASSERT: elements are disjoint; concat(...allNetworks) === myTiles
-  allNetworks: Array<Network> = [];
-
-  /** map each Tile [owned by this Player] to a Network */
-  mapAllNetworks() {
-    this.tileToNetwork.clear();
-    this.allNetworks.length = 0;
-    this.myTiles.forEach(tile => this.addToNetwork(tile))
-    this.updateNetCounters();
-  };
-
-  /** add or remove Tile from its Network */
-  adjustNetwork(tile: ChaosTile, add = tile.hex?.isOnMap && tile.player == this) {
-    if (add) {
-      // if Shift-drop moves tile to new hex:
-      if (this.tileToNetwork.get(tile)) this.removeNetwork(tile);
-      // add tile to this Player's network:
-      this.addToNetwork(tile);
-    } else {
-      // remove tile from this Player's network:
-      this.removeNetwork(tile)
-    }
-    this.updateNetCounters();
-  }
-
-  removeNetwork(tile: ChaosTile) {
-    const tileNet = this.tileToNetwork.get(tile);
-    if (tileNet) {
-      removeEltFromArray(tile, tileNet)
-      this.tileToNetwork.delete(tile)
-      if (tileNet.length === 0) {
-        removeEltFromArray(tileNet, this.allNetworks)
-      }
-    }
-  }
-
-  /** when ADD tile to map */
-  addToNetwork(tile: ChaosTile) {
-    // assert: all OWNED tiles are on a Hex1 (even if not tile.isOnMap)
-    const myLinks = (tile: ChaosTile) => (tile.hex as Hex1).linkHexes.filter(h => h.tile?.player == this) as HexT[];
-    const myAdjTiles = (tile: ChaosTile) => myLinks(tile).map(hext => hext.tile);
-    const newNet = (tile: ChaosTile) => {
-      const net = [tile];
-      this.allNetworks.push(net);
-      this.tileToNetwork.set(tile, net);
-      return net;
-    }
-    const tileN = this.tileToNetwork.get(tile) ?? newNet(tile);
-    // merge all linked tiles into one Network
-    const adjTiles = myAdjTiles(tile)
-    adjTiles.forEach(tAdj => {
-      const adjNet = this.tileToNetwork.get(tAdj); // expect at least [tAdj]
-      // first time we find an element of adjNet, move ALL of them to tileN
-      if (adjNet && this.allNetworks.includes(adjNet) && adjNet !== tileN) {
-        removeEltFromArray(adjNet, this.allNetworks); // remove once
-        tileN.push(...adjNet);
-        adjNet.forEach(netT => this.tileToNetwork.set(netT, tileN)); // point to new network
-      }
-      // this.tileToNetwork.set(tAdj, tileN); // adjNet has been merged into tileN
-    })
-  };
-
 }
-type HexT = Hex1 & { tile: ChaosTile } // with definite PathTile
-/** collection of Tiles mutually linked by adjacency, of same Player */
-type Network = Array<ChaosTile>;
 
 /** PlayerPanel with its own mapCont;
  * makePlayerPanel() injects prototype of HexMap

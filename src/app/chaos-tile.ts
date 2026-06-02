@@ -323,8 +323,10 @@ export class ChaosTile extends MapTile {
     super.dropFunc(targetHex, ctx); // this.placeTile(targetHex)
 
     // maybe set gameState.tileDone;
+    // For Chaos, dropping a Tile is not generally a turn-endiing event.
+    // this is legacy from hexpath, where tile drop defined the 'Move' of a turn
     const selfDrop = (this.hex == this.fromHex)
-    const rackSwap = plyr.rackSwap(this.fromHex, targetHex, plyr.unitRack)
+    const rackSwap = this.rackSwap(this.fromHex, targetHex, plyr.unitRack)
     if (selfDrop || rackSwap) return;
     {
       setTimeout(() => {
@@ -332,6 +334,15 @@ export class ChaosTile extends MapTile {
       }, 1);
     }
   }
+
+  /** predicate to recognize 'self-drop' back on to a rack.
+   * Indicates to rearrange Tiles within rack.
+   * Expect unitCollision to handle?
+   */
+  rackSwap(fromHex: IHex2, toHex: IHex2, rack: IHex2[]) {
+    return rack.includes(fromHex) && rack.includes(toHex)
+  }
+
 }
 
 /** resize/repaint Tiles for TileExporter */
