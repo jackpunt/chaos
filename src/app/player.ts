@@ -1,7 +1,7 @@
 import { Constructor, removeEltFromArray, stime, type XY } from "@thegraid/common-lib";
 import { RectShape, type Paintable } from "@thegraid/easeljs-lib";
 import type { Container } from "@thegraid/easeljs-module";
-import { HexMap, Meeple, newPlanner, NumCounter, NumCounterBox, Player as PlayerLib, PlayerPanel, type DirDCR, type Hex1, type MapCont, type Table as TableLib, type TileSource, type TopoC } from "@thegraid/hexlib";
+import { Meeple, newPlanner, NumCounter, NumCounterBox, Player as PlayerLib, PlayerPanel, type Hex1, type MapCont, type Table as TableLib, type TileSource } from "@thegraid/hexlib";
 import { ChaosHex2 as Hex2, type ChaosHex2 } from "./chaos-hex";
 import { type ChaosTable as Table } from "./chaos-table";
 import { ChaosTile } from "./chaos-tile";
@@ -281,24 +281,11 @@ type Network = Array<ChaosTile>;
  * so ancillary methods can be found (topo, xywh)
  */
 export class ChaosPlayerPanel extends PlayerPanel {
-  // minor surgery to become enough of a HexMap to use mapCont = CardPanel
-  static {
-    // Find the last prototype of A before Object.prototype
-    let A = PlayerPanel, B = HexMap;
-    let aRoot: any = A.prototype;
-    while (Object.getPrototypeOf(aRoot) && Object.getPrototypeOf(aRoot) !== Object.prototype) {
-      aRoot = Object.getPrototypeOf(aRoot);
-    }
-    // Splice prototype chain of B onto the end of Class A's root (all the B methods)
-    Object.setPrototypeOf(aRoot, B.prototype);
-  }
-
-  mapCont!: MapCont;
+  declare mapCont: MapCont;            // player.makeCardRack() will set mapCont = cardPanel
   constructor(table: TableLib, player: PlayerLib, high: number, wide: number, row: number, col: number, dir?: number) {
     const hexMap = table.hexMap;
     super(table, player, high, wide, row, col, dir); // make a PlayerPanel
     Object.assign(this, hexMap);       // assign hexMap instance variables
-    // it will be bad if hexMap & Container reference the same names!!
-    // player.makeCardRack() will set mapCont = CardPanel
+    this.Aname = player.Aname;         // reset Aname
   }
 }

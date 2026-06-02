@@ -1,10 +1,11 @@
-import { C, type Constructor, type XY } from "@thegraid/common-lib";
+import { C, stime, type Constructor, type XY } from "@thegraid/common-lib";
 import { ParamGUI, type DragInfo, type NamedObject, type ParamItem } from "@thegraid/easeljs-lib";
 import { Stage, type Container, type DisplayObject } from "@thegraid/easeljs-module";
-import { Hex2, Table, Tile, TileSource, TP, type DragContext, type IHex2, type MapCont, type Player } from "@thegraid/hexlib";
+import { Hex2, HexMap, PlayerPanel, Table, Tile, TileSource, TP, type DragContext, type IHex2, type MapCont, type Player } from "@thegraid/hexlib";
 import { type ChaosHex2, type HexMap2 } from "./chaos-hex";
 import { ChaosTile } from "./chaos-tile";
 import type { GamePlay } from "./game-play";
+import { mixinHexMap } from "./game-setup";
 import { ChaosPlayerPanel } from "./player";
 import { CardPanel, TacticsCard, type CardBack } from "./tactics-card";
 
@@ -67,6 +68,24 @@ export class ChaosTable extends Table {
     // this.makeSourceAtRowCol(ChaosTile.makeSource, 'tileBag', toprow, lefcol + 1.3, { y: +1.2 });
     // ChaosTile.source.nextUnit();   // TODO: decide how many to expose; & saveState.
 
+    // const mapCont = this.hexMap.mapCont;
+    // mapCont.cNames.map((cname, ndx) => {
+    //   const cn = cname as keyof MapCont;
+    //   const cont = mapCont[cn] as Container;
+    //   const pt = cont.localToLocal(0, 0, mapCont.parent.parent)
+    //   console.log(cn, ':\t', cont.x, cont.y, pt.x, pt.y);
+    // })
+
+    // // show a box at each panelLoc
+    // this.getPanelLocs().map(([row, col, dir], ndx) => {
+    //   const high = this.panelHeight, wide = this.panelWidth;
+    //   const fillc = ['red', 'orange', 'yellow', 'green', 'blue', 'violet'][ndx];
+    //   const cont = new PolyShape({ rad: 10, nsides: 4, fillc, })
+    //   this.setToRowCol(cont, row - wide / 2, col - high / 2);
+    //   console.log(stime(this, `.layoutTable2: row=${row.toFixed(2)} -> y=${cont.y.toFixed(2)}  col=${col} -> x=${cont.x.toFixed(2)}`))
+    //   this.hexMap.mapCont.counterCont.addChild(cont);
+    // })
+
     const [source, discard] = TacticsCard.makeCardSources(this, {row: toprow + .9, col: lefcol})
     this.cardSource = source;
     this.cardDiscard = discard;
@@ -98,7 +117,7 @@ export class ChaosTable extends Table {
   }
   orig_doneClick!: (evt?: any) => void;
 
-  override get panelHeight() { return Math.max(super.panelHeight, 3.85) }
+  override get panelHeight() { return Math.max(super.panelHeight, 3.8) }
   override get panelWidth() { return 6.5 }
 
   override panelLocsForNp(np: number): number[] {
@@ -106,8 +125,14 @@ export class ChaosTable extends Table {
   }
 
   declare playerPanel: ChaosPlayerPanel;
-  override makePlayerPanel(table: Table, player: Player, high: number, wide: number, row: number, col: number, dir?: number): ChaosPlayerPanel {
-    const playerPanel = new ChaosPlayerPanel(table, player, high, wide, row, col, dir);
+
+  override makePlayerPanel(table: Table, player: Player, high: number, wide: number, row: number, col: number, dir = -1): PlayerPanel {
+    const playerPanel = new ChaosPlayerPanel(table, player, high, wide, row - high / 2, col - wide / 2, dir);
+
+    // const pp = playerPanel as any as PlayerPanel & HexMap<Hex2>;
+    // if (!pp.hexUnderObj) { debugger; Object.assign(playerPanel, table.hexMap) } // assign hexMap instance variables
+
+    // console.log(stime(this, `.makePlayerPanel: pid:${player.index} ppid:${pp.id} row=${row.toFixed(2)} -> y=${pp.y.toFixed(2)}  col=${col} -> x=${pp.x.toFixed(2)}`))
     return playerPanel;
   }
 
@@ -115,7 +140,7 @@ export class ChaosTable extends Table {
   /** array of colN hexes across the width of panel, at row0 */
   /**
    *
-   * @param panel panel to hold the row of hexes
+   * @param cPanel panel to hold the row of hexes
    * @param row0 y coordinate of the row of hexes
    * @param colN number of hexes in the row
    * @param hexC class of hexes to create
@@ -124,14 +149,26 @@ export class ChaosTable extends Table {
    * @param vis - [false] set hex.visibility
    * @returns IHex2[]
    */
-  hexesOnCardPanel(panel: CardPanel, row0 = .75, colN = 4, hexC: Constructor<IHex2>, opts?: { vis?: boolean, gap?: number }) {
+  hexesOnCardPanel(cPanel: CardPanel, row0 = .75, colN = 4, hexC: Constructor<IHex2>, opts?: { vis?: boolean, gap?: number }) {
     const { vis, gap } = { vis: false, gap: 0, ...opts };
     const rv = [];
-    const map = panel.parent as ChaosPlayerPanel; // which is also a HexMap! put hexes here
+    const map = cPanel.parent as PlayerPanel & HexMap<Hex2>; // put hexes here
+    // verify prototype functions and instance variables are installed:
+    // GameSetup.static{} & ChaosPlayerPanel.constructor conspire to do this.
+    // With backup in: table.makePlayerPanel(), and here: table.hexesOnCardPanel
+    if (!map.topo) {
+      console.log(stime(this, `.assign(map=${map.name}, this.hexMap=${this.hexMap.Aname}`));
+      Object.assign(map, this.hexMap);
+      // assume for now that PlayerPanel has mixinAB(PlayerPanel, HexMap<Hex2>)
+      if (typeof map.addToMapCont !== 'function') {
+        debugger;
+        mixinHexMap(PlayerPanel, HexMap<Hex2>)
+      }
+    }
     const x0 = 0, y0 = 0;
     // const { x: x0, y: y0 } = this.hexMap.xyFromMap(panel, 0, 0); // offset from hexCont to panel
     // when ON the panel, do not subtract x0, y0!
-    const { width: panelw } = panel.getBounds();
+    const { width: panelw } = cPanel.getBounds();
     const { x: xn, dydr, dxdc } = this.hexMap.xywh(undefined, 0, colN - 1); // x of last cell
     const gpix = gap < 1 ? gap * dxdc : gap;
     const dx = (panelw - xn - (colN - 1) * gpix) / 2; // allocate any extra space (width-xn) to either side
@@ -158,9 +195,11 @@ export class ChaosTable extends Table {
    */
   override newHex2(row = 0, col = 0, name: string, claz: Constructor<IHex2> = this.hexC, map: { mapCont: MapCont } = this.hexMap) {
     // newHex2->new Hex2(map, ...); map used only for map?.mapCont... so we can cast
+    // console.log(`newHex: row=${row.toFixed(2)} col=${col.toFixed(2)} hex.map.topo=`, this.hexMap.topo, name, claz.name);
     const hex = new claz(map, row, col, name);
     hex.distText.text = name;
     this.newHexes.push(hex);
+    // console.log(`newHex: row=${row.toFixed(2)} col=${col.toFixed(2)} hex.map.topo=`, hex.map.topo, 'this.hexMap.topo=', this.hexMap.topo);
     return hex
   }
 

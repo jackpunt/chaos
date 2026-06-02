@@ -1,11 +1,29 @@
 import { stime, type Constructor } from '@thegraid/common-lib';
+import type { Container } from '@thegraid/easeljs-module';
 import { AliasLoader, TileExporter } from '@thegraid/easeljs-lib';
-import { GameSetup as GameSetupLib, Hex2, HexMap, MapCont, Scenario as Scenario0, Table, Tile, TP, type Hex, type IHex2, type SetupElt, type StartElt } from '@thegraid/hexlib';
+import { GameSetup as GameSetupLib, Hex2, HexMap, MapCont, PlayerPanel, Scenario as Scenario0, Tile, TP, type Hex, type IHex2, type SetupElt, type StartElt } from '@thegraid/hexlib';
 import { ChaosTile } from './chaos-tile';
 import { ChaosHex2, HexMap2 } from './chaos-hex';
 import { GamePlay } from './game-play';
 import { ChaosTable } from './chaos-table';
 import { Player } from './player';
+
+// TODO: you can run a tool like dpdm or madge from your terminal window
+// (npx madge --circular --extensions ts .) to map the dependency graph layout
+
+export function mixinHexMap(A: Constructor<Container>, B: Constructor<HexMap<Hex2>>)
+  // minor surgery to become enough of a HexMap to use mapCont = CardPanel
+  {
+    // Find the last prototype of A before Object.prototype
+    // let A = PlayerPanel, B = HexMap;
+    let aRoot: any = A.prototype;
+    while (Object.getPrototypeOf(aRoot) && Object.getPrototypeOf(aRoot) !== Object.prototype) {
+      aRoot = Object.getPrototypeOf(aRoot);
+    }
+    // Splice prototype chain of B onto the end of Class A's root (all the B methods)
+    Object.setPrototypeOf(aRoot, B.prototype);
+  }
+
 
 type Params = Record<string, any>; // until common-lib supplies
 export interface Scenario extends Scenario0 {
@@ -20,6 +38,7 @@ export interface Scenario extends Scenario0 {
  * NullGameSetup is our local implementation.
  */
 class NullGameSetup extends GameSetupLib {
+  static { mixinHexMap(PlayerPanel, HexMap) }  // must hack this before instantiating any PlayerPanel
 
   constructor(canvasId?: string, qParam?: Params) {
     super(canvasId, qParam);
