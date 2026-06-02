@@ -61,3 +61,44 @@ Angular CLI does not come with an end-to-end testing framework by default. You c
 ## Additional Resources
 
 For more information on using the Angular CLI, including detailed command references, visit the [Angular CLI Overview and Command Reference](https://angular.dev/tools/cli) page.
+
+
+## Hack
+
+Gemini offered this usage of new Proxy() to add behavior of two unrelated instances.
+For each method 'this' is bound, so instances cannot access each other's state or methods.
+We used the prototype copy instead (to merge the hexMap to each CardPanel)
+
+```
+/**
+ * A Proxy instance that works like instanceA but will delegate unknown methods/fields to instanceB.
+ * @param instanceA
+ * @param instanceB
+ * @returns
+ */
+function createDualProxy<T extends object, U extends object>(instanceA: T, instanceB: U): T & U {
+  return new Proxy(instanceA, {
+    get(target, prop, receiver) {
+      // 1. If the property exists on InstanceA, use it
+      if (prop in target) {
+        const value = Reflect.get(target, prop, receiver);
+        // Ensure methods remain bound to instanceA
+        return typeof value === 'function' ? value.bind(target) : value;
+      }
+
+      // 2. Otherwise, fall back and look it up on InstanceB
+      if (prop in instanceB) {
+        const value = Reflect.get(instanceB, prop);
+        // Ensure methods from ClassB execute with instanceB's context
+        return typeof value === 'function' ? value.bind(instanceB) : value;
+      }
+
+      return undefined;
+    },
+    has(target, prop) {
+      // Correctly reports 'true' for 'in' operator checks on both classes
+      return prop in target || prop in instanceB;
+    }
+  }) as T & U;
+}
+```

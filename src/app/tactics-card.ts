@@ -412,20 +412,7 @@ export class CardPanel extends MapCont {
     const { w } = table.hexMap.xywh(); // hex WH (per hexRad & topoNS/EW)
     const { width } = (new CardShape()).getBounds(); // TacticsCard.onScreenRadius
     const gap = .1 + (width / w) - 1;  // allocate space to fill
-    const hexes = table.hexesOnCardPanel(panel, row, ncols, CardHex, { gap });
-    const hex0 = hexes[0], hexCont = hex0.cont.parent; // table.hexMap.mapCont.hexCont
-    // make row straight:
-    // const hexy = hex0.cont.y;
-    // const legy = hex0.legalMark.y;
-    // hexes.forEach((hex, n) => { hex.Aname = `CP${n}`;
-    //   // panel.addChild(hex.cont);
-    //   console.log(`${panel.id}: ${hex.toString()} ${hex.y}  ${hex.legalMark.y}`);
-    //   // hex.cont.x -= pt.x;
-    //   hex.cont.y = hexy;// pt.y;
-    //   // panel.addChild(hex.legalMark);
-    //   // hex.legalMark.x += pt.x;
-    //   hex.legalMark.y = legy;
-    // })
+    const hexes = table.hexesOnCardPanel(panel, row, ncols, CardHex, { gap }); // was hexesOnPanel()
     hexAry.splice(0, hexAry.length, ...hexes);
   }
 

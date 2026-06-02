@@ -1,7 +1,7 @@
 import { Constructor, removeEltFromArray, stime, type XY } from "@thegraid/common-lib";
 import { RectShape, type Paintable } from "@thegraid/easeljs-lib";
 import type { Container } from "@thegraid/easeljs-module";
-import { Meeple, newPlanner, NumCounter, NumCounterBox, Player as PlayerLib, type Hex1, type TileSource } from "@thegraid/hexlib";
+import { HexMap, Meeple, newPlanner, NumCounter, NumCounterBox, Player as PlayerLib, PlayerPanel, type DirDCR, type Hex1, type MapCont, type Table as TableLib, type TileSource, type TopoC } from "@thegraid/hexlib";
 import { ChaosHex2 as Hex2, type ChaosHex2 } from "./chaos-hex";
 import { type ChaosTable as Table } from "./chaos-table";
 import { ChaosTile } from "./chaos-tile";
@@ -67,6 +67,7 @@ export class Player extends PlayerLib {
 
 
   declare gamePlay: GamePlay;
+  declare panel: ChaosPlayerPanel;
 
   constructor(index: number, gamePlay: GamePlay) {
     super(index, gamePlay);
@@ -165,13 +166,19 @@ export class Player extends PlayerLib {
   get units() { return this.unitRack.map(hex => hex.tile) }
 
   readonly cardRack: Hex2[] = [];
+
+  // PlayerPanel ISA HexMap, and cardPanel is its mapCont.
+  // TODO: why is player.panel in the wrong place?
+
+  /** put cardRack on a movable CardPanel */
   makeCardRack(table: Table, row = 0, ncols = 4) {
     const ph = table.panelHeight, pw = table.panelWidth;
-    const cardPanel = new CardPanel(table, ph/2, pw); // infintessimal 'panel'; just for XY.
-    // cardPanel.y = 100; cardPanel.x += 80;
+    const cardPanel = new CardPanel(table, ph/2, pw);
+    this.panel.mapCont = cardPanel;
     this.makeDragable(cardPanel, table);
     this.panel.addChild(cardPanel);
     cardPanel.fillAryWithCardHex(table, cardPanel, this.cardRack, row, ncols)
+
     // cardPanel.scaleX = cardPanel.scaleY = .5;
   }
 
@@ -268,3 +275,30 @@ export class Player extends PlayerLib {
 type HexT = Hex1 & { tile: ChaosTile } // with definite PathTile
 /** collection of Tiles mutually linked by adjacency, of same Player */
 type Network = Array<ChaosTile>;
+
+/** PlayerPanel with its own mapCont;
+ * makePlayerPanel() injects prototype of HexMap
+ * so ancillary methods can be found (topo, xywh)
+ */
+export class ChaosPlayerPanel extends PlayerPanel {
+  // minor surgery to become enough of a HexMap to use mapCont = CardPanel
+  static {
+    // Find the last prototype of A before Object.prototype
+    let A = PlayerPanel, B = HexMap;
+    let aRoot: any = A.prototype;
+    while (Object.getPrototypeOf(aRoot) && Object.getPrototypeOf(aRoot) !== Object.prototype) {
+      aRoot = Object.getPrototypeOf(aRoot);
+    }
+    // Splice prototype chain of B onto the end of Class A's root (all the B methods)
+    Object.setPrototypeOf(aRoot, B.prototype);
+  }
+
+  mapCont!: MapCont;
+  constructor(table: TableLib, player: PlayerLib, high: number, wide: number, row: number, col: number, dir?: number) {
+    const hexMap = table.hexMap;
+    super(table, player, high, wide, row, col, dir); // make a PlayerPanel
+    Object.assign(this, hexMap);       // assign hexMap instance variables
+    // it will be bad if hexMap & Container reference the same names!!
+    // player.makeCardRack() will set mapCont = CardPanel
+  }
+}

@@ -1,12 +1,12 @@
 import { C, type Constructor, type XY } from "@thegraid/common-lib";
 import { ParamGUI, type DragInfo, type NamedObject, type ParamItem } from "@thegraid/easeljs-lib";
 import { Stage, type Container, type DisplayObject } from "@thegraid/easeljs-module";
-import { Hex2, Table, Tile, TileSource, TP, type DragContext, type IHex2 } from "@thegraid/hexlib";
-import type { GamePlay } from "./game-play";
-import type { Scenario } from "./game-setup";
-import { CardPanel, TacticsCard, type CardBack } from "./tactics-card";
-import { type HexMap2, type ChaosHex2 } from "./chaos-hex";
+import { Hex2, Table, Tile, TileSource, TP, type DragContext, type IHex2, type MapCont, type Player } from "@thegraid/hexlib";
+import { type ChaosHex2, type HexMap2 } from "./chaos-hex";
 import { ChaosTile } from "./chaos-tile";
+import type { GamePlay } from "./game-play";
+import { ChaosPlayerPanel } from "./player";
+import { CardPanel, TacticsCard, type CardBack } from "./tactics-card";
 
 export class ChaosTable extends Table {
   constructor(stage: Stage) {
@@ -105,6 +105,12 @@ export class ChaosTable extends Table {
     return [[], [0], [0, 2], [0, 3, 2], [0, 3, 5, 2], [0, 3, 4, 5, 2], [0, 3, 4, 5, 2, 1]][np];
   }
 
+  declare playerPanel: ChaosPlayerPanel;
+  override makePlayerPanel(table: Table, player: Player, high: number, wide: number, row: number, col: number, dir?: number): ChaosPlayerPanel {
+    const playerPanel = new ChaosPlayerPanel(table, player, high, wide, row, col, dir);
+    return playerPanel;
+  }
+
   // maybe a super-class of CardPanel? *any* mapCont?
   /** array of colN hexes across the width of panel, at row0 */
   /**
@@ -120,8 +126,10 @@ export class ChaosTable extends Table {
    */
   hexesOnCardPanel(panel: CardPanel, row0 = .75, colN = 4, hexC: Constructor<IHex2>, opts?: { vis?: boolean, gap?: number }) {
     const { vis, gap } = { vis: false, gap: 0, ...opts };
-    const rv = [], map = this.hexMap;
-    const { x: x0, y: y0 } = map.xyFromMap(panel, 0, 0); // offset from hexCont to panel
+    const rv = [];
+    const map = panel.parent as ChaosPlayerPanel; // which is also a HexMap! put hexes here
+    const x0 = 0, y0 = 0;
+    // const { x: x0, y: y0 } = this.hexMap.xyFromMap(panel, 0, 0); // offset from hexCont to panel
     // when ON the panel, do not subtract x0, y0!
     const { width: panelw } = panel.getBounds();
     const { x: xn, dydr, dxdc } = this.hexMap.xywh(undefined, 0, colN - 1); // x of last cell
@@ -130,7 +138,7 @@ export class ChaosTable extends Table {
     const dy = row0 * dydr;   // y for row0
     for (let col = 0; col < colN; col++) {
         // make hex at row=0, then offset by row0 !? legacy from hextowns half-offset?
-        const hex = this.newHex2(0, col, `CardPanel`, hexC); // child of map.mapCont.hexCont
+        const hex = this.newHex2(0, col, `CardPanel`, hexC, map); // child of map.mapCont.hexCont
         rv.push(hex);
         hex.cont.x += (dx - x0 + col * gpix);
         hex.cont.y = (dy - y0);
@@ -138,6 +146,22 @@ export class ChaosTable extends Table {
         hex.legalMark.setOnHex(hex);
     }
     return rv;
+  }
+
+  /**
+   * @param row
+   * @param col
+   * @param name
+   * @param claz
+   * @param map [this.hexMap] { mapCont: MapCont }
+   * @returns
+   */
+  override newHex2(row = 0, col = 0, name: string, claz: Constructor<IHex2> = this.hexC, map: { mapCont: MapCont } = this.hexMap) {
+    // newHex2->new Hex2(map, ...); map used only for map?.mapCont... so we can cast
+    const hex = new claz(map, row, col, name);
+    hex.distText.text = name;
+    this.newHexes.push(hex);
+    return hex
   }
 
   /** identify dragTile so it can be rotated by keybinding */
