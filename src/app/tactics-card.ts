@@ -1,16 +1,16 @@
-import { C, permute, S, stime, type Constructor, type XY } from "@thegraid/common-lib";
-import { CenterText, NamedContainer, RectShape, type DragInfo, type NamedObject, type Paintable } from "@thegraid/easeljs-lib";
-import { Container, DisplayObject, Graphics, MouseEvent } from "@thegraid/easeljs-module";
-import { H, HexCont, LegalMark, MapCont, NumCounter, Tile, TileSource, type DragContext, type HexDir, type IHex2, type Player as PlayerLib } from "@thegraid/hexlib";
+import { C, permute, S, stime } from "@thegraid/common-lib";
+import { CenterText, NamedContainer, RectShape, type DragInfo, type Paintable } from "@thegraid/easeljs-lib";
+import type { Text } from "@thegraid/easeljs-module";
+import { DisplayObject, Graphics, MouseEvent } from "@thegraid/easeljs-module";
+import { H, LegalMark, MapCont, NumCounter, Tile, TileSource, type DragContext, type IHex2 } from "@thegraid/hexlib";
 import { CardShape } from "./card-shape";
+import { ChaosHex2 as Hex2, type ChaosHex as Hex1, type HexMap2 } from "./chaos-hex";
+import { ChaosTable as Table, type ChaosTable } from "./chaos-table";
 import { type GamePlay } from "./game-play";
 import type { GameState } from "./game-state";
-import { ChaosHex2 as Hex2, type ChaosHex, type ChaosHex2, type ChaosHex as Hex1, type HexMap2 } from "./chaos-hex";
-import { type ChaosTable, type ChaosTable as Table } from "./chaos-table";
-import type { ChaosPlayerPanel, Player } from "./player";
+import { ChaosPlayerPanel, Player } from "./player";
 import { TP } from "./table-params";
 import type { CountClaz } from "./tile-exporter";
-import type { Text } from "@thegraid/easeljs-module";
 
 // Temporary, should be in GamePlay
 const phaseNames = ['SetPrices', 'Discovery', 'Build', 'Harvest', 'Recruit', 'Move', 'Combat', 'Income', 'Relic',] as const;
@@ -169,10 +169,35 @@ export class TacticsCard extends Tile {
     super.showTargetMark(hex, ctx)
   }
 
-  /** gameStart: allTiles.makeDragable(table); exclude CardBack */
+  /**
+   * TacticsCards are dragable to curPlayer.panel
+   *
+   * gameStart: allTiles.makeDragable(table); CardBack.isDragable(ctx) -> false
+   */
   override makeDragable(table: Table): void {
-    if (this.constructor.name === '_CardBack') return;
-    super.makeDragable(table);
+    table.dragger.makeDragable(this, this, this.tactics_dragFunc, this.tactics_dropFunc)
+    table.dragger.clickToDrag(this, true); // also enable clickToDrag;
+  }
+
+  /** look for LegalMark in curPlayer.panel.cardPanel */
+  hexUnderObj(dragObj: DisplayObject, legalOnly = true) {
+    const mapCont = this.gamePlay.curPlayer.panel.mapCont;   // == panel.cardPanel
+    const pt = dragObj.parent.localToLocal(dragObj.x, dragObj.y, mapCont.markCont);
+    const mark = mapCont.getObjectUnderPoint(pt.x, pt.y, 1); // find mark on PlayerPanel.cardPanel
+    if (mark instanceof LegalMark) return mark.hex2;
+    // pro-forma:
+    return this.gamePlay.table.hexUnderObj(dragObj, legalOnly)
+  }
+
+  /** drag object curPlayer.panel.cardPanel */
+  tactics_dragFunc(dragObj: DisplayObject, info?: DragInfo) {
+    const hex2 = this.hexUnderObj(dragObj); // find mark on PlayerPanel.cardPanel
+    this.gamePlay.table.dragFunc0(this, info, hex2);
+  }
+
+  /** use table.dropFunc */
+  tactics_dropFunc(dobj: DisplayObject, info?: DragInfo, hex = this.hexUnderObj(dobj)) {
+    this.gamePlay.table.dropFunc(dobj, info, hex)
   }
 
   // table.dragger.makeDragable(tile, tile, undefined->table.dragFunc, tile.dropFunc):
