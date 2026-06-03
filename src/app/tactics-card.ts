@@ -1,13 +1,13 @@
 import { C, permute, S, stime, type Constructor, type XY } from "@thegraid/common-lib";
 import { CenterText, NamedContainer, RectShape, type DragInfo, type NamedObject, type Paintable } from "@thegraid/easeljs-lib";
 import { Container, DisplayObject, Graphics, MouseEvent } from "@thegraid/easeljs-module";
-import { H, MapCont, NumCounter, Tile, TileSource, type DragContext, type HexDir, type IHex2, type Player as PlayerLib } from "@thegraid/hexlib";
+import { H, HexCont, LegalMark, MapCont, NumCounter, Tile, TileSource, type DragContext, type HexDir, type IHex2, type Player as PlayerLib } from "@thegraid/hexlib";
 import { CardShape } from "./card-shape";
 import { type GamePlay } from "./game-play";
 import type { GameState } from "./game-state";
-import { ChaosHex2 as Hex2, type ChaosHex, type ChaosHex as Hex1, type HexMap2 } from "./chaos-hex";
+import { ChaosHex2 as Hex2, type ChaosHex, type ChaosHex2, type ChaosHex as Hex1, type HexMap2 } from "./chaos-hex";
 import { type ChaosTable, type ChaosTable as Table } from "./chaos-table";
-import type { Player } from "./player";
+import type { ChaosPlayerPanel, Player } from "./player";
 import { TP } from "./table-params";
 import type { CountClaz } from "./tile-exporter";
 import type { Text } from "@thegraid/easeljs-module";
@@ -365,6 +365,7 @@ export class CardHex extends Hex2 {
 
 /** auxiliary Panel to position a cardRack on the Table (or PlayerPanel). */
 // TODO: review how Ankh made hidden panels
+// TODO: move to player.ts (coresident with its parent ChaosPlayerPanel)
 export class CardPanel extends MapCont {
 
   /**
@@ -408,11 +409,11 @@ export class CardPanel extends MapCont {
 
 
   /** fill hexAry with row of CardHex above panel */
-  fillAryWithCardHex(table: Table, panel: CardPanel, hexAry: IHex2[], row = 0, ncols = 4) {
-    const { w } = table.hexMap.xywh(); // hex WH (per hexRad & topoNS/EW)
+  fillAryWithCardHex(panel: ChaosPlayerPanel, hexAry: IHex2[], row = 0, ncols = 4) {
+    const { w } = panel.hexMap.xywh(); // hex WH (per hexRad & topoNS/EW)
     const { width } = (new CardShape()).getBounds(); // TacticsCard.onScreenRadius
     const gap = .1 + (width / w) - 1;  // allocate space to fill
-    const hexes = table.hexesOnCardPanel(panel, row, ncols, CardHex, { gap }); // was hexesOnPanel()
+    const hexes = panel.hexesOnMapCont(row, ncols, CardHex, { gap }); // was hexesOnPanel()
     hexAry.splice(0, hexAry.length, ...hexes);
   }
 
@@ -421,6 +422,8 @@ export class CardPanel extends MapCont {
   }
 
   readonly cardRack: CardHex[] = [];
+
+  /** make this CardPanel dragable. */
   makeDragable(table: Table) {
     table.dragger.makeDragable(this, this, undefined, this.dropFunc);
   }

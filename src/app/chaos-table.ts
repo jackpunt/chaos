@@ -22,7 +22,7 @@ export class ChaosTable extends Table {
   }
 
   // bgRect tall enough for 3 X 3.5 player panels
-  override bgXYWH(x0?: number, y0?: number, w0 = 14, h0 = 1, dw?: number, dh?: number): { x: number; y: number; w: number; h: number; } {
+  override bgXYWH(x0?: number, y0?: number, w0 = 15, h0 = 1, dw?: number, dh?: number): { x: number; y: number; w: number; h: number; } {
     const { dxdc, dydr } = this.hexMap.xywh();
     const { height } = this.hexMap.mapCont.hexCont.getBounds(), h = height / dydr;
     const ph = this.panelHeight;
@@ -108,57 +108,8 @@ export class ChaosTable extends Table {
 
   // constructor does: { mapCont.backCont.addChild(playerPanel); setToRowCol(this, row, col); ... }
   override makePlayerPanel(table: Table, player: Player, high: number, wide: number, row: number, col: number, dir = -1): PlayerPanel {
-    const playerPanel = new ChaosPlayerPanel(table, player, high, wide, row - high / 2, col - wide / 2, dir);
+    const playerPanel = new ChaosPlayerPanel(table as ChaosTable, player, high, wide, row - high / 2, col - wide / 2, dir);
     return playerPanel;
-  }
-
-  // maybe a super-class of CardPanel? *any* mapCont?
-  /** array of colN hexes across the width of panel, at row0 */
-  /**
-   *
-   * @param cPanel panel to hold the row of hexes
-   * @param row0 y coordinate of the row of hexes
-   * @param colN number of hexes in the row
-   * @param hexC class of hexes to create
-   * @param opts { vis, gap }
-   * @param gap - [0] either absolute dx OR per-unit fraction of dxdc
-   * @param vis - [false] set hex.visibility
-   * @returns IHex2[]
-   */
-  hexesOnCardPanel(cPanel: CardPanel, row0 = .75, colN = 4, hexC: Constructor<IHex2>, opts?: { vis?: boolean, gap?: number }) {
-    const { vis, gap } = { vis: false, gap: 0, ...opts };
-    const rv = [];
-    const map = cPanel.parent as PlayerPanel & HexMap<Hex2>; // put hexes here
-    // verify prototype functions and instance variables are installed:
-    // GameSetup.static{} & ChaosPlayerPanel.constructor conspire to do this.
-    // With backup in: table.makePlayerPanel(), and here: table.hexesOnCardPanel
-    if (!map.topo) {
-      console.log(stime(this, `.assign(map=${map.name}, this.hexMap=${this.hexMap.Aname}`));
-      Object.assign(map, this.hexMap);
-      // assume for now that PlayerPanel has mixinAB(PlayerPanel, HexMap<Hex2>)
-      if (typeof map.addToMapCont !== 'function') {
-        debugger;
-        mixinHexMap(PlayerPanel, HexMap<Hex2>)
-      }
-    }
-    const x0 = 0, y0 = 0;
-    // const { x: x0, y: y0 } = this.hexMap.xyFromMap(panel, 0, 0); // offset from hexCont to panel
-    // when ON the panel, do not subtract x0, y0!
-    const { width: panelw } = cPanel.getBounds();
-    const { x: xn, dydr, dxdc } = this.hexMap.xywh(undefined, 0, colN - 1); // x of last cell
-    const gpix = gap < 1 ? gap * dxdc : gap;
-    const dx = (panelw - xn - (colN - 1) * gpix) / 2; // allocate any extra space (width-xn) to either side
-    const dy = row0 * dydr;   // y for row0
-    for (let col = 0; col < colN; col++) {
-        // make hex at row=0, then offset by row0 !? legacy from hextowns half-offset?
-        const hex = this.newHex2(0, col, `CardPanel`, hexC, map); // child of map.mapCont.hexCont
-        rv.push(hex);
-        hex.cont.x += (dx - x0 + col * gpix);
-        hex.cont.y = (dy - y0);
-        hex.cont.visible = vis;
-        hex.legalMark.setOnHex(hex);
-    }
-    return rv;
   }
 
   /**
@@ -192,7 +143,7 @@ export class ChaosTable extends Table {
     return super.markLegalHexes(tile, ctx);
   }
 
-  // debug copy; do not keep
+  // debug copy; do not keep [default dragFunc for makeDragable()]
   override dragFunc(tile: Tile, info: DragInfo) {
     const hex = this.hexUnderObj(tile); // clickToDrag 'snaps' to non-original hex!
     this.dragFunc0(tile, info, hex);
