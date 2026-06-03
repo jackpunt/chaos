@@ -1,13 +1,12 @@
-import { C, stime, type Constructor, type XY } from "@thegraid/common-lib";
+import { C, type Constructor, type XY } from "@thegraid/common-lib";
 import { ParamGUI, type DragInfo, type NamedObject, type ParamItem } from "@thegraid/easeljs-lib";
 import { Stage, type Container, type DisplayObject } from "@thegraid/easeljs-module";
-import { Hex2, HexMap, PlayerPanel, Table, Tile, TileSource, TP, type DragContext, type IHex2, type MapCont, type Player } from "@thegraid/hexlib";
+import { Hex2, PlayerPanel, Table, Tile, TileSource, TP, type DragContext, type IHex2, type MapCont, type Player } from "@thegraid/hexlib";
 import { type ChaosHex2, type HexMap2 } from "./chaos-hex";
 import { ChaosTile } from "./chaos-tile";
 import type { GamePlay } from "./game-play";
-import { mixinHexMap } from "./game-setup";
 import { ChaosPlayerPanel } from "./player";
-import { CardPanel, TacticsCard, type CardBack } from "./tactics-card";
+import { TacticsCard, type CardBack } from "./tactics-card";
 
 export class ChaosTable extends Table {
   constructor(stage: Stage) {

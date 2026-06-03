@@ -186,7 +186,7 @@ export class ChaosPlayerPanel extends PlayerPanel {
   addCardPanel(table: Table, row = 0, ncols = 6) {
     // ChaosPlayerPanel { this.mapCont = new CardPanel(table); this.addChild(this.mapCont); }
     const dydr = table.hexMap.xywh().dydr;
-    const cardH = new CardBack(table).getBounds().height;
+    const cardH = CardBack.bounds.height;
     const high = cardH * 1.05 / dydr;  // units of hex.dydr
     const wide = table.panelWidth;
     const cardPanel = new CardPanel(table, high, wide); // directly on table.mapCont! (so localToLocal works?)

@@ -169,6 +169,23 @@ export class TacticsCard extends Tile {
     super.showTargetMark(hex, ctx)
   }
 
+  /** gameStart: allTiles.makeDragable(table); exclude CardBack */
+  override makeDragable(table: Table): void {
+    if (this.constructor.name === '_CardBack') return;
+    super.makeDragable(table);
+  }
+
+  // table.dragger.makeDragable(tile, tile, undefined->table.dragFunc, tile.dropFunc):
+  // when 'tile' is dragged:
+  // table.dragFunc(tile, info) {
+  // hex = table.hexUnderObject(dObj=tile, undef) --> table.hexMap.hexUnderObj(dObj, legalOnly) --> table.hexMap.hexUnderPoint(x,y, legalOnly) {
+  //     --> hex.mapCont.markCont.getObjectUnderPoint(x,y,1) for LegalMark
+  //     --> hex.mapCont.hexCont.getObjectUnderPoint(x,y,1) for HexCont
+  //     }
+  //  --> table.dragFunc0(tile, hex) --> [table.dragStart(tile, ctx)] --> tile.dragFunc0(hex, ctx) --> tile.dragFunc(hex, ctx)
+  // }
+  // tile.dragFunc() does nothing, the interesting bits are in isLegal() & dropFunc
+
   // TODO: draw card to player's 'hand'
   // Player can drag it to discard pile during appropriate phase: eval effect
   // or drag it to combat wheel during Combat (discard after Combat)
@@ -285,6 +302,12 @@ class TacticsTileSource<T extends TacticsCard> extends TileSource<T> {
  * just sits on TacticsCard.source.hex; acts as a button: clickToDraw
  */
 export class CardBack extends TacticsCard {
+  // cache the bounds of a CardBack
+  static _bounds?: {x: number, y: number, width: number, height: number}
+  /** getBounds of a CardBack (or any TacticsCard) */
+  static get bounds() {
+    return CardBack._bounds ?? (CardBack._bounds = new CardBack(undefined as any as Table, 'temp_bounds', '').getBounds())
+  }
   static bColor = TacticsCard.colorMap.back;
   static oText = 'click\nto\ndraw';
   static nText = 'DIM\n';
@@ -301,6 +324,7 @@ export class CardBack extends TacticsCard {
     }
     super({ id, d: text, pE: backEffect })
     this.baseShape.paint(color)
+    if (!CardBack._bounds) CardBack._bounds = this.getBounds(); // dubious optimization, only make 2 CardBacks
   }
   // makeDragable(), but do not let it actually drag:
   override isDragable(ctx?: DragContext): boolean {
@@ -428,7 +452,7 @@ export class CardPanel extends MapCont {
     table.dragger.makeDragable(this, this, undefined, this.dropFunc);
   }
   /**
-   * cardRack hexes are not children of this CardPanel.
+   * cardRack hexes are not children of this CardPanel. <-- No longer true!
    * Move them to realign when panel is dragged & dropped
    */
   dropFunc(dobj: DisplayObject, ctx?: DragInfo) {
