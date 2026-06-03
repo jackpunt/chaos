@@ -2,9 +2,9 @@ import { stime, type Constructor } from '@thegraid/common-lib';
 import { AliasLoader, TileExporter } from '@thegraid/easeljs-lib';
 import type { Container } from '@thegraid/easeljs-module';
 import { GameSetup as GameSetupLib, H, Hex2, HexMap, MapCont, PlayerPanel, Scenario as Scenario0, Tile, TP, type Hex, type IHex2, type SetupElt, type StartElt } from '@thegraid/hexlib';
-import { ChaosTile } from './chaos-tile'; // before ./chaos-hex
 import { ChaosHex2, HexMap2 } from './chaos-hex';
 import { ChaosTable } from './chaos-table';
+import { ChaosTile } from './chaos-tile'; // before ./chaos-hex
 import { GamePlay } from './game-play';
 import { Player } from './player';
 import { TacticsCard } from './tactics-card';

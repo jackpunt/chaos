@@ -1,6 +1,6 @@
 import { type Constructor } from "@thegraid/common-lib";
 import { Hex1 as Hex1Lib, Hex2Mixin, HexMap, TileSource, type Tile } from "@thegraid/hexlib";
-import { ChaosTile } from "./chaos-tile";
+import { type ChaosTile } from "./chaos-tile";
 import { Warrior, type Barracks, type Factory, type Leader, type Stronghold } from "./meeples";
 import type { TacticsCard } from "./tactics-card";
 
@@ -22,7 +22,7 @@ export class ChaosHex extends Hex1Lib {
   // each unit type has it's own 'slot', per Player in most cases.
   //
   override setUnit(unit?: Tile, isMeep?: boolean | undefined): void {
-    if (unit instanceof ChaosTile) {
+    if (unit instanceof Warrior) {
       super.setUnit(unit, isMeep);
     } else {
       super.setUnit(unit, isMeep);   // TODO handle ChaosMeeple & PlayerBitsOnHex
