@@ -1,12 +1,13 @@
 import { stime, type Constructor } from '@thegraid/common-lib';
 import type { Container } from '@thegraid/easeljs-module';
 import { AliasLoader, TileExporter } from '@thegraid/easeljs-lib';
-import { GameSetup as GameSetupLib, Hex2, HexMap, MapCont, PlayerPanel, Scenario as Scenario0, Tile, TP, type Hex, type IHex2, type SetupElt, type StartElt } from '@thegraid/hexlib';
+import { GameSetup as GameSetupLib, H, Hex2, HexMap, MapCont, PlayerPanel, Scenario as Scenario0, Tile, TP, type Hex, type IHex2, type SetupElt, type StartElt } from '@thegraid/hexlib';
 import { ChaosTile } from './chaos-tile';
 import { ChaosHex2, HexMap2 } from './chaos-hex';
 import { GamePlay } from './game-play';
 import { ChaosTable } from './chaos-table';
 import { Player } from './player';
+import { TacticsCard } from './tactics-card';
 
 // TODO: you can run a tool like dpdm or madge from your terminal window
 // (npx madge --circular --extensions ts .) to map the dependency graph layout
@@ -53,10 +54,10 @@ class NullGameSetup extends GameSetupLib {
     window.addEventListener('contextmenu', (evt: MouseEvent) => evt.preventDefault())
     // useEwTopo, size 3.
     const { host, port, file } = qParams;
-    TP.hexRad = 70;
+    TP.hexRad = 120 / H.sqrt3;   // 69.28
+    TacticsCard.nextRadius = TacticsCard.onScreenRadius;
     TP.useEwTopo = false;
     TP.numPlayers = 4;    // default until qParams (for ex: ?n=3)
-    TP.nHexes = 4;
     TP.ghost = host || TP.ghost
     TP.gport = Number.parseInt(port || TP.gport.toString(10), 10)
     TP.networkGroup = 'chaos:game1';

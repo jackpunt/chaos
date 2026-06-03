@@ -79,7 +79,7 @@ export class TacticsCard extends Tile {
   constructor(cs: CardSpec, size?: number) {
     if (size !== undefined) TacticsCard.nextRadius = size; // set before super calls makeShape()
     super(TacticsCard.uniqueId(cs.id!))      // Note: may need to tweak cache/reCache algo
-    this.nameText.y += this.radius * .12;
+    this.nameText.y += this.radius * .12;    // = radius * (.5 + .12)
     // maybe paint() per phaseEffect:
     this.addChildren(cs)
     this.paint(TacticsCard.colorMap[this.phaseEffect?.phase])
@@ -88,8 +88,8 @@ export class TacticsCard extends Tile {
   }
 
   // invoked by constructor.super()
-  override makeShape(): RectShape {
-    return new CardShape('lavender', C.BLACK, this.radius);
+  override makeShape() {
+    return new CardShape('lavender', C.BLACK, this.radius); // color reset by colorMap[phaseEffect.phase]
   }
 
   override makeBleed(bleed: number): DisplayObject {
