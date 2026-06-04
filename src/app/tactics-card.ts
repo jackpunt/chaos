@@ -5,7 +5,7 @@ import { DisplayObject, Graphics, MouseEvent } from "@thegraid/easeljs-module";
 import { H, LegalMark, MapCont, NumCounter, Tile, TileSource, type DragContext, type IHex2 } from "@thegraid/hexlib";
 import { CardShape } from "./card-shape";
 import { ChaosHex2 as Hex2, type ChaosHex as Hex1, type HexMap2 } from "./chaos-hex";
-import { ChaosTable as Table, type ChaosTable } from "./chaos-table";
+import { ChaosTable as Table } from "./chaos-table";
 import { type GamePlay } from "./game-play";
 import type { GameState } from "./game-state";
 import { ChaosPlayerPanel, Player } from "./player";
@@ -31,8 +31,6 @@ type CombatEffect = {
 type CardSpec = {
   id: string, d: string, pE: PhaseEffect, cE?: CombatEffect, nL?: number, nR?: number,
 }
-const Hdirs = TP.useEwTopo ? H.ewDirs : H.nsDirs;
-const Hdir2 = Hdirs.slice(0, 3); // half of Hdirs
 
 class SpecGen {
   // helper methods that are in scope here:
@@ -141,11 +139,12 @@ export class TacticsCard extends Tile {
   // Identify il-legal sources of fromHex:
   override cantBeMovedBy(player: Player, ctx: DragContext): string | boolean | undefined {
     if (this.fromHex === TacticsCard.source.hex) return undefined;
-    const gameState = ctx.gameState as GameState, table = gameState.table as ChaosTable;
+    const table = (ctx.gameState as GameState).table;
     if (this.fromHex === table.cardDiscard.hex) return 'discarded';
     return undefined; // player.cardRack OR (discard && isDoneCard)
   }
 
+  // TacticsCard.discard is Legal
   override markLegal(table: Table, setLegal = (hex: Hex2) => { hex.setIsLegal(false); }, ctx?: DragContext): void {
     table.gamePlay.curPlayer.cardRack.forEach(setLegal)
     setLegal(TacticsCard.discard.hex as Hex2)

@@ -112,15 +112,16 @@ export class ChaosTable extends Table {
   }
 
   /**
+   * Make a new HexC() on the given map.mapCont
    * @param row
    * @param col
    * @param name
-   * @param claz
+   * @param HexC
    * @param map [this.hexMap] { mapCont: MapCont }
    * @returns
    */
-  override newHex2(row = 0, col = 0, name: string, claz: Constructor<IHex2> = this.hexC, map: { mapCont: MapCont } = this.hexMap) {
-    const hex = new claz(map, row, col, name);
+  override newHex2(row = 0, col = 0, name: string, HexC: Constructor<IHex2> = this.hexC, map: { mapCont: MapCont } = this.hexMap) {
+    const hex = new HexC(map, row, col, name);
     hex.distText.text = name;
     this.newHexes.push(hex);
     return hex
