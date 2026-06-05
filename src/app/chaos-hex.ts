@@ -71,4 +71,27 @@ export class HexMap2 extends HexMap<ChaosHex2> {
   constructor(radius?: number, addToMapCont?: boolean, hexC: Constructor<ChaosHex2> = ChaosHex2, Aname?: string) {
     super(radius, addToMapCont, hexC, Aname)
   }
+
+  // TODO: types for headless/non-GUI HexMap<ChaosHex>
+  /** remove given hex from Stage */
+  rmHex2(hex: ChaosHex2) {
+    hex.cont?.parent.removeChild(hex.cont); // fine even if no hex.cont
+  }
+
+  rmHex(hexMap: HexMap<ChaosHex2>, row: number, col: number) {
+    this.rmHex2(hexMap[row][col] as ChaosHex2); // remove hex.cont from display list
+    delete hexMap[row][col];       // remove hex element from hexMap
+  }
+  /** remove each hex not used by Chaos map */
+  sculptMap(hexMap = this) {
+    hexMap[1].forEach(hex => this.rmHex(hexMap, hex.row, hex.col));
+    this.rmHex(hexMap, 2, 1);
+    this.rmHex(hexMap, 2, 2);
+    this.rmHex(hexMap, 2, 4);
+    this.rmHex(hexMap, 2, 6);
+    this.rmHex(hexMap, 2, 7);
+    this.rmHex(hexMap, 3, 7);
+    this.rmHex(hexMap, 4, 7);
+    this.rmHex(hexMap, 5, 7);
+  }
 }

@@ -1,8 +1,7 @@
-import { C, stime } from "@thegraid/common-lib";
-import { CircleShape, NamedContainer, PaintableShape, PathShape, PolyShape, RectShape } from "@thegraid/easeljs-lib";
-import { Shape } from "@thegraid/easeljs-module";
-import { type DragContext, H, Hex2 as Hex2Lib, type HexDir, type HexMap, HexShape, type IHex2, MapTile, Player as PlayerLib, type Table, TileSource, TP } from "@thegraid/hexlib";
-import { type ChaosHex as Hex1, type ChaosHex2 as Hex2 } from "./chaos-hex";
+import { C, permute, Random, stime } from "@thegraid/common-lib";
+import { CircleShape, NamedContainer, PaintableShape, PathShape, RectShape } from "@thegraid/easeljs-lib";
+import { type DragContext, H, type HexDir, type HexMap, HexShape, type IHex2, MapTile, Player as PlayerLib, type Table, TP } from "@thegraid/hexlib";
+import { type ChaosHex as Hex1, type ChaosHex2 as Hex2, type HexMap2 } from "./chaos-hex";
 import { type ChaosTable } from "./chaos-table";
 import type { GamePlay } from "./game-play";
 import type { GameState } from "./game-state";
@@ -33,6 +32,7 @@ const Hdirs = TP.useEwTopo ? H.ewDirs : H.nsDirs;
 
 /** sufficient to layout tiles for map setup */
 export type TileSpec = { row: number, col: number, thid: number }
+export type TileSpec0 = { row: number, col: number, tid: TERRAIN }
 
 /** the resource and/or action that can be harvested from a ChaosTile */
 class HarvestToken {
@@ -99,6 +99,10 @@ export class ChaosTile extends MapTile {
     const terr = thid % 10;
     return [resourceIds[harv], terrainIds[terr]];
   }
+  /** compose thid from TERRAIN & RESOURCE */
+  static thid(terr: TERRAIN, harv: RESOURCE = 'none') {
+    return resourceIds.indexOf(harv) * 10 + terrainIds.indexOf(terr);
+  }
 
   static readonly allChaosTiles: ChaosTile[] = [];
 
@@ -106,16 +110,34 @@ export class ChaosTile extends MapTile {
 
   static curTable: ChaosTable;
 
+  static xtiles() {
+    permute(['Hills', 'Swamp', 'Plain'])
+    return
+  }
+
   /** configure hexMap with terrain tiles, mountains, adjust adjacency, mark open base locations
    *
    * ['none' 'energy', 'gem', 'card', 'energy1', 'recruit1', ]
    *    0        1        2        3        4       5
    * ['Mtn', 'Hills', 'Swamp', 'Plains', 'Lake', 'Base']
+   *
+   * @param hexMap on which to put the ChaosTiles
+   * @param p6ary permutation for xtraTiles for (3, 4, 5)-players; set by ScenarioParser
+   * @param np = TP.numPlayers 2..5
    */
-  static setupMapTiles(map: HexMap<IHex2>, xtraTiles = [] as TileSpec[]) {
+  static setupMapTiles(map: HexMap<IHex2>, p6ary = [-1, -1, -1], np = TP.numPlayers) {
+
+    /** return the Nth (of 6) permutation of a 3 element array*/
+    const permute6 = (ary3: any[], ndx: number) => {
+      if (ndx < 0 || ndx > 5) ndx = Random.random(6);
+      const p = [[0,1,2], [0,2,1], [1,0,2], [1,2,0], [2,0,1], [2,1,0]][ndx]
+      return [ary3[p[0]], ary3[p[1]], ary3[p[2]]];  // could use ary3.reduce(), but why bother?
+    }
+    const rct = (nspec: number[][])  => nspec.map(([row, col, thid]) => ({ row, col, thid}))
+
     const initTiles: TileSpec[] = [
-      {row: 2, col: 5, thid: 5}, // Base
-      {row: 4, col: 1, thid: 5}, // Base
+      {row: 2, col: 5, thid: 5}, // Base <-- permanent
+      {row: 4, col: 1, thid: 5}, // Base2|Mtn
 
       {row: 3, col: 3, thid: 23}, // Plain:gem
       {row: 3, col: 4, thid: 32}, // Swamp:card
@@ -132,6 +154,27 @@ export class ChaosTile extends MapTile {
       {row: 5, col: 5, thid: 31}, // Hills:card
       {row: 6, col: 4, thid:  5}, // Base2|P3
     ];
+    const xtile3 = permute6([this.thid('Hills', 'energy'), this.thid('Swamp', 'gem'), this.thid('Plains', 'card')], p6ary[0])
+    const xtile4 = permute6([this.thid('Hills', 'card'), this.thid('Swamp', 'energy'), this.thid('Plains', 'gem')], p6ary[0])
+    const xtile5 = permute6([this.thid('Hills', 'gem'), this.thid('Swamp', 'card'), this.thid('Plains', 'energy')], p6ary[0])
+    const xbase = (tid: TERRAIN) => this.thid(tid);
+
+    const tiles3: TileSpec[] = rct([
+      [6, 2, xtile3[0]], [6, 3, xtile3[1]], [6, 4, xtile3[2]],
+      [7, 4, xbase('Base')] , [3, 2, xbase('Base')], [5, 1, xbase('Base')], [4,  1, xbase('Mtn')], [5, 6, xbase('Base')],
+    ]);
+    const tiles4: TileSpec[] = rct([
+      [6, 5, xtile4[0]], [6, 6, xtile4[1]], [3, 6, xtile4[2]],
+    ]);
+    const tiles5: TileSpec[] = rct([
+      [3, 1, xtile5[0]], [4, 1, xtile5[1]], [2, 3, xtile5[2]],
+    ]);
+
+    const  xtraTileAry = [
+      [], [], [], tiles3, tiles4, tiles5,
+    ]
+    const xtraTiles = xtraTileAry[np];
+
     const placeTunnel = (dir12: HexDir, hex1: IHex2, hex2: IHex2, fillc = C.BLUE) => {
       const points = (xs = TP.hexRad * .33, ys = TP.hexRad * .4) => {
         return [
@@ -182,13 +225,20 @@ export class ChaosTile extends MapTile {
       const [h, t] = ChaosTile.h_t(thid);
       const tile = new ChaosTile(`T${row},${col}:${t.slice(0,1)}:${h}`, thid);
       const hex = map.getHex({row, col});
-      if (!hex.occupied) {
-        tile.placeTile(hex);
-        // console.log(('ChaosTile'), thid, tile.toString());
+      if (hex.occupied) {
+        const tile0 = hex.tile!;
+        console.log(stime('ChaosTile.placeTile:'), tile.toString(), tile0.toString(), tile0.x.toFixed(2), tile0.y);
+        tile0.sendHome();
+        console.log(stime('ChaosTile.placeTile:'), tile.toString(), tile0.toString(), tile0.x.toFixed(2), tile0.y);
       }
+      tile.placeTile(hex);
     }
-    xtraTiles.forEach(ts => placeTile(ts));
+    (map as HexMap2).sculptMap();
     initTiles.forEach(ts => placeTile(ts));
+    for (let ndx = 3; ndx <= np; ndx++ ) {
+      xtraTileAry[ndx].forEach(ts => placeTile(ts));
+    }
+
     map.forEachHex(hex => {
       hex.occupied || placeTile({row: hex.row, col: hex.col, thid: 0}); // fill with Mtn
     })

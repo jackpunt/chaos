@@ -161,32 +161,10 @@ class NullGameSetup extends GameSetupLib {
     return new NullTable(this.stage);
   }
 
-  /** remove given hex from Stage */
-  rmHex2(hex: Hex) {
-    (hex as IHex2).cont?.parent.removeChild((hex as IHex2).cont);
-  }
-  rmHex(hexMap: HexMap<IHex2>, row: number, col: number) {
-    this.rmHex2(hexMap[row][col]);
-    delete hexMap[row][col];
-  }
-  /** remove each hex not used by Chaos map */
-  sculptMap(hexMap: HexMap<IHex2>) {
-    hexMap[1].forEach(hex => this.rmHex(hexMap, hex.row, hex.col));
-    this.rmHex(hexMap, 2, 1);
-    this.rmHex(hexMap, 2, 2);
-    this.rmHex(hexMap, 2, 4);
-    this.rmHex(hexMap, 2, 6);
-    this.rmHex(hexMap, 2, 7);
-    this.rmHex(hexMap, 3, 7);
-    this.rmHex(hexMap, 4, 7);
-    this.rmHex(hexMap, 5, 7);
-  }
-
   override makeGamePlay(startElt: SetupElt): GamePlay {
     const gp = new GamePlay(this, startElt);
     Tile.gamePlay = gp;
     const hexMap = this.hexMap as HexMap<IHex2>;
-    this.sculptMap(hexMap);
     ChaosTile.setupMapTiles(hexMap);   // TODO: move this to ScenarioParser.parseScenario()
     return gp;
   }
