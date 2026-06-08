@@ -1,14 +1,19 @@
 import { type Constructor } from "@thegraid/common-lib";
+import { NamedContainer } from "@thegraid/easeljs-lib";
 import { Hex1 as Hex1Lib, Hex2Mixin, HexMap, TileSource, type Tile } from "@thegraid/hexlib";
 import { type ChaosTile } from "./chaos-tile";
-import { Warrior, type Barracks, type Factory, type Leader, type Stronghold } from "./meeples";
+import { Fighter, type Barracks, type Factory, type Leader, type Stronghold } from "./meeples";
+import type { Player } from "./player";
 import type { TacticsCard } from "./tactics-card";
 
 
 /** per-Player bit on map Hex */
-class PlayerOnHex {
+class PlayerOnHex extends NamedContainer {
+  constructor(player: Player) {
+    super(`plyr-${player.facId}`);
+  }
   leaders: Leader[] = [ ];              // 2 slots (own + Rhyzu), Zcharo: 3, Oxytaya: 4
-  warriors!: TileSource<Warrior>;       // Warrior in slot, followed by Leader(s)
+  Fighters!: TileSource<Fighter>;       // Fighter in slot, followed by Leader(s)
   factorys!: TileSource<Factory>;       // Players share same xy offsets
   barracks!: TileSource<Barracks>;      // Players share same xy offsets
   strongholds!: TileSource<Stronghold>; // Players share same xy offsets
@@ -18,24 +23,26 @@ class PlayerOnHex {
 // Hex1 has get/set tile/meep -> _tile/_meep
 // Hex1 has get/set -> setUnit(unit, isMeep) & unitCollision(unit1, unit2)
 export class ChaosHex extends Hex1Lib {
+  /** hold all the player Units & Buildings */
+  playerOnHex: PlayerOnHex[] = [];
 
   // each unit type has it's own 'slot', per Player in most cases.
   //
   override setUnit(unit?: Tile, isMeep?: boolean | undefined): void {
-    if (unit instanceof Warrior) {
+    if (unit instanceof Fighter) {
       super.setUnit(unit, isMeep);
     } else {
       super.setUnit(unit, isMeep);   // TODO handle ChaosMeeple & PlayerBitsOnHex
     }
   }
-  // all the Warriors on this Hex;
-  // Warriors.source[ndx] is the recruitHex for player[ndx] (hospital on player board)
+  // all the Fighters on this Hex;
+  // Fighters.source[ndx] is the recruitHex for player[ndx] (hospital on player board)
 
-  warriorsSources!: TileSource<Warrior>[];  // initialized in parseScenario
+  FightersSources!: TileSource<Fighter>[];  // initialized in parseScenario
 
   override unitCollision(this_unit: Tile, unit: Tile, isMeep = false) {
-    if (unit instanceof Warrior && this_unit instanceof Warrior) {
-      this.warriorsSources[unit.player!.index].availUnit(this_unit);
+    if (unit instanceof Fighter && this_unit instanceof Fighter) {
+      this.FightersSources[unit.player!.index].availUnit(this_unit);
       return; // continue with setUnit(): this.meep = unit;
     }
     super.unitCollision(this_unit, unit, isMeep); // fall through

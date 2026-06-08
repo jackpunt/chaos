@@ -1,27 +1,36 @@
-import { C, Constructor, stime, type XY } from "@thegraid/common-lib";
-import { RectShape, type Paintable } from "@thegraid/easeljs-lib";
-import { HexMap, Meeple, newPlanner, NumCounter, Player as PlayerLib, PlayerPanel, type Hex1, type IHex2, type MapCont, type Table as TableLib, type TileSource } from "@thegraid/hexlib";
+import { C, Constructor, stime } from "@thegraid/common-lib";
+import { HexMap, newPlanner, NumCounter, Player as PlayerLib, PlayerPanel, type IHex2, type MapCont, type TileSource } from "@thegraid/hexlib";
 import { ChaosHex2 as Hex2, type ChaosHex2 } from "./chaos-hex";
 import { type ChaosTable, type ChaosTable as Table } from "./chaos-table";
 import { GamePlay } from "./game-play";
-import type { Barracks, Factory, Leader, Stronghold, Warrior } from "./meeples";
+import { mixinHexMap } from "./game-setup";
+import { ChaosPresence, type Barracks, type ChaosBuildingType, type ChaosUnitType, type Factory, type Fighter, type Leader, type Stronghold } from "./meeples";
 import { TP } from "./table-params";
 import { CardBack, CardPanel, TacticsCard } from "./tactics-card";
-import { mixinHexMap } from "./game-setup";
 
-// Faction colors, aligned with gameSetup.factionNames
-//                  Circadian   AI       Zcharo    Leyrein   JRayek   Oxytaya
-const playerColors = ['gold', 'grey', 'lightblue', 'green', 'orange', 'violet', ] as const;
+/** Canonical Faction colors, aligned with gameSetup.factionNames.
+ *
+ * Each canonical color is mapped to an HTML color string for display: Player.colorScheme[cname]
+ */
+//                  Circadian   AI   Zcharo   Leyrein   JRayek   Oxytaya
+const playerColors = ['gold', 'grey', 'blue', 'green', 'red', 'violet', ] as const;
 export type PlayerColor = typeof playerColors[number];
 
 // meeple.startHex retains initial hex for meeple.unMove
-const fids = ['stronghold', 'gemlock', 'harvest', 'adjacent', 'handlimit'] as const;
-type FoundationId = typeof fids[number];
+const foundationIds = ['stronghold', 'gemlock', 'harvest', 'adjacent', 'handlimit'] as const;
+type FoundationId = typeof foundationIds[number];
+
+/** presentation name of each Faction */  // TODO: move these to Scenario & parser?
+export const factionNames = ['Circadian', 'AI', 'Zcharo', 'Leyrein', 'Jrayek', 'Oxytaya'] as const;
+export type FactionName = typeof factionNames[number];
+export type FactionId = 0 | 1 | 2 | 3 | 4;  // at most 5 Factions in game
+
+
 
 /** per-Player bits on PlayerPanel */
 class PlayerBits {
   leaders: Leader[] = [ ];              // LeaderCard is a Tile, leader.homeHex is tile.hex (tile: card, meep: leader)
-  warriors!: TileSource<Warrior>[];     // TileSource[n] for each stage of Recruit (Base is ChaosTile, sans foundations)
+  fighters!: TileSource<Fighter>[];     // TileSource[n] for each stage of Recruit (Base is ChaosTile, sans foundations)
   factorys!: TileSource<Factory>;       // Spread TileSource.filterUnits((u)=>!u.hex.isOnMap) across board
   barracks!: TileSource<Barracks>;      // Spread TileSource.filterUnits((u)=>!u.hex.isOnMap) across board
   strongholds!: TileSource<Stronghold>; // Spread TileSource.filterUnits((u)=>!u.hex.isOnMap) across board
@@ -29,53 +38,38 @@ class PlayerBits {
   // extend with Morale[], AI_Trap[], RhyzuToken[]
 }
 
-
-/** Tile/Meeple with a player.rack on which to put them.
- *
- * for: factory, barrack, stronghold, foundation, relic (rhy-zu, morale-strength, morale-fame)
- */
-class Rackable extends Meeple {
-  /**
-   *
-   * @param Aname
-   * @param player
-   * @param opts
-   * -- offset: XY on player board
-   */
-  constructor(Aname: string, player: Player, opts: { claz: Constructor<Meeple>, n: number, offset: XY }) {
-    super(Aname, player);
-  }
-  /** @param size [1] meepleRadius, scale from default */
-  override makeShape(size = 1): Paintable {
-    // super.makeShape(size); // -> MeepleShape(size)
-    const w = size, h = size, fillc = this.player?.color;
-    return new RectShape({ x: -w/2, y: -h/2, w, h }, fillc, ''); // TODO: more explicit shapes for each...
-  }
-}
-
-
 export class Player extends PlayerLib {
   static initialCoins = 6;
   static initialGems = 0;
 
-  // {gold: 'gold', lightblue: 'lightblue', violet: 'Violet', blue: 'blue', orange: 'orange' };
-  static {
-    PlayerLib.colorScheme = playerColors.reduce((pv, cv) => (pv[cv] = cv, pv), {} as Record<string, string>)
-  }
+  // {gold: 'gold', lightblue: 'lightblue', violet: 'Violet', blue: 'blue', red: 'red' };
+  static override colorScheme = {
+      ... playerColors.reduce((pv, cv) => (pv[cv] = cv, pv), {} as typeof PlayerLib.colorScheme),
+      'blue': 'lightblue',
+  } as typeof PlayerLib.colorScheme;
 
-  override get color(): PlayerColor { return super.color as PlayerColor; }
-  override set color(c: PlayerColor) { super.color = c; }
-
+  // QQQ: Player.color -> PlayerPanel, or PlayerPanel.color -> Player
+  // QQQ: the distinction of Player is their Panel? or do we also subclass the Player?
+  // If so: we don't need to subclass Player, put all the specialization into the Panel
+  // which is going to be distinct in every case.
+  // override get color(): PlayerColor { return super.color as PlayerColor; }
+  // override set color(c: PlayerColor) { super.color = c; }
+  // factionId!: number; // TODO: remove/change to get from Panel
 
   declare gamePlay: GamePlay;
-  declare panel: ChaosPlayerPanel;
+  declare panel: Panel;
   declare table: ChaosTable;
 
+  facName: FactionName;
+  facId: FactionId;
+
   constructor(index: number, gamePlay: GamePlay) {
-    super(index, gamePlay);
-  }
-  override get cname(): string | undefined {
-    return this.gamePlay.gameSetup.factionNames[this.index];
+    super(index, gamePlay); // <-- index is 'table ordinal'
+    this.facName = gamePlay.gameSetup.facNames[index];
+    this.facId = gamePlay.gameSetup.facIds[index];     // Aname and HTML color should be aligned with facId
+    const cname = playerColors[this.facId];
+    ;(this as any).Aname = `P${index}:${cname}*`
+    this.color = (this.constructor as typeof Player).playerColor(cname); // canonical name --> html Color
   }
 
   /**
@@ -135,6 +129,21 @@ export class Player extends PlayerLib {
   get gems() { return this.gemCounter?.value; }
   set gems(v) { this.gemCounter?.updateValue(v); }
 
+  /** IHex2[] where player has presence */
+  get hexPresence() {
+    const presence = this.presence;
+    return this.gamePlay.hexMap.filterEachHex(hex => !!presence.find(p => (p.hex == hex)))
+  }
+
+  /** units providing presence on map */
+  get presence() { return this.allOnMap(ChaosPresence) } // player.allOnMap(ChaosPresence)
+
+  /** where player has presence but not control (multip players present) */
+  get conflict() { return [] as Hex2[] } // presence.filter( !control )
+
+  /** where player has presence and no conflict */
+  get control() { return [] as Hex2[] }  // presence.filter( ... )
+
   /** Hex2[] on which to place Tiles */
   readonly unitRack: Hex2[] = [];
   makeUnitRack(table: Table, row = 0, ncols = 4) {
@@ -144,7 +153,9 @@ export class Player extends PlayerLib {
   }
   /** all Buildings on panel? make racks for each Building type? use simple array/stack? */
   get units() { return this.unitRack.map(hex => hex.tile) }
+  get buildings() { return this.panel.buildingHomes}
 
+  /** shortcut to panel.cardRack */
   get cardRack() { return this.panel.cardRack; }
   /** put cardRack on a movable CardPanel; PlayerPanel ISA HexMap, and cardPanel is its mapCont. */
   makeCardRack(table: Table, row?: number, ncols = 6) {
@@ -171,16 +182,33 @@ export class Player extends PlayerLib {
  * GameSetup hacks PlayerPanel.prototype to inherit HexMap
  * so ancillary methods can be found (topo, xywh)
  */
-export class ChaosPlayerPanel extends PlayerPanel {
+export class Panel extends PlayerPanel {
+  static byName = new Map<string, Panel>(); // by god.name, not className(god): 'Set' not 'SetGod'
+
   declare mapCont: MapCont;            // player.makeCardRack() will set mapCont = cardPanel
   declare player: Player;
+
+  get factionId() { return this.player.facId }
+  get color() { return this.player.color }
+
+  // TODO: remove Partial<>
+  // QQQ: is UnitRack based on Hex2[] or TileSource?
+  // ANS: Hex2[], and ChaosMeeple has specialized unit.sendHome()
+  readonly unitHomes: Partial<Record<ChaosUnitType, Hex2[]>> = {};
+  readonly buildingHomes: Partial<Record<ChaosBuildingType, Hex2[]>> = {};
+
+  /** the 'hand' of TacticsCards */
   readonly cardRack: Hex2[] = [];
-  constructor(table: Table, player: PlayerLib, high: number, wide: number, row: number, col: number, dir?: number) {
+
+  constructor(table: Table, player: Player, high: number, wide: number, row: number, col: number, dir?: number) {
     const hexMap = table.hexMap;
     super(table, player, high, wide, row, col, dir); // make a PlayerPanel
     Object.assign(this, hexMap);       // assign hexMap instance variables
     this.Aname = player.Aname;         // reset Aname
-    this.addCardPanel(table)
+    // this.player.color = Player.playerColor(this.player.cname!); // using Player.colorScheme
+    this.player.color = Player.colorScheme[playerColors[this.factionId]];
+    console.log(stime(this, `.constructor: factionId=${this.factionId} this.player.color=${this.player.color}`))
+    this.addCardPanel(table);
   }
 
   addCardPanel(table: Table, row = 0, ncols = 6) {
@@ -217,7 +245,7 @@ export class ChaosPlayerPanel extends PlayerPanel {
   hexesOnMapCont(row0 = .75, colN = 4, hexC: Constructor<IHex2>, opts?: { vis?: boolean, gap?: number }) {
     const { vis, gap } = { vis: false, gap: 0, ...opts };
     const rv = [];
-    const map = this as any as ChaosPlayerPanel & HexMap<Hex2>; // put hexes here
+    const map = this as any as Panel & HexMap<Hex2>; // put hexes here
     const cPanel = map.mapCont;
     const table = this.player.gamePlay.table;
     // verify prototype functions and instance variables are installed:

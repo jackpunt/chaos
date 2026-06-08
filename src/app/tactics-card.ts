@@ -8,7 +8,7 @@ import { ChaosHex2 as Hex2, type ChaosHex as Hex1, type HexMap2 } from "./chaos-
 import { ChaosTable as Table } from "./chaos-table";
 import { type GamePlay } from "./game-play";
 import type { GameState } from "./game-state";
-import { ChaosPlayerPanel, Player } from "./player";
+import { Panel, Player } from "./player";
 import { TP } from "./table-params";
 import type { CountClaz } from "./tile-exporter";
 
@@ -457,7 +457,7 @@ export class CardPanel extends MapCont {
 
 
   /** fill hexAry with row of CardHex above panel */
-  fillAryWithCardHex(panel: ChaosPlayerPanel, hexAry: IHex2[], row = 0, ncols = 4) {
+  fillAryWithCardHex(panel: Panel, hexAry: IHex2[], row = 0, ncols = 4) {
     const { w } = panel.hexMap.xywh(); // hex WH (per hexRad & topoNS/EW)
     const { width } = (new CardShape()).getBounds(); // TacticsCard.onScreenRadius
     const gap = .1 + (width / w) - 1;  // allocate space to fill

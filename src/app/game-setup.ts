@@ -1,16 +1,22 @@
-import { stime, type Constructor } from '@thegraid/common-lib';
+import { selectN, stime, uniq, type Constructor } from '@thegraid/common-lib';
 import { AliasLoader, TileExporter } from '@thegraid/easeljs-lib';
 import type { Container } from '@thegraid/easeljs-module';
-import { GameSetup as GameSetupLib, H, Hex2, HexMap, MapCont, PlayerPanel, Scenario as Scenario0, Tile, TP, type Hex, type IHex2, type SetupElt, type StartElt } from '@thegraid/hexlib';
+import { GameSetup as GameSetupLib, H, Hex2, HexMap, MapCont, PlayerPanel, Scenario as Scenario0, Tile, TP, type Hex, type IHex2, type SetupElt, type StartElt as StartEltLib } from '@thegraid/hexlib';
 import { ChaosHex2, HexMap2 } from './chaos-hex';
-import { ChaosTable } from './chaos-table';
+import { ChaosTable as Table } from './chaos-table';
 import { ChaosTile } from './chaos-tile'; // before ./chaos-hex
 import { GamePlay } from './game-play';
-import { Player } from './player';
+import { factionNames, Player, type FactionId, type FactionName } from './player';
 import { TacticsCard } from './tactics-card';
 
 // TODO: you can run a tool like dpdm or madge from your terminal window
 // (npx madge --circular --extensions ts .) to map the dependency graph layout
+
+
+/** extend with required FactionIds! */
+export interface StartElt extends StartEltLib {
+  facIds: FactionId[];
+}
 
 export function mixinHexMap(A: Constructor<Container>, B: Constructor<HexMap<Hex2>>)
   // minor surgery to become enough of a HexMap to use mapCont = CardPanel
@@ -28,7 +34,8 @@ export function mixinHexMap(A: Constructor<Container>, B: Constructor<HexMap<Hex
 
 type Params = Record<string, any>; // until common-lib supplies
 export interface Scenario extends Scenario0 {
-  nPlayers?: number;
+  nFacs?: FactionId;
+  facNames: FactionName[];
 };
 
 /** initialize & reset & startup the application/game.
@@ -62,7 +69,7 @@ class NullGameSetup extends GameSetupLib {
     TP.gport = Number.parseInt(port || TP.gport.toString(10), 10)
     TP.networkGroup = 'chaos:game1';
     TP.networkUrl = TP.buildURL(undefined);
-    TP.meepleRad = TP.hexRad * .3;  // scale size of Meeples (factory...Leader, warrior)
+    TP.meepleRad = TP.hexRad * .3;  // scale size of Meeples (factory...Leader, Fighter)
     TP.meepleY0 = 0;                // each is different, put it at {0, 0}
     super.initialize(canvasId);
     let rfn = document.getElementById('readFileName') as HTMLInputElement;
@@ -77,21 +84,28 @@ class NullGameSetup extends GameSetupLib {
     super.loadImagesThenStartup();    // loader.loadImages(() => this.startup(qParams));
   }
 
-  /** presentation name of each Faction */  // TODO: move these to Scenario & parser?
-  factionNames = ['Circadian', 'AI', 'Zcharo', 'Leyrein', 'Jrayek', 'Oxytaya'];
-  /** Faction ID for each Player, in table order. */
-  factionIds = [5, 4];  // default for 2 players
+  /** presentation name of each Faction in play, in table order; survives restart */
+  facNames: FactionName[] = [];
+  /** Faction ID for each Player(faction), in table order. */
+  facIds: FactionId[] = [3, 4];  // default for 2 players
 
-  /** set this.factionIds, return factionIds.length */
-  override getNPlayers(qParams?: { [x: string]: any; }, nDefault = 4): number {
-    const fid = [ 4, 3, 2, 1, 0];        // faction ids in default selection order
+  /** set this.facIds & facNames; return facIds.length */
+  override getNPlayers(qParams: { [x: string]: any; } = this.qParams, nDefault = 4): number {
+    const fid = [ 5, 4, 3, 2, 1, 0 ] as FactionId[];       // faction ids in default selection order
+    const qn = qParams?.['n'] as string; // "3" OR user-specified number of players
+    const pn = qn ? Math.min(5, Math.max(0, Number.parseInt(qn))) : undefined;
+    const np = pn || nDefault; // fallback default number of players
+
     const pf = qParams?.['f'] as string; // "4,3,2" user-specified selection
-    const pn = qParams?.['n'] as string; // "3" OR user-specified number of players
-    const np = pn ? Number.parseInt(pn) : nDefault; // fallback default number of players
-    this.factionIds = pf ? pf.split(',').map(fs => Number.parseInt(fs)) : fid.slice(-np); // factionIds in table order
-    const fns = this.factionIds.map(ndx => this.factionNames[ndx]);  // faction names
-    console.log("factions Names:", fns);
-    return this.factionIds.length;
+    let fids = (pf ? pf.split(',').map(fs => Number.parseInt(fs)).filter(id => id >=0 && id < 6) : fid.slice(0, np)) as FactionId[];
+    if (pn && fids.length != pn) {
+      fids = [...fids, ...fid.filter(id => !fids.includes(id))].slice(0, pn);
+    }
+
+    this.facIds = fids
+    this.facNames = this.facIds.map(ndx => factionNames[ndx]);  // faction names
+    console.log("factions Names playing:", this.facNames);
+    return this.facIds.length;
   }
 
   override startup(scenario: Scenario): void {
@@ -131,9 +145,34 @@ class NullGameSetup extends GameSetupLib {
     let nDefault = TP.numPlayers ?? 4;
     TP.numPlayers = 0;             // reset; use value from getNPlayers
     // qParams may have: f=2,3,4 OR n=3 (--> [4,3,2])
-    const n = this.getNPlayers(qParams, nDefault);   // retain previous value if not supplied
-    TP.numPlayers = n;
-    return { Aname: 'defaultScenario', n, ...qParams, turn: 0, };
+    const n = TP.numPlayers =this.getNPlayers(qParams, nDefault);   // retain previous value if not supplied
+    return { Aname: 'defaultScenario', n, facIds: this.facIds, ...qParams, turn: 0, };
+  }
+
+  nPlayers!: number;
+  scenario!: Scenario;  // last scenario loaded
+
+  override startScenario(scenario: Scenario) {
+
+    this.scenario = scenario;
+    TP.numPlayers = this.nPlayers = scenario.nFacs ?? this.nPlayers;
+    this.facNames = scenario.facNames ?? this.facNames;
+    const table = this.table = new Table(this.stage)        // EventDispatcher, ScaleCont, GUI-Player
+
+    const fillFacNames = (nfacs: number, facNames: string[]) => {
+      const uniqFacs = uniq(facNames);
+      const nToFind = (nfacs - facNames.length);
+      const fullNames = (nToFind > 0)
+        ? [...uniqFacs].concat(selectN(factionNames.filter(gn => !uniqFacs.includes(gn)), nfacs - uniqFacs.length))
+        : (nToFind < 0) ? selectN(uniqFacs, nfacs) : uniqFacs;
+      fullNames.length = Math.min(fullNames.length, 5);
+      return fullNames as FactionName[];
+    }
+    if (scenario.turn === undefined || scenario.facNames === undefined) {
+      scenario.facNames = fillFacNames(scenario.nFacs ?? this.nPlayers, this.facNames); // inject requested Facs.
+    }
+
+    return super.startScenario(scenario)
   }
 
   setScale(newScale: string) {
@@ -171,7 +210,9 @@ class NullGameSetup extends GameSetupLib {
 
   // invoked by makeAllPlayers
   override makePlayer(ndx: number, gamePlay: GamePlay): Player {
-    return new Player(ndx, gamePlay); // TODO: define our class Player {}
+    const p = new Player(ndx, gamePlay);
+    console.log(stime(p, `.new: ${p.Aname}`), p.index, p.facId, p.facName, p.color)
+    return p;
   }
 }
 
@@ -183,12 +224,11 @@ export class GameSetup extends NullGameSetup {
 }
 
 /** Table used by NullGameSetup */
-class NullTable extends ChaosTable {
+class NullTable extends Table {
   // These methods should move to ChaosTable
   // override makePerPlayer(): void {
   // }
-  override setupUndoButtons(): void {
-  }
+
   override makeGUIs(scale?: number, cx = -154, cy = 210, dy?: number): void {
     this.guisToMake = []
     if (!this.stage.canvas) return;

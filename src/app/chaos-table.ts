@@ -1,11 +1,11 @@
 import { C, type Constructor, type XY } from "@thegraid/common-lib";
 import { ParamGUI, type DragInfo, type NamedObject, type ParamItem } from "@thegraid/easeljs-lib";
 import { Stage, type Container, type DisplayObject } from "@thegraid/easeljs-module";
-import { Hex2, PlayerPanel, Table, Tile, TileSource, TP, type DragContext, type IHex2, type MapCont, type Player } from "@thegraid/hexlib";
+import { Hex2, PlayerPanel, Table, Tile, TileSource, TP, type DragContext, type IHex2, type MapCont, type Player as PlayerLib } from "@thegraid/hexlib";
 import { type ChaosHex2, type HexMap2 } from "./chaos-hex";
 import { ChaosTile } from "./chaos-tile";
 import type { GamePlay } from "./game-play";
-import { ChaosPlayerPanel } from "./player";
+import { Panel, type Player } from "./player";
 import { TacticsCard, type CardBack } from "./tactics-card";
 
 export class ChaosTable extends Table {
@@ -103,11 +103,12 @@ export class ChaosTable extends Table {
     return [[], [0], [0, 2], [0, 3, 2], [0, 3, 5, 2], [0, 3, 4, 5, 2], [0, 3, 4, 5, 2, 1]][np];
   }
 
-  declare playerPanel: ChaosPlayerPanel;
+  declare playerPanel: Panel;
 
   // constructor does: { mapCont.backCont.addChild(playerPanel); setToRowCol(this, row, col); ... }
-  override makePlayerPanel(table: Table, player: Player, high: number, wide: number, row: number, col: number, dir = -1): PlayerPanel {
-    const playerPanel = new ChaosPlayerPanel(table as ChaosTable, player, high, wide, row - high / 2, col - wide / 2, dir);
+  override makePlayerPanel(table: Table, player: PlayerLib, high: number, wide: number, row: number, col: number, dir = -1): PlayerPanel {
+    if (player.index === undefined) debugger;
+    const playerPanel = new Panel(table as ChaosTable, player as Player, high, wide, row - high / 2, col - wide / 2, dir);
     return playerPanel;
   }
 
@@ -170,5 +171,14 @@ export class ChaosTable extends Table {
     gui.makeLines();
     setColor(colors[0]);
     return gui
-    }
+  }
+
+  override setupUndoButtons(): void {  }
+
+  // TODO: see Ankh, player/god selection chooser
+  override makeGUIs(scale?: number, cx = -154, cy = 210, dy?: number): void {
+    this.guisToMake = []
+    if (!this.stage.canvas) return;
+    super.makeGUIs(scale, cx, cy);
+  }
 }

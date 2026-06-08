@@ -225,11 +225,11 @@ export class ChaosTile extends MapTile {
       const [h, t] = ChaosTile.h_t(thid);
       const tile = new ChaosTile(`T${row},${col}:${t.slice(0,1)}:${h}`, thid);
       const hex = map.getHex({row, col});
-      if (hex.occupied) {
+      if (hex.tile) {
         const tile0 = hex.tile!;
-        console.log(stime('ChaosTile.placeTile:'), tile.toString(), tile0.toString(), tile0.x.toFixed(2), tile0.y);
+        // console.log(stime('ChaosTile.placeTile:'), tile.toString(), tile0.toString(), tile0.x.toFixed(2), tile0.y);
         tile0.sendHome();
-        console.log(stime('ChaosTile.placeTile:'), tile.toString(), tile0.toString(), tile0.x.toFixed(2), tile0.y);
+        // console.log(stime('ChaosTile.placeTile:'), tile.toString(), tile0.toString(), tile0.x.toFixed(2), tile0.y);
       }
       tile.placeTile(hex);
     }
@@ -240,7 +240,7 @@ export class ChaosTile extends MapTile {
     }
 
     map.forEachHex(hex => {
-      hex.occupied || placeTile({row: hex.row, col: hex.col, thid: 0}); // fill with Mtn
+      hex.tile || placeTile({row: hex.row, col: hex.col, thid: 0}); // fill with Mtn
     })
     placeMtn(map.getHex({row: 4, col: 4}), map.getHex({row: 3, col: 4}) );
     placeMtn(map.getHex({row: 4, col: 4}), map.getHex({row: 4, col: 5}) );

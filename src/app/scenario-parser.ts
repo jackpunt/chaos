@@ -9,9 +9,9 @@ import type { GamePlay } from "./game-play";
 export interface SetupElt extends SetupEltLib {
   // tablePlayers [0..nPlayers-1] the factionIndex
   // curPlayer (index into tablePlayers, mod(len))
-  // playerStateAry (representing each player board: warriors to recruit, buildings, foundations, leaders upgrade, specials)
+  // playerStateAry (representing each player board: fighters to recruit, buildings, foundations, leaders upgrade, specials)
   // factionAttribute state (which ones are upgraded)
-  // chaosHex: { terrain, harvest, foundation[], playerUnits: { warriors, buildings, leaders }[], ...}
+  // chaosHex: { terrain, harvest, foundation[], playerUnits: { fighters, buildings, leaders }[], ...}
   // mapStateAry: for each Hex: { chaosHex, adjacency-LINKS }
   // foundation: {bonus, building}; building: {type, owner, foundation, trap-status?} include Relic(N)!;
   // layout: each Hex & adjacency (mtns, lakes, tunnels) <== prefer this to be in gameState.map & is invariant
@@ -29,7 +29,7 @@ export class ScenarioParser extends SPLib {
   // build: { player, foundation -> hex, building -> foundation }[]
   // harvest: { player, energy, gain[], gem?}[]             // gain: Energy, Gem, Card, Recruit, Discovery, Leader upgrade|recruit
   // recruit: { player, from-to[], cost, benefit, upgrade? }[]  (cost if fasttrack, benefit if RA -> Energy|Card)
-  // move: { player, from(hex, warriors, leaders)->to(hex)}
+  // move: { player, from(hex, fighters, leaders)->to(hex)}
   // combat: { player, hex, defender; ... wheel, gem, dice; strengths & victor, wounds } []
   // income: { player, ... benefit, redeploy, upgrade attribute, gems }[]
   // relics: { player?, benefits[], move}
