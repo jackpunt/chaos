@@ -174,14 +174,16 @@ export class TacticsCard extends Tile {
    * gameStart: allTiles.makeDragable(table); CardBack.isDragable(ctx) -> false
    */
   override makeDragable(table: Table): void {
-    table.dragger.makeDragable(this, this, this.tactics_dragFunc, this.tactics_dropFunc)
+    table.dragger.makeDragable(this, this, this.tactics_dragFunc0, this.tactics_dropFunc)
     table.dragger.clickToDrag(this, true); // also enable clickToDrag;
   }
 
   /** look for LegalMark in curPlayer.panel.cardPanel */
   hexUnderObj(dragObj: DisplayObject, legalOnly = true) {
     const mapCont = this.gamePlay.curPlayer.panel.mapCont;   // == panel.cardPanel
-    const pt = dragObj.parent.localToLocal(dragObj.x, dragObj.y, mapCont.markCont);
+    const dxy = dragObj.DragData?.dragInfo?.dxy ?? { x: 0, y: 0 };
+    const pt = dragObj.parent.localToLocal(dragObj.x + dxy.x, dragObj.y + dxy.y, mapCont.markCont);
+    // as if hexUnderPoint(py.x, pt.y, legalOnly) {
     const mark = mapCont.getObjectUnderPoint(pt.x, pt.y, 1); // find mark on PlayerPanel.cardPanel
     if (mark instanceof LegalMark) return mark.hex2;
     // pro-forma:
@@ -189,13 +191,19 @@ export class TacticsCard extends Tile {
   }
 
   /** drag object curPlayer.panel.cardPanel */
-  tactics_dragFunc(dragObj: DisplayObject, info?: DragInfo) {
+  tactics_dragFunc0(dragObj: DisplayObject, info?: DragInfo) {
     const hex2 = this.hexUnderObj(dragObj); // find mark on PlayerPanel.cardPanel
     this.gamePlay.table.dragFunc0(this, info, hex2);
+  }
+  /** enlarge for click and drag */
+  scaleXY = 1.6;
+  override dragStart(ctx: DragContext): void {
+    this.scaleX = this.scaleY = this.scaleXY;
   }
 
   /** use table.dropFunc */
   tactics_dropFunc(dobj: DisplayObject, info?: DragInfo, hex = this.hexUnderObj(dobj)) {
+    this.scaleX = this.scaleY = 1;
     this.gamePlay.table.dropFunc(dobj, info, hex)
   }
 
@@ -473,25 +481,23 @@ export class CardPanel extends MapCont {
 
   /** make this CardPanel dragable. */
   makeDragable(table: Table) {
-    table.dragger.makeDragable(this, this, undefined, this.dropFunc);
+    table.dragger.makeDragable(this, this, this.cardPanel_dragStart0, this.dropFunc);
+    table.dragger.clickToDrag(this, true);
   }
-  /**
-   * cardRack hexes are not children of this CardPanel. <-- No longer true!
-   * Move them to realign when panel is dragged & dropped
-   */
+
+  scaleXY = 1.6;
+  cardPanel_dragStart0(c: DisplayObject, info?: DragInfo) {
+    if (info?.first) {
+      const s = this.scaleXY;
+      this.scaleX = this.scaleY = s;
+      const { x, y } = info?.dxy ?? { x: 0, y: 0 }
+      const dxy = { x: x / s, y: y / s }
+      if (info) info.dxy = dxy;
+    }
+  }
+
   dropFunc(dobj: DisplayObject, ctx?: DragInfo) {
-    if (!ctx) return
-    const orig = this.table.scaleCont.localToLocal(ctx.objx, ctx.objy, dobj.parent)
-    const dx = dobj.x - orig.x, dy = dobj.y - orig.y;
-    this.cardRack.forEach(hex => {
-      hex.legalMark.x += dx;
-      hex.legalMark.y += dy;
-      hex.x += dx;
-      hex.y += dy;
-      if (hex.tile) { hex.tile.x += dx; hex.tile.y += dy }
-      if (hex.meep) { hex.meep.x += dx; hex.meep.y += dy }
-      hex.tile?.moveTo(hex); // trigger repaint/update?
-    })
+    this.scaleX = this.scaleY = 1.0;
   }
 
   addCard(card?: TacticsCard) {
