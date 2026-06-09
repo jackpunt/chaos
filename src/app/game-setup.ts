@@ -43,7 +43,7 @@ export interface Scenario extends Scenario0 {
  * NullGameSetup is our local implementation.
  */
 class NullGameSetup extends GameSetupLib {
-  static { mixinHexMap(PlayerPanel, HexMap) }  // must hack this before instantiating any PlayerPanel
+  static { mixinHexMap(PlayerPanel, HexMap2) }  // must hack this before instantiating any PlayerPanel
 
   constructor(canvasId?: string, qParam?: Params) {
     super(canvasId, qParam);
@@ -192,7 +192,7 @@ class NullGameSetup extends GameSetupLib {
   ) {
     TP.nHexes = 4;
     TP.mHexes = 1;
-    const hexMap = super.makeHexMap(hexMC, hexC, cNames) as HexMap<IHex2>; // hexMap.makeAllHexes(nh=TP.nHexes, mh=TP.mHexes)
+    const hexMap = super.makeHexMap(hexMC, hexC, cNames) as HexMap2; // hexMap.makeAllHexes(nh=TP.nHexes, mh=TP.mHexes)
     return hexMap;
   }
 
@@ -203,7 +203,7 @@ class NullGameSetup extends GameSetupLib {
   override makeGamePlay(startElt: SetupElt): GamePlay {
     const gp = new GamePlay(this, startElt);
     Tile.gamePlay = gp;
-    const hexMap = this.hexMap as HexMap<IHex2>;
+    const hexMap = this.hexMap as HexMap2;
     ChaosTile.setupMapTiles(hexMap);   // TODO: move this to ScenarioParser.parseScenario()
     return gp;
   }
