@@ -1,5 +1,6 @@
 import { C, permute, Random, stime } from "@thegraid/common-lib";
-import { CircleShape, NamedContainer, PaintableShape, PathShape, RectShape } from "@thegraid/easeljs-lib";
+import { CenterText, CircleShape, NamedContainer, PaintableShape, PathShape, RectShape } from "@thegraid/easeljs-lib";
+import { Container } from "@thegraid/easeljs-module";
 import { type DragContext, H, type HexDir, type HexMap, HexShape, type IHex2, MapTile, Player as PlayerLib, type Table, TP } from "@thegraid/hexlib";
 import { type ChaosHex as Hex1, type ChaosHex2 as Hex2, type HexMap2 } from "./chaos-hex";
 import { type ChaosTable } from "./chaos-table";
@@ -39,39 +40,49 @@ class HarvestToken {
   harvestId!: HARVEST;
   getValue(player: Player, id = this.harvestId): boolean {
     switch(id) {
-      case 'energy':
+      case 'E2':
         player.coins += 2;
         return false;
-      case 'energy1':
+      case 'E1':
         player.coins += 1;
         return false;
-      case 'gem':
+      case 'G1':
         player.gems += 1;
         return false;
-      case 'recruit1':
+      case 'R1':
         // single recruit action (AI Base)
         return true;
-      case 'recruit3':
+      case 'R3':
         // 3 recruit actions (the buff)
         return true;
     }
     return false;
   }
 }
+
+// 'Base' tile marks space where a Faction Base can be placed (replacing the place-keeper)
 const terrainIds = ['Mtn', 'Hills', 'Swamp', 'Plains', 'Lake', 'Base'] as const;
-const resourceIds = ['none', 'energy', 'gem', 'card', 'energy1', 'recruit1', ] as const;
+// 'energy' is E2, 'energy1' is E1, 'recruit1' is 'R1'
+const resourceIds = ['none', 'E2', 'G1', 'C', 'E1', 'R1', '%'] as const;
 // energy1 on AI Base; 'recruit1' on Oxytaya Base
-/** upgrade tokens which can be flipped */
-const harvestTokenId = ['research', 'recruit3'] as const;
+/** upgrade tokens which can be flipped; Leader deploy/upgrade for -2E, Build for -1E */
+const harvestTokenId = ['%', 'R3', 'G2', 'E4', 'E1C', 'R1C', 'Lm2', 'Bm1'] as const;
 
-type TERRAIN = typeof terrainIds[number];
-type RESOURCE = typeof resourceIds[number];
-type HARVEST_UPGRADE = typeof harvestTokenId[number];
-type HARVEST = RESOURCE | HARVEST_UPGRADE;
+export type TERRAIN = typeof terrainIds[number];
+export type RESOURCE = typeof resourceIds[number];
+export type HARVEST_UPGRADE = typeof harvestTokenId[number];
+export type HARVEST = RESOURCE | HARVEST_UPGRADE;
 
+// the harvest token when upgraded gains the second
 const flipBuff: Partial<Record<HARVEST_UPGRADE, string>> = {
-  research: 'energy',
-  recruit3: 'energy',
+  '%': '%E2',
+  R3: 'R4',
+  G2: 'G2R1',
+  E4: 'E6',
+  E1C: 'E3C',
+  R1C: 'R2C',
+  Lm2: 'LE0',
+  Bm1: 'BG0',
 };
 
 const colorOfTerrain: Record<TERRAIN, string> = {
@@ -110,11 +121,7 @@ export class ChaosTile extends MapTile {
 
   static curTable: ChaosTable;
 
-  static xtiles() {
-    permute(['Hills', 'Swamp', 'Plain'])
-    return
-  }
-
+  // TODO: move to method of ChaosMap()
   /** configure hexMap with terrain tiles, mountains, adjust adjacency, mark open base locations
    *
    * ['none' 'energy', 'gem', 'card', 'energy1', 'recruit1', ]
@@ -125,7 +132,7 @@ export class ChaosTile extends MapTile {
    * @param p6ary permutation for xtraTiles for (3, 4, 5)-players; set by ScenarioParser
    * @param np = TP.numPlayers 2..5
    */
-  static setupMapTiles(map: HexMap<IHex2>, p6ary = [-1, -1, -1], np = TP.numPlayers) {
+  static setupMapTiles(map: HexMap2, p6ary = [-1, -1, -1], np = TP.numPlayers) {
 
     /** return the Nth (of 6) permutation of a 3 element array*/
     const permute6 = (ary3: any[], ndx: number) => {
@@ -154,9 +161,9 @@ export class ChaosTile extends MapTile {
       {row: 5, col: 5, thid: 31}, // Hills:card
       {row: 6, col: 4, thid:  5}, // Base2|P3
     ];
-    const xtile3 = permute6([this.thid('Hills', 'energy'), this.thid('Swamp', 'gem'), this.thid('Plains', 'card')], p6ary[0])
-    const xtile4 = permute6([this.thid('Hills', 'card'), this.thid('Swamp', 'energy'), this.thid('Plains', 'gem')], p6ary[0])
-    const xtile5 = permute6([this.thid('Hills', 'gem'), this.thid('Swamp', 'card'), this.thid('Plains', 'energy')], p6ary[0])
+    const xtile3 = permute6([this.thid('Hills', 'E2'), this.thid('Swamp', 'G1'), this.thid('Plains', 'C')], p6ary[0])
+    const xtile4 = permute6([this.thid('Hills', 'C'), this.thid('Swamp', 'E2'), this.thid('Plains', 'G1')], p6ary[0])
+    const xtile5 = permute6([this.thid('Hills', 'G1'), this.thid('Swamp', 'C'), this.thid('Plains', 'E2')], p6ary[0])
     const xbase = (tid: TERRAIN) => this.thid(tid);
 
     const tiles3: TileSpec[] = rct([
@@ -169,11 +176,7 @@ export class ChaosTile extends MapTile {
     const tiles5: TileSpec[] = rct([
       [3, 1, xtile5[0]], [4, 1, xtile5[1]], [2, 3, xtile5[2]],
     ]);
-
-    const  xtraTileAry = [
-      [], [], [], tiles3, tiles4, tiles5, [],
-    ]
-    const xtraTiles = xtraTileAry[np];
+    const  xtraTileAry = [[], [], [], tiles3, tiles4, tiles5, []]
 
     const placeTunnel = (dir12: HexDir, hex1: IHex2, hex2: IHex2, fillc = C.BLUE) => {
       const points = (xs = TP.hexRad * .33, ys = TP.hexRad * .4) => {
@@ -219,29 +222,23 @@ export class ChaosTile extends MapTile {
       delete hex1.links[dir12];
       delete hex2.links[H.dirRev[dir12]];
     }
-
     const placeTile = (tileSpec: TileSpec) => {
-      const {row, col, thid} = tileSpec;
+      const { row, col, thid } = tileSpec;
       const [h, t] = ChaosTile.h_t(thid);
       const tile = new ChaosTile(`T${row},${col}:${t.slice(0,1)}:${h}`, thid);
-      const hex = map.getHex({row, col});
-      if (hex.tile) {
-        const tile0 = hex.tile!;
-        // console.log(stime('ChaosTile.placeTile:'), tile.toString(), tile0.toString(), tile0.x.toFixed(2), tile0.y);
-        tile0.sendHome();
-        // console.log(stime('ChaosTile.placeTile:'), tile.toString(), tile0.toString(), tile0.x.toFixed(2), tile0.y);
-      }
-      tile.placeTile(hex);
+      map.replaceTile(tile, row, col);
     }
-    (map as HexMap2).sculptMap();
-    initTiles.forEach(ts => placeTile(ts));
+
+    map.sculptMap();                                 // reshape to basic hexes
+    initTiles.forEach(ts => placeTile(ts));          // place fixed tiles on basic hexes
     for (let ndx = 3; ndx <= np; ndx++ ) {
-      xtraTileAry[ndx].forEach(ts => placeTile(ts));
+      xtraTileAry[ndx].forEach(ts => placeTile(ts)); // place extra (per player count) tiles, randomized
     }
 
     map.forEachHex(hex => {
-      hex.tile || placeTile({row: hex.row, col: hex.col, thid: 0}); // fill with Mtn
+      hex.tile || placeTile({ ... hex, thid: 0 });   // cover unused hexes with Mtn
     })
+    // place 3 standard adjacency-breaking mountains:
     placeMtn(map.getHex({row: 4, col: 4}), map.getHex({row: 3, col: 4}) );
     placeMtn(map.getHex({row: 4, col: 4}), map.getHex({row: 4, col: 5}) );
     placeMtn(map.getHex({row: 4, col: 2}), map.getHex({row: 5, col: 2}) );
@@ -252,6 +249,7 @@ export class ChaosTile extends MapTile {
   }
 
   override toString(): string {
+    super.toString();
     return `${this.Aname}`;
   }
 
@@ -270,17 +268,31 @@ export class ChaosTile extends MapTile {
     this.nameText.y = this.radius * .66;
     this.addChild(this.terrFill);
     this.addChild(this.nameText);        // re-add above afHex
+    this.addHarvest();
     // this.setPlayerAndPaint(player);
     this.paint();
     ChaosTile.allChaosTiles.push(this);
   }
 
   // paint the [player] color onto the plyrDisk; for baseShape use paintBase()
-  override paint(colorn = colorOfTerrain[this.terrain], force?: boolean): void {
+  override paint(colorn = this.pColor ?? colorOfTerrain[this.terrain], force?: boolean): void {
     if (force || colorn !== this.terrFill.colorn) {
       this.terrFill.paint(colorn, force);
       this.updateCache();
     }
+  }
+
+  addHarvest() {
+    const h = this.harvest;
+    const cont = new Container();
+    const colorForHarv: Partial<Record<HARVEST, string>> = { E2: 'gold', E1: 'gold', G1: 'red', C: 'white', R1: 'orange' }
+    const cHarv = colorForHarv[h], rad = this.radius * .13, fs = this.radius * .15;
+    const icon = new CircleShape(cHarv, rad, '');
+    const tColor = (h == 'C') ? 'black' : 'white';
+    const iText = new CenterText(h == 'C' ? '+' : h == 'none' ? '' : h, fs, tColor);
+    cont.y = this.radius - rad * 3.1
+    if (h !== 'none') cont.addChild(icon, iText);
+    this.addChild(cont);
   }
 
   // invoked by ParamGUI:

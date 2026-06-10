@@ -3,6 +3,7 @@ import { CenterText, NamedContainer, RectShape } from "@thegraid/easeljs-lib";
 import { HexMap, newPlanner, NumCounter, Player as PlayerLib, PlayerPanel, type IHex2, type MapCont, type TileSource } from "@thegraid/hexlib";
 import { ChaosHex2 as Hex2, HexMap2, type ChaosHex2 } from "./chaos-hex";
 import { type ChaosTable, type ChaosTable as Table } from "./chaos-table";
+import { ChaosTile, type RESOURCE } from "./chaos-tile";
 import { GamePlay } from "./game-play";
 import { ChaosPresence, type Barracks, type ChaosBuildingType, type ChaosUnitType, type Factory, type Fighter, type Leader, type Stronghold } from "./meeples";
 import { mixins } from "./mixins";
@@ -14,11 +15,11 @@ import { CardBack, CardPanel, TacticsCard } from "./tactics-card";
  * Each canonical color is mapped to an HTML color string for display: Player.colorScheme[cname]
  */
 //                  Circadian   AI   Zcharo   Leyrein   JRayek   Oxytaya
-const playerColors = ['gold', 'grey', 'blue', 'green', 'red', 'violet', ] as const;
+const playerColors = ['gold', 'grey', 'blue', 'green', 'orange', 'violet', ] as const;
 export type PlayerColor = typeof playerColors[number];
 
-// meeple.startHex retains initial hex for meeple.unMove
-const foundationIds = ['stronghold', 'gemlock', 'harvest', 'adjacent', 'handlimit'] as const;
+// 5 Foundations, named for the bonus they give; stronghold & one other have gemlock
+const foundationIds = ['research', 'unlock', 'harvest', 'adjacent', 'handlimit'] as const;
 type FoundationId = typeof foundationIds[number];
 
 /** presentation name of each Faction */  // TODO: move these to Scenario & parser?
@@ -26,7 +27,9 @@ export const factionNames = ['Circadian', 'AI', 'Zcharo', 'Leyrein', 'Jrayek', '
 export type FactionName = typeof factionNames[number];
 export type FactionId = 0 | 1 | 2 | 3 | 4;  // at most 5 Factions in game
 
-
+/** rb: RelicBonus, fg: foundation w/gem, serial [0..4], bg: building w/gemlock (index per type), nr: number in recruit, bi: income0 */
+type FacSpec = {name: FactionName, rb: string[], fg: number, bg: number[][], nr?: number[], bi?: number };
+type BaseSpec = {name: FactionName, bh?: RESOURCE, bf: [RESOURCE, RESOURCE] }
 
 /** per-Player bits on PlayerPanel */
 class PlayerBits {
@@ -43,12 +46,12 @@ export class Player extends PlayerLib {
   static initialCoins = 6;
   static initialGems = 0;
 
-  // {gold: 'gold', lightblue: 'lightblue', violet: 'Violet', blue: 'blue', red: 'red' };
+  // {gold: 'gold', lightblue: 'lightblue', violet: 'Violet', blue: 'blue', orange: 'orange' };
   static override colorScheme = {
       ... playerColors.reduce((pv, cv) => (pv[cv] = cv, pv), {} as typeof PlayerLib.colorScheme),
       'yellow': 'tan',// 'rgb(255, 213, 0)',
       'blue': 'rgb(1, 161, 230)',
-      'red': 'rgb(255, 98, 0)'
+      'orange': 'rgb(255, 98, 0)'
   } as typeof PlayerLib.colorScheme;
 
   // QQQ: Player.color -> PlayerPanel, or PlayerPanel.color -> Player
@@ -188,11 +191,51 @@ export class Player extends PlayerLib {
 export class Panel extends PlayerPanel {
   static byName = new Map<string, Panel>(); // by god.name, not className(god): 'Set' not 'SetGod'
 
+  // Relic bonus = rb: G: Gem, F: Fame, E: Energy, M: Morale, Up: Upgrade Attribute(flip),
+  // Bldg gemlock= bg: [[0, 1, 1], [0, 0, 1, 1], [0, 1]] <== Zcharo! always 9 there are
+  // Base income = bi?: 3 | undefined => 2/G
+  // Num recruit = nr: [8, 6, 6] initial number of Fighters in each stage & base
+  // Foundation w/gem = fg: 1-4 (0 is implicit) [gem->res, ubiq harv, ubiq adj, gemlock, handlim]
+  //
+  // Factory: Energy2, Baracks: Card, Stronghold: Gem (--> %)
+  // Stronghold = sf?: () => void;
+  // Circadian: Build:restrict, Income: +region
+  // Zcharo: Combat: strength
+  // AI: Move: trap, Income: reset
+  // Leyrein: Build: restrict, Combat: +strength, Income: +Fame
+  // Jrayek: Combat: +str, +shield
+  // Oxytaya: Recruit: placement option
+
+  static panelSpecs: FacSpec[] = [
+    { name: 'Circadian', rb: ['G1', 'Up', 'G1', 'Up', 'Up', ], fg: 2, bg: [[0,0,0], [0,0,0], [1,1,1]], nr: [6, 2, 0, 2], bi: 3, }, // no base; 10 Fighters
+    { name: 'AI',        rb: ['F1', 'F2', 'F2', 'F3', 'F4', ], fg: 2, bg: [[0,1,1], [0,0,1,1], [0,1]], nr: [12, 8], }, // +10 on copious
+    { name: 'Zcharo',    rb: ['G1', 'G1', 'G1', 'G1', 'G1', ], fg: 3, bg: [[0,0,0], [1,1,1], [0,1,1]], nr: [9, 5, 6], bi: 3, },
+    { name: 'Leyrein',   rb: ['M0', 'F2', 'F2', 'F3', 'F3', ], fg: 1, bg: [[0,0,1], [0,0,1], [1,1,1]], nr: [8, 6, 6], },
+    { name: 'Jrayek',    rb: ['E2', 'F1', 'E3', 'F1', 'F1', ], fg: 2, bg: [[0,0,1], [0,1,1], [0,0,1]], nr: [10, 4, 6], },
+    { name: 'Oxytaya',   rb: ['F1', 'F1', 'F1', 'F2', 'F3', ], fg: 1, bg: [[0,1,1], [0,0,1], [0,1,1]], nr: [12, 3, 5], },
+  ]
+
+  // Base harvest= bh?: E1, E2, G1, R1
+  // Base foundations = bf: [string, string]
+  static baseSpecs: BaseSpec[] = [
+    { name: 'Circadian', bh: 'none', bf: ['%', 'E2'] }, // no base
+    { name: 'AI',        bh: 'E1', bf: ['G1', 'E2'] },
+    { name: 'Zcharo',    bh: 'E2', bf: ['C', 'G1'] },
+    { name: 'Leyrein',   bh: 'E2', bf: ['C', 'E2'] },
+    { name: 'Jrayek',    bh: 'G1', bf: ['G1', '%'] },
+    { name: 'Oxytaya',   bh: 'R1', bf: ['C', 'C'] },
+  ]
+  facName: FactionName;
+  baseSpec!: BaseSpec;
+  panelSpec!:FacSpec;
+
   declare mapCont: MapCont;            // player.makeCardRack() will set mapCont = cardPanel
   declare player: Player;
 
+  /** faction id (0..5) */
   get factionId() { return this.player.facId }
-  get color() { return this.player.color }
+  /** player color (HTML) */
+  get pColor() { return this.player.color }
 
   // TODO: remove Partial<>
   // QQQ: is UnitRack based on Hex2[] or TileSource?
@@ -209,11 +252,13 @@ export class Panel extends PlayerPanel {
     super(table, player, high, wide, row, col, dir); // make a PlayerPanel
     Object.assign(this, hexMap);       // assign hexMap instance variables
     this.Aname = player.Aname;         // reset Aname
-    // this.player.color = Player.playerColor(this.player.cname!); // using Player.colorScheme
-    this.player.color = Player.colorScheme[playerColors[this.factionId]];
+    this.player.color = Player.playerColor(this.player.cname!); // override Player.colorScheme
     this.bg0 = C.grey64; 'rgb(56, 56, 56)';
     this.bg1 = this.bg0;
-    console.log(stime(this, `.constructor: factionId=${this.factionId} this.player.color=${this.player.color}`))
+    const facName = this.facName = this.player.facName;
+    this.panelSpec = Panel.panelSpecs.find(spec => (spec.name == facName))!;
+    this.baseSpec = Panel.baseSpecs.find(spec => (spec.name == facName))!;
+    console.log(stime(this, `.constructor: factionId=${this.factionId} cname=${this.player.cname} ${facName}`))
     this.layoutPanel(table);
   }
 
@@ -231,26 +276,18 @@ export class Panel extends PlayerPanel {
    */
   layoutPanel(table: ChaosTable) {
     this.cardPanel = this.addCardPanel(table);
-    this.addRelics();
+    this.addRelics(this.panelSpec);
+    this.addBuildings(this.panelSpec);
+    this.setupBase(this.baseSpec);
+    this.player.gamePlay.hexMap
     return this.children;
   }
-  // Relic bonus: G: Gem, Up: Upgrade Attribute(flip), F: Fame, E: Energy, M: Morale,
-  panelSpecs: {name: FactionName, sp: string[]}[] = [
-    { name: 'Circadian', sp: ['G1', 'Up', 'G1', 'Up', 'Up', ] },
-    { name: 'AI', sp: ['F1', 'F2', 'F2', 'F3', 'F4', ]},
-    { name: 'Zcharo', sp: ['G1', 'G1', 'G1', 'G1', 'G1', ]},
-    { name: 'Leyrein', sp: ['M0', 'F2', 'F2', 'F3', 'F3', ]},
-    { name: 'Jrayek', sp: ['E2', 'F1', 'E3', 'F1', 'F1', ]},
-    { name: 'Oxytaya', sp: ['F1', 'F1', 'F1', 'F2', 'F3', ]},
-  ]
 
-  addRelics() {
+  addRelics(spec: FacSpec) {
     const { x, y, width, height } = this.getBounds();
     const w = width / (6.5), h = w / 2, gap = 4;
     const x0 = x + w * 2, y0 = y + h / 2;
-    const facName = this.player.facName;
-    const spec = this.panelSpecs.find(spec => (spec.name == facName));
-    const sp = spec!.sp;
+    const sp = spec.rb;
     arrayN(5).forEach(n => {
       const cont = new NamedContainer(`Relic${n}`)
       const foreColor = C.nameToRgbaString(this.player.color, .7);
@@ -266,6 +303,19 @@ export class Panel extends PlayerPanel {
       this.addChild(cont);
     });
     return;
+  }
+
+  // add Income & Buildings; set playerColor & Harvest icon on Base.
+  addBuildings(spec: FacSpec) {
+
+  }
+
+  baseTile!: ChaosTile;
+  // make ChaosTile, set color, set Harvest token
+  setupBase(spec: BaseSpec) {
+    const thid = ChaosTile.thid('Base', 'G1')
+    const baseTile = new ChaosTile(`${this.facName}Base`, thid, this.player);
+    baseTile.paint(this.pColor)
   }
 
   addCardPanel(table: Table, row = 0, ncols = 6) {

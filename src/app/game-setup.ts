@@ -83,7 +83,7 @@ class NullGameSetup extends GameSetupLib {
   override getNPlayers(qParams: { [x: string]: any; } = this.qParams, nDefault = 4): number {
     const fid = [ 5, 4, 3, 2, 1, 0 ] as FactionId[];       // faction ids in default selection order
     const qn = qParams?.['n'] as string; // "3" OR user-specified number of players
-    const pn = qn ? Math.min(5, Math.max(0, Number.parseInt(qn))) : undefined;
+    const pn = qn ? Math.min(TP.maxPlayers, Math.max(0, Number.parseInt(qn))) : undefined;
     const np = pn || nDefault; // fallback default number of players
 
     const pf = qParams?.['f'] as string; // "4,3,2" user-specified selection
@@ -149,13 +149,14 @@ class NullGameSetup extends GameSetupLib {
     this.facNames = scenario.facNames ?? this.facNames;
     const table = this.table = new Table(this.stage)        // EventDispatcher, ScaleCont, GUI-Player
 
+    // use n= or f=[...] fill to n= with default faction order
     const fillFacNames = (nfacs: number, facNames: string[]) => {
       const uniqFacs = uniq(facNames);
       const nToFind = (nfacs - facNames.length);
       const fullNames = (nToFind > 0)
         ? [...uniqFacs].concat(selectN(factionNames.filter(gn => !uniqFacs.includes(gn)), nfacs - uniqFacs.length))
         : (nToFind < 0) ? selectN(uniqFacs, nfacs) : uniqFacs;
-      fullNames.length = Math.min(fullNames.length, 5);
+      fullNames.length = Math.min(fullNames.length, TP.maxPlayers);
       return fullNames as FactionName[];
     }
     if (scenario.turn === undefined || scenario.facNames === undefined) {

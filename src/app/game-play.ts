@@ -1,8 +1,8 @@
 import { stime } from "@thegraid/common-lib";
 import { KeyBinder } from "@thegraid/easeljs-lib";
-import { GamePlay as GamePlayLib, Scenario, TP as TPLib, type HexMap, type IHex2 } from "@thegraid/hexlib";
+import { GamePlay as GamePlayLib, Scenario, TP as TPLib } from "@thegraid/hexlib";
+import type { HexMap2 } from "./chaos-hex";
 import type { ChaosTable } from "./chaos-table";
-import { ChaosTile } from "./chaos-tile";
 import { GameSetup } from "./game-setup";
 import { GameState } from "./game-state";
 import type { Player } from "./player";
@@ -16,7 +16,7 @@ export class GamePlay extends GamePlayLib {
   }
   override readonly gameState: GameState = new GameState(this);
   declare gameSetup: GameSetup;
-  declare hexMap: HexMap<IHex2>
+  declare hexMap: HexMap2;
   declare table: ChaosTable;
 
   override get allPlayers() { return super.allPlayers as Player[] }

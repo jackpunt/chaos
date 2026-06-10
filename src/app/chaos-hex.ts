@@ -101,4 +101,16 @@ export class HexMap2 extends HexMap<ChaosHex2> {
     this.rmHex(hexMap, 4, 7);
     this.rmHex(hexMap, 5, 7);
   }
+
+  /** placeTile(row, col) after removing existing tile at row, col */
+  replaceTile = (tile: ChaosTile, row: number, col: number) => {
+      const hex = this.getHex({row, col});
+      if (hex.tile) {
+        const tile0 = hex.tile!;
+        // console.log(stime('HexMap2.replaceTile:'), tile.toString(), tile0.toString(), tile0.x.toFixed(2), tile0.y);
+        tile0.sendHome();
+        // console.log(stime('HexMap2.replaceTile:'), tile.toString(), tile0.toString(), tile0.x.toFixed(2), tile0.y);
+      }
+      tile.placeTile(hex);
+    }
 }
