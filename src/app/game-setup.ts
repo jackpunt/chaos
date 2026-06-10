@@ -1,12 +1,12 @@
 import { selectN, stime, uniq, type Constructor } from '@thegraid/common-lib';
 import { AliasLoader, TileExporter } from '@thegraid/easeljs-lib';
-import type { Container } from '@thegraid/easeljs-module';
-import { GameSetup as GameSetupLib, H, Hex2, HexMap, MapCont, PlayerPanel, Scenario as Scenario0, Tile, TP, type Hex, type IHex2, type SetupElt, type StartElt as StartEltLib } from '@thegraid/hexlib';
+import { GameSetup as GameSetupLib, H, HexMap, MapCont, PlayerPanel, Scenario as Scenario0, Tile, TP, type Hex, type SetupElt, type StartElt as StartEltLib } from '@thegraid/hexlib';
 import { ChaosHex2, HexMap2 } from './chaos-hex';
 import { ChaosTable as Table } from './chaos-table';
 import { ChaosTile } from './chaos-tile'; // before ./chaos-hex
 import { GamePlay } from './game-play';
-import { factionNames, Player, type FactionId, type FactionName } from './player';
+import { mixins } from './mixins';
+import { factionNames, Panel, Player, type FactionId, type FactionName } from './player';
 import { TacticsCard } from './tactics-card';
 
 // TODO: you can run a tool like dpdm or madge from your terminal window
@@ -17,19 +17,6 @@ import { TacticsCard } from './tactics-card';
 export interface StartElt extends StartEltLib {
   facIds: FactionId[];
 }
-
-export function mixinHexMap(A: Constructor<Container>, B: Constructor<HexMap<Hex2>>)
-  // minor surgery to become enough of a HexMap to use mapCont = CardPanel
-  {
-    // Find the last prototype of A before Object.prototype
-    // let A = PlayerPanel, B = HexMap;
-    let aRoot: any = A.prototype;
-    while (Object.getPrototypeOf(aRoot) && Object.getPrototypeOf(aRoot) !== Object.prototype) {
-      aRoot = Object.getPrototypeOf(aRoot);
-    }
-    // Splice prototype chain of B onto the end of Class A's root (all the B methods)
-    Object.setPrototypeOf(aRoot, B.prototype);
-  }
 
 
 type Params = Record<string, any>; // until common-lib supplies
@@ -43,8 +30,11 @@ export interface Scenario extends Scenario0 {
  * NullGameSetup is our local implementation.
  */
 class NullGameSetup extends GameSetupLib {
-  static { mixinHexMap(PlayerPanel, HexMap2) }  // must hack this before instantiating any PlayerPanel
-
+  // static { mixinHexMap(PlayerPanel, HexMap2) }  // must hack this before instantiating any PlayerPanel
+  static {
+    const bOverA1 = mixins.clonePrototypeChain(HexMap2, PlayerPanel.prototype); // PlayerPanel ISA HexMap2
+    Object.setPrototypeOf(Panel.prototype, bOverA1);
+  }
   constructor(canvasId?: string, qParam?: Params) {
     super(canvasId, qParam);
     const exp = qParam?.['t'] ?? 0;
@@ -104,7 +94,7 @@ class NullGameSetup extends GameSetupLib {
 
     this.facIds = fids
     this.facNames = this.facIds.map(ndx => factionNames[ndx]);  // faction names
-    console.log("factions Names playing:", this.facNames);
+    console.log(stime(this, `.new:`), "factions Names playing:", this.facNames);
     return this.facIds.length;
   }
 

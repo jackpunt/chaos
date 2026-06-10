@@ -438,8 +438,10 @@ export class CardPanel extends MapCont {
 
     const { dxdc, dydr } = table.hexMap.xywh()
     const w = dxdc * wide, h = dydr * high;
-    this.disp = new RectShape({ w, h }, C.grey224, '');
+    this.disp = new RectShape({ w, h }, 'rgba(224,224,224,.5)', '');
     this.addChildAt(this.disp, 0);
+    this.y = row * dydr;
+    this.x = col * dxdc;
     table.hexMap.mapCont.addChild(this);
   }
 
@@ -485,15 +487,24 @@ export class CardPanel extends MapCont {
     table.dragger.clickToDrag(this, true);
   }
 
-  scaleXY = 1.6;
+  scaleXY = 2;
   cardPanel_dragStart0(c: DisplayObject, info?: DragInfo) {
     if (info?.first) {
-      const s = this.scaleXY;
-      this.scaleX = this.scaleY = s;
+      const s = this.scaleX = this.scaleY = this.scaleXY;
       const { x, y } = info?.dxy ?? { x: 0, y: 0 }
       const dxy = { x: x / s, y: y / s }
       if (info) info.dxy = dxy;
+      this.parent.globalToLocal(info.stageX0, info.stageY0, this) // move obj to stageX, stageY
+      this.x -= x;
+      this.y -= y;
     }
+    // what pressmove does:
+    // obj.parent.globalToLocal(event.stageX, event.stageY, obj) // move obj to stageX, stageY
+    // obj.x -= dragInfo.dxy.x * obj.scaleX;       // offset by dxy
+    // obj.y -= dragInfo.dxy.y * obj.scaleY;
+    // what pressup does:
+    // obj.parent.localToLocal(obj.x, obj.y, dropCont, obj); // dragCont -> dropCont (= srcCont)
+
   }
 
   dropFunc(dobj: DisplayObject, ctx?: DragInfo) {

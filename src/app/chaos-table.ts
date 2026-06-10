@@ -109,6 +109,7 @@ export class ChaosTable extends Table {
   override makePlayerPanel(table: Table, player: PlayerLib, high: number, wide: number, row: number, col: number, dir = -1): PlayerPanel {
     if (player.index === undefined) debugger;
     const playerPanel = new Panel(table as ChaosTable, player as Player, high, wide, row - high / 2, col - wide / 2, dir);
+    playerPanel.showPlayer(false); // trigger repaint with background and other content
     return playerPanel;
   }
 

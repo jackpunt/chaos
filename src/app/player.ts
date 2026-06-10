@@ -1,10 +1,11 @@
-import { C, Constructor, stime } from "@thegraid/common-lib";
+import { arrayN, C, Constructor, stime } from "@thegraid/common-lib";
+import { CenterText, NamedContainer, RectShape } from "@thegraid/easeljs-lib";
 import { HexMap, newPlanner, NumCounter, Player as PlayerLib, PlayerPanel, type IHex2, type MapCont, type TileSource } from "@thegraid/hexlib";
-import { ChaosHex2 as Hex2, type ChaosHex2 } from "./chaos-hex";
+import { ChaosHex2 as Hex2, HexMap2, type ChaosHex2 } from "./chaos-hex";
 import { type ChaosTable, type ChaosTable as Table } from "./chaos-table";
 import { GamePlay } from "./game-play";
-import { mixinHexMap } from "./game-setup";
 import { ChaosPresence, type Barracks, type ChaosBuildingType, type ChaosUnitType, type Factory, type Fighter, type Leader, type Stronghold } from "./meeples";
+import { mixins } from "./mixins";
 import { TP } from "./table-params";
 import { CardBack, CardPanel, TacticsCard } from "./tactics-card";
 
@@ -45,7 +46,9 @@ export class Player extends PlayerLib {
   // {gold: 'gold', lightblue: 'lightblue', violet: 'Violet', blue: 'blue', red: 'red' };
   static override colorScheme = {
       ... playerColors.reduce((pv, cv) => (pv[cv] = cv, pv), {} as typeof PlayerLib.colorScheme),
-      'blue': 'lightblue',
+      'yellow': 'tan',// 'rgb(255, 213, 0)',
+      'blue': 'rgb(1, 161, 230)',
+      'red': 'rgb(255, 98, 0)'
   } as typeof PlayerLib.colorScheme;
 
   // QQQ: Player.color -> PlayerPanel, or PlayerPanel.color -> Player
@@ -199,6 +202,7 @@ export class Panel extends PlayerPanel {
 
   /** the 'hand' of TacticsCards */
   readonly cardRack: Hex2[] = [];
+  cardPanel!: CardPanel;
 
   constructor(table: Table, player: Player, high: number, wide: number, row: number, col: number, dir?: number) {
     const hexMap = table.hexMap;
@@ -207,8 +211,61 @@ export class Panel extends PlayerPanel {
     this.Aname = player.Aname;         // reset Aname
     // this.player.color = Player.playerColor(this.player.cname!); // using Player.colorScheme
     this.player.color = Player.colorScheme[playerColors[this.factionId]];
+    this.bg0 = C.grey64; 'rgb(56, 56, 56)';
+    this.bg1 = this.bg0;
     console.log(stime(this, `.constructor: factionId=${this.factionId} this.player.color=${this.player.color}`))
-    this.addCardPanel(table);
+    this.layoutPanel(table);
+  }
+
+  /**
+   * add components:
+   * - place for Relics [bonus: Fame, Gem, Flip]
+   * - Income stripe & Buildings (Factory, Baracks, Strongholds)
+   * - - Each cell: Shape, Gemlock, Features
+   * - Foundations
+   * - Handlimit
+   * - Recruit counters 3 -> 2 -> 1 -> 0 = Base
+   * - Special: Ry-zhu status, Trap status, Morale status
+   *
+   * Also: setup Base hex: [Ship, E1, E2, E2, G1, R1]
+   */
+  layoutPanel(table: ChaosTable) {
+    this.cardPanel = this.addCardPanel(table);
+    this.addRelics();
+    return this.children;
+  }
+  // Relic bonus: G: Gem, Up: Upgrade Attribute(flip), F: Fame, E: Energy, M: Morale,
+  panelSpecs: {name: FactionName, sp: string[]}[] = [
+    { name: 'Circadian', sp: ['G1', 'Up', 'G1', 'Up', 'Up', ] },
+    { name: 'AI', sp: ['F1', 'F2', 'F2', 'F3', 'F4', ]},
+    { name: 'Zcharo', sp: ['G1', 'G1', 'G1', 'G1', 'G1', ]},
+    { name: 'Leyrein', sp: ['M0', 'F2', 'F2', 'F3', 'F3', ]},
+    { name: 'Jrayek', sp: ['E2', 'F1', 'E3', 'F1', 'F1', ]},
+    { name: 'Oxytaya', sp: ['F1', 'F1', 'F1', 'F2', 'F3', ]},
+  ]
+
+  addRelics() {
+    const { x, y, width, height } = this.getBounds();
+    const w = width / (6.5), h = w / 2, gap = 4;
+    const x0 = x + w * 2, y0 = y + h / 2;
+    const facName = this.player.facName;
+    const spec = this.panelSpecs.find(spec => (spec.name == facName));
+    const sp = spec!.sp;
+    arrayN(5).forEach(n => {
+      const cont = new NamedContainer(`Relic${n}`)
+      const foreColor = C.nameToRgbaString(this.player.color, .7);
+      const bgrect = new RectShape({ x: -w/2, y: -h/2, w: w-gap, h, s: 0 }, foreColor, '');
+      const fs = h / 2, dx = w * .23;
+      const resIcon = new CenterText('%', fs, C.white);
+      resIcon.x = - dx; resIcon.y = 0;
+      const specIcon = new CenterText(sp[n], fs, C.white);
+      specIcon.x = + dx; specIcon.y = 0;
+      cont.addChild(bgrect, resIcon, specIcon);
+      cont.x = x0 + n * w - gap/2;
+      cont.y = y0;
+      this.addChild(cont);
+    });
+    return;
   }
 
   addCardPanel(table: Table, row = 0, ncols = 6) {
@@ -217,14 +274,16 @@ export class Panel extends PlayerPanel {
     const cardH = CardBack.bounds.height;
     const high = cardH * 1.05 / dydr;  // units of hex.dydr
     const wide = table.panelWidth;
-    const cardPanel = new CardPanel(table, high, wide); // directly on table.mapCont! (so localToLocal works?)
+    const cardPanel = new CardPanel(table, high, wide, row, 0); // directly on table.mapCont! (so localToLocal works?)
     const pHeight = this.getBounds().height;
-    row = (row !== undefined) ? row : - high * 1.025;   // dubious?
+    row = (row !== 0) ? row : - high * 1.045;   // up by high, align CardPanel bottom to Panel bottom
     cardPanel.y = (row < 0 ? row + pHeight/dydr : row) * dydr;
     cardPanel.makeDragable(table);
     this.mapCont = cardPanel;
-    this.addChild(cardPanel); this.hexMap
+    this.addChild(cardPanel);
     cardPanel.fillAryWithCardHex(this, this.cardRack, high/2, ncols)
+    cardPanel.visible = true;
+    return cardPanel;
   }
 
   // maybe a super-class of CardPanel? *any* mapCont?
@@ -257,7 +316,7 @@ export class Panel extends PlayerPanel {
       // assume for now that PlayerPanel has mixinAB(PlayerPanel, HexMap<Hex2>)
       if (typeof map.addToMapCont !== 'function') {
         debugger;
-        mixinHexMap(PlayerPanel, HexMap<Hex2>)
+        mixins.mixinHexMap(PlayerPanel, HexMap2)
       }
     }
     const { width: panelw } = cPanel.getBounds();

@@ -171,7 +171,7 @@ export class ChaosTile extends MapTile {
     ]);
 
     const  xtraTileAry = [
-      [], [], [], tiles3, tiles4, tiles5,
+      [], [], [], tiles3, tiles4, tiles5, [],
     ]
     const xtraTiles = xtraTileAry[np];
 
