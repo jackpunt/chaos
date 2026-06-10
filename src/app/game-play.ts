@@ -3,7 +3,7 @@ import { KeyBinder } from "@thegraid/easeljs-lib";
 import { GamePlay as GamePlayLib, Scenario, TP as TPLib } from "@thegraid/hexlib";
 import type { HexMap2 } from "./chaos-hex";
 import type { ChaosTable } from "./chaos-table";
-import { GameSetup } from "./game-setup";
+import type { GameSetup } from "./game-setup";
 import { GameState } from "./game-state";
 import type { Player } from "./player";
 import { ScenarioParser } from "./scenario-parser";

@@ -1,7 +1,7 @@
-import { type Constructor } from "@thegraid/common-lib";
-import { NamedContainer } from "@thegraid/easeljs-lib";
-import { Hex1 as Hex1Lib, Hex2Mixin, HexMap, TileSource, type Tile } from "@thegraid/hexlib";
-import { type ChaosTile } from "./chaos-tile";
+import { C, Random, stime, type Constructor } from "@thegraid/common-lib";
+import { NamedContainer, PathShape, RectShape } from "@thegraid/easeljs-lib";
+import { H, Hex1 as Hex1Lib, Hex2Mixin, HexMap, TileSource, TP, type HexDir, type IHex2, type Tile } from "@thegraid/hexlib";
+import { ChaosTile, type HARVEST, type TERRAIN } from "./chaos-tile";
 import { Fighter, type Barracks, type Factory, type Leader, type Stronghold } from "./meeples";
 import type { Player } from "./player";
 import type { TacticsCard } from "./tactics-card";
@@ -74,6 +74,8 @@ export class ChaosHex2 extends ChaosHex2Lib {
   // declare meep: ChaosCard | undefined;
 }
 
+type TileSpec = { row: number, col: number, t: TERRAIN, h: HARVEST }
+
 export class HexMap2 extends HexMap<ChaosHex2> {
   constructor(radius?: number, addToMapCont?: boolean, hexC: Constructor<ChaosHex2> = ChaosHex2, Aname?: string) {
     super(radius, addToMapCont, hexC, Aname)
@@ -104,13 +106,138 @@ export class HexMap2 extends HexMap<ChaosHex2> {
 
   /** placeTile(row, col) after removing existing tile at row, col */
   replaceTile = (tile: ChaosTile, row: number, col: number) => {
-      const hex = this.getHex({row, col});
-      if (hex.tile) {
-        const tile0 = hex.tile!;
-        // console.log(stime('HexMap2.replaceTile:'), tile.toString(), tile0.toString(), tile0.x.toFixed(2), tile0.y);
-        tile0.sendHome();
-        // console.log(stime('HexMap2.replaceTile:'), tile.toString(), tile0.toString(), tile0.x.toFixed(2), tile0.y);
-      }
-      tile.placeTile(hex);
+    const hex = this.getHex({row, col});
+    if (hex.tile) {
+      const tile0 = hex.tile!;
+      // console.log(stime('HexMap2.replaceTile:'), tile.toString(), tile0.toString(), tile0.x.toFixed(2), tile0.y);
+      tile0.sendHome();
+      // console.log(stime('HexMap2.replaceTile:'), tile.toString(), tile0.toString(), tile0.x.toFixed(2), tile0.y);
     }
+    tile.placeTile(hex);
+  }
+
+  /** configure hexMap with terrain tiles, mountains, adjust adjacency, mark open base locations
+   *
+   * ['none' 'energy', 'gem', 'card', 'energy1', 'recruit1', ]
+   *    0        1        2        3        4       5
+   * ['Mtn', 'Hills', 'Swamp', 'Plains', 'Lake', 'Base']
+   *
+   * @param hexMap on which to put the ChaosTiles
+   * @param p6ary permutation for xtraTiles for (3, 4, 5)-players; set by ScenarioParser
+   * @param np = TP.numPlayers 2..5
+   */
+  setupMapTiles(p6ary = [-1, -1, -1], np = TP.numPlayers) {
+    const map = this;
+    /** return the Nth (of 6) permutation of a 3 element array*/
+    const permute6 = (ary3: any[], ndx: number) => {
+      if (ndx < 0 || ndx > 5) ndx = Random.random(6);
+      const p = [[0,1,2], [0,2,1], [1,0,2], [1,2,0], [2,0,1], [2,1,0]][ndx]
+      return [ary3[p[0]], ary3[p[1]], ary3[p[2]]];  // could use ary3.reduce(), but why bother?
+    }
+    // splice in t & h
+    const rct = (nspec: [number, number, { t: TERRAIN, h?: HARVEST }][]) => nspec.map(([row, col, thid]) => ({ row, col, h: 'none', ...thid } as TileSpec))
+
+    const initTiles: TileSpec[] = [
+      {row: 2, col: 5, t: 'Base', h: 'none'}, // Base <-- permanent
+      {row: 4, col: 1, t: 'Base', h: 'none'}, // Base(2)|Mtn(3-5)
+
+      {row: 3, col: 3, t: 'Plains', h: 'G1'}, // Plain:gem
+      {row: 3, col: 4, t: 'Swamp', h: 'C'}, // Swamp:card
+      {row: 3, col: 5, t: 'Hills', h: 'G1'}, // Hills:gem
+      {row: 4, col: 2, t: 'Swamp', h: 'E2'}, // S:energy
+      {row: 4, col: 3, t: 'Swamp', h: 'C'}, // S:card
+      {row: 4, col: 4, t: 'Hills', h: 'E2'}, // H:energy
+      {row: 4, col: 5, t: 'Swamp', h: 'G1'}, // swamp:gem
+      {row: 5, col: 2, t: 'Plains', h: 'C'}, // Plain:card
+      {row: 5, col: 4, t: 'Plains', h: 'E2'}, // Plain:energy
+
+      {row: 4, col: 6, t: 'Lake', h: 'none'}, // Lake:none
+      {row: 5, col: 3, t: 'Lake', h: 'none'}, // Lake:none
+      {row: 5, col: 5, t: 'Hills', h: 'C'}, // Hills:card
+      {row: 6, col: 4, t: 'Base', h: 'none'}, // Base(2)|xtile3
+    ];
+    const xtile3 = permute6([{t: 'Hills', h: 'E2'}, {t: 'Swamp', h: 'G1'}, {t: 'Plains', h: 'C' }], p6ary[0])
+    const xtile4 = permute6([{t: 'Hills', h: 'C' }, {t: 'Swamp', h: 'E2'}, {t: 'Plains', h: 'G1'}], p6ary[1])
+    const xtile5 = permute6([{t: 'Hills', h: 'G1'}, {t: 'Swamp', h: 'C' }, {t: 'Plains', h: 'E2'}], p6ary[2])
+    const xbase = (tid: TERRAIN) => ({ t: tid });
+
+    const tiles3: TileSpec[] = rct([
+      [6, 2, xtile3[0]], [6, 3, xtile3[1]], [6, 4, xtile3[2]],
+      [7, 4, xbase('Base')] , [3, 2, xbase('Base')], [5, 1, xbase('Base')], [4,  1, xbase('Mtn')], [5, 6, xbase('Base')],
+    ]);
+    const tiles4: TileSpec[] = rct([
+      [6, 5, xtile4[0]], [6, 6, xtile4[1]], [3, 6, xtile4[2]],
+    ]);
+    const tiles5: TileSpec[] = rct([
+      [3, 1, xtile5[0]], [4, 1, xtile5[1]], [2, 3, xtile5[2]],
+    ]);
+    const  xtraTileAry = [[], [], [], tiles3, tiles4, tiles5, []]
+
+    const placeTunnel = (dir12: HexDir, hex1: IHex2, hex2: IHex2, fillc = C.BLUE) => {
+      const points = (xs = TP.hexRad * .33, ys = TP.hexRad * .4) => {
+        return [
+          [-xs/2, ys/2],
+          [ xs/2, ys/2],
+          [ xs/2, 0],
+          [ 0, -ys/2],
+          [-xs/2, 0 ],
+          [-xs/2, ys/2],
+        ] as [x: number, y: number][];
+      }
+      const pent = (rad: number, fillc: string, tilt = 0, strokec = '') => {
+        const cont = new NamedContainer('tunnel');
+        const pent = new PathShape({ points: points(rad), fillc, strokec});
+        cont.addChild(pent);
+        cont.rotation = tilt;
+        return cont;
+      };
+
+      const tunnelFrom = (dir12: HexDir, hex1: IHex2, hex2: IHex2, fillc = C.BLUE) => {
+        hex1.links[dir12] = hex2;
+        const tilt = H.dirRot[dir12], rad = TP.hexRad/3;
+        const icon = pent(rad, fillc, tilt)
+        hex1.edgePoint(dir12, 1.35, icon);
+        hex1.map.mapCont.tileCont.addChild(icon);
+      }
+      tunnelFrom(dir12, hex1, hex2, fillc)
+      tunnelFrom(H.dirRev[dir12], hex2, hex1, fillc)
+    }
+    const placeMtn = (hex1: IHex2, hex2: IHex2) => {
+      const dir12 = hex1.findLinkHex(hex => (hex == hex2));
+      if (!dir12) {
+        console.log(stime(this, '.placeMtn: hexes not adjacent'), hex1, hex2);
+        return;
+      }
+      const dx = TP.hexRad * .9, dy = dx/6;
+      const mtn = new RectShape({x: -dx/2, y: -dy/2, w: dx, h: dy}, C.PURPLE, '');
+      mtn.rotation = (H.dirRot[dir12]);
+      const pt = hex1.edgePoint(dir12, 1, mtn);
+      hex1.map.mapCont.tileCont.addChild(mtn); // set mountain on edge
+      // remove adjacency links:
+      delete hex1.links[dir12];
+      delete hex2.links[H.dirRev[dir12]];
+    }
+    const placeTile = (tileSpec: TileSpec) => {
+      const { row, col, t, h } = tileSpec;
+      const tile = new ChaosTile(`T${row},${col}:${t.slice(0,1)}:${h}`, t, h);
+      map.replaceTile(tile, row, col);
+    }
+    map.sculptMap();                                 // reshape to basic hexes
+    initTiles.forEach(ts => placeTile(ts));          // place fixed tiles on basic hexes
+    for (let ndx = 3; ndx <= np; ndx++ ) {
+      xtraTileAry[ndx].forEach(ts => placeTile(ts)); // place extra (per player count) tiles, randomized
+    }
+
+    map.forEachHex(hex => {
+      hex.tile || placeTile({ ... hex, t: 'Mtn', h: 'none' });   // cover unused hexes with Mtn
+    })
+    // place 3 standard adjacency-breaking mountains:
+    placeMtn(map.getHex({row: 4, col: 4}), map.getHex({row: 3, col: 4}) );
+    placeMtn(map.getHex({row: 4, col: 4}), map.getHex({row: 4, col: 5}) );
+    placeMtn(map.getHex({row: 4, col: 2}), map.getHex({row: 5, col: 2}) );
+    placeTunnel(H.N, map.getHex({row: 3, col: 6}), map.getHex({row: 6, col: 2}), C.BLUE)
+    placeTunnel(H.WN, map.getHex({row: 3, col: 1}), map.getHex({row: 6, col: 6}), C.RED)
+
+    // TODO: set mountains and LINKS
+  }
 }

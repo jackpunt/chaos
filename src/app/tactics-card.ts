@@ -2,14 +2,13 @@ import { C, permute, S, stime } from "@thegraid/common-lib";
 import { CenterText, NamedContainer, RectShape, type DragInfo, type Paintable } from "@thegraid/easeljs-lib";
 import type { Text } from "@thegraid/easeljs-module";
 import { DisplayObject, Graphics, MouseEvent } from "@thegraid/easeljs-module";
-import { H, LegalMark, MapCont, NumCounter, Tile, TileSource, type DragContext, type IHex2 } from "@thegraid/hexlib";
+import { H, LegalMark, MapCont, NumCounter, Tile, TileSource, type DragContext, type IHex2, TP } from "@thegraid/hexlib";
 import { CardShape } from "./card-shape";
 import { ChaosHex2 as Hex2, type ChaosHex as Hex1, type HexMap2 } from "./chaos-hex";
-import { ChaosTable as Table } from "./chaos-table";
-import { type GamePlay } from "./game-play";
+import type { ChaosTable as Table } from "./chaos-table";
+import type { GamePlay } from "./game-play";
 import type { GameState } from "./game-state";
-import { Panel, Player } from "./player";
-import { TP } from "./table-params";
+import type { Panel, Player } from "./player";
 import type { CountClaz } from "./tile-exporter";
 
 // Temporary, should be in GamePlay

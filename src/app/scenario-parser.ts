@@ -1,7 +1,7 @@
 import { stime } from "@thegraid/common-lib";
 import { SetupElt as SetupEltLib, ScenarioParser as SPLib, } from "@thegraid/hexlib";
-import { ChaosTile } from "./chaos-tile";
 import type { GamePlay } from "./game-play";
+import type { HexMap2 } from "./chaos-hex";
 
 
 
@@ -57,7 +57,7 @@ export class ScenarioParser extends SPLib {
         // this.gamePlay.allTiles.forEach(tile => tile.hex?.isOnMap ? tile.sendHome() : undefined); // clear existing map
     }
     if (p6ary) {
-      ChaosTile.setupMapTiles(gamePlay.hexMap, );
+      (gamePlay.hexMap as HexMap2).setupMapTiles( );
     }
     this.gamePlay.hexMap.update();
   }

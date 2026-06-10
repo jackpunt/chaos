@@ -1,14 +1,13 @@
 import { arrayN, C, Constructor, stime } from "@thegraid/common-lib";
 import { CenterText, NamedContainer, RectShape } from "@thegraid/easeljs-lib";
 import { HexMap, newPlanner, NumCounter, Player as PlayerLib, PlayerPanel, type IHex2, type MapCont, type TileSource } from "@thegraid/hexlib";
-import { ChaosHex2 as Hex2, HexMap2, type ChaosHex2 } from "./chaos-hex";
+import { ChaosHex2 as Hex2, type ChaosHex2 } from "./chaos-hex";
 import { type ChaosTable, type ChaosTable as Table } from "./chaos-table";
 import { ChaosTile, type RESOURCE } from "./chaos-tile";
-import { GamePlay } from "./game-play";
+import { type GamePlay } from "./game-play";
 import { ChaosPresence, type Barracks, type ChaosBuildingType, type ChaosUnitType, type Factory, type Fighter, type Leader, type Stronghold } from "./meeples";
-import { mixins } from "./mixins";
 import { TP } from "./table-params";
-import { CardBack, CardPanel, TacticsCard } from "./tactics-card";
+import { CardBack, CardPanel } from "./tactics-card";
 
 /** Canonical Faction colors, aligned with gameSetup.factionNames.
  *
@@ -167,14 +166,13 @@ export class Player extends PlayerLib {
   makeCardRack(table: Table, row?: number, ncols = 6) {
   }
 
-  addCard(card?: TacticsCard) {
-    const hex2 = this.cardRack.find(hex => !hex.tile) as Hex2;
-    if (!hex2) return;
-    if (!card) card = TacticsCard.source.takeUnit();
-    card?.placeTile(hex2);
-    return card;
+  // addCard(card?: TacticsCard) {
+  //   const hex2 = this.cardRack.find(hex => !hex.tile) as Hex2;
+  //   if (!hex2) return;
+  //   if (!card) card = TacticsCard.source.takeUnit();
+  //   card?.placeTile(hex2);
+  //   return card;
 
-  }
   /** for ScenarioParser.saveState() */ // TODO: code cards with index, or string->card
   get cards() { return this.cardRack.map(hex => hex.tile) }
 
@@ -313,8 +311,8 @@ export class Panel extends PlayerPanel {
   baseTile!: ChaosTile;
   // make ChaosTile, set color, set Harvest token
   setupBase(spec: BaseSpec) {
-    const thid = ChaosTile.thid('Base', 'G1')
-    const baseTile = new ChaosTile(`${this.facName}Base`, thid, this.player);
+    const h = spec.bh ?? 'none';
+    const baseTile = new ChaosTile(`${this.facName}Base`, 'Base', h, this.player);
     baseTile.paint(this.pColor)
   }
 
@@ -360,15 +358,15 @@ export class Panel extends PlayerPanel {
     // verify prototype functions and instance variables are installed:
     // GameSetup.static{} & ChaosPlayerPanel.constructor conspire to do this.
     // With backup in: table.makePlayerPanel(), and here: ChaosPlayerPanel.hexesOnMapCont
-    if (!map.topo) {
-      console.log(stime(this, `.assign(map=${map.name}, this.hexMap=${table.hexMap.Aname}`));
-      Object.assign(map, table.hexMap);
-      // assume for now that PlayerPanel has mixinAB(PlayerPanel, HexMap<Hex2>)
-      if (typeof map.addToMapCont !== 'function') {
-        debugger;
-        mixins.mixinHexMap(PlayerPanel, HexMap2)
-      }
-    }
+    // if (!map.topo) {
+    //   console.log(stime(this, `.assign(map=${map.name}, this.hexMap=${table.hexMap.Aname}`));
+    //   Object.assign(map, table.hexMap);
+    //   // assume for now that PlayerPanel has mixinAB(PlayerPanel, HexMap<Hex2>)
+    //   if (typeof map.addToMapCont !== 'function') {
+    //     debugger;
+    //     mixins.mixinHexMap(PlayerPanel, HexMap2)
+    //   }
+    // }
     const { width: panelw } = cPanel.getBounds();
     const { x: xn, dydr, dxdc } = this.hexMap.xywh(undefined, 0, colN - 1); // x of last cell
     const gpix = gap < 1 ? gap * dxdc : gap;

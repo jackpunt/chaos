@@ -1,7 +1,6 @@
-import { Meeple, MeepleShape, TileSource, type playerColors } from "@thegraid/hexlib";
-import type { ChaosHex2 } from "./chaos-hex";
 import { PathShape } from "@thegraid/easeljs-lib";
 import type { Graphics } from "@thegraid/easeljs-module";
+import { Meeple, MeepleShape } from "@thegraid/hexlib";
 import type { Player } from "./player";
 
 

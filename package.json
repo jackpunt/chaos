@@ -24,6 +24,16 @@
       }
     ]
   },
+  "madge": {
+    "detectiveOptions": {
+      "ts": {
+        "skipTypeImports": true
+      },
+      "tsx": {
+        "skipTypeImports": true
+      }
+    }
+  },
   "private": true,
   "dependencies": {
     "@angular/common": "^21.2.14",
