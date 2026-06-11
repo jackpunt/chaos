@@ -13,6 +13,7 @@ export function dynamicMixin(classA: Constructor<any>, classB: Constructor<any>)
       rootA = Object.getPrototypeOf(rootA);
     }
     // Splice prototype chain of classB onto the end of classA's root (all the classB methods)
+    // sadly, all instances of rootA inherit classB. So Panel -> DisplayObject -> classB -> Object
     Object.setPrototypeOf(rootA, classB.prototype);
   }
 
@@ -49,6 +50,22 @@ export function clonePrototypeChain(
   // Step 3: Return the final head of the isolated prototype chain clone
   return lastClonedLink;
 }
+
+// classA2 extends classA1 { ... }
+// to *also* extend classB:
+//
+// const bOverA1 = clonePrototypeChain(ClassB, ClassA1.prototype);
+//
+// typically modify all of ClassA:
+// Object.setPrototypeOf(classA2.prototype, bOverA1);
+//
+// One always needs to set the instance variables from an instance of ClassB
+// constructor(instB: ClassB) {
+//    super();
+//    Object.assign(this, instB);
+// }
+// Can make specific instances of ClassA2 (extends ClassA1 & ClassB)
+// setPrototypeOf(instancA2, bOverA1); replacing the original simple ClassA1
 
 export function mixinHexMap(classA: Constructor<Container>, classB: Constructor<HexMap2>)
   // inject ClassB...<Object> directly below classA in classA prototype chain.
