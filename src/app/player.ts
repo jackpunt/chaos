@@ -4,6 +4,7 @@ import { HexMap, newPlanner, NumCounter, Player as PlayerLib, PlayerPanel, type 
 import { ChaosHex2 as Hex2, type ChaosHex2 } from "./chaos-hex";
 import { type ChaosTable, type ChaosTable as Table } from "./chaos-table";
 import { ChaosTile, type RESOURCE } from "./chaos-tile";
+import { BgFound, Foundation } from "./foundation";
 import { type GamePlay } from "./game-play";
 import { ChaosPresence, type Barracks, type ChaosBuildingType, type ChaosUnitType, type Factory, type Fighter, type Leader, type Stronghold } from "./meeples";
 import { TP } from "./table-params";
@@ -17,8 +18,8 @@ import { CardBack, CardPanel } from "./tactics-card";
 const playerColors = ['gold', 'grey', 'blue', 'green', 'orange', 'violet', ] as const;
 export type PlayerColor = typeof playerColors[number];
 
-// 5 Foundations, named for the bonus they give; stronghold & one other have gemlock
-const foundationIds = ['research', 'unlock', 'harvest', 'adjacent', 'handlimit'] as const;
+// 5 Bonus Foundations, named for the bonus they give; stronghold & one other have gemlock
+const foundationIds = ['research', 'harvest', 'adjacent', 'unlock', 'handlimit'] as const;
 type FoundationId = typeof foundationIds[number];
 
 /** presentation name of each Faction */  // TODO: move these to Scenario & parser?
@@ -152,9 +153,9 @@ export class Player extends PlayerLib {
   /** Hex2[] on which to place Tiles */
   readonly unitRack: Hex2[] = [];
   makeUnitRack(table: Table, row = 0, ncols = 4) {
-    const rack = table.hexesOnPanel(this.panel, row, ncols) as Hex2[];
-    rack.forEach((hex, n) => hex.Aname = `${this.index}R${n}`)
-    this.unitRack.splice(0, this.unitRack.length, ...rack); // replace all elements
+    const hexes = table.hexesOnPanel(this.panel, row, ncols) as Hex2[];
+    hexes.forEach((hex, n) => hex.Aname = `${this.index}R${n}`)
+    this.unitRack.splice(0, this.unitRack.length, ...hexes); // replace all elements
   }
   /** all Buildings on panel? make racks for each Building type? use simple array/stack? */
   get units() { return this.unitRack.map(hex => hex.tile) }
@@ -204,7 +205,7 @@ export class Panel extends PlayerPanel {
   // Jrayek: Combat: +str, +shield
   // Oxytaya: Recruit: placement option
 
-  static panelSpecs: FacSpec[] = [
+  static facSpecs: FacSpec[] = [
     { name: 'Circadian', rb: ['G1', 'Up', 'G1', 'Up', 'Up', ], fg: 2, bg: [[0,0,0], [0,0,0], [1,1,1]], nr: [6, 2, 0, 2], bi: 3, }, // no base; 10 Fighters
     { name: 'AI',        rb: ['F1', 'F2', 'F2', 'F3', 'F4', ], fg: 2, bg: [[0,1,1], [0,0,1,1], [0,1]], nr: [12, 8], }, // +10 on copious
     { name: 'Zcharo',    rb: ['G1', 'G1', 'G1', 'G1', 'G1', ], fg: 3, bg: [[0,0,0], [1,1,1], [0,1,1]], nr: [9, 5, 6], bi: 3, },
@@ -216,7 +217,7 @@ export class Panel extends PlayerPanel {
   // Base harvest= bh?: E1, E2, G1, R1
   // Base foundations = bf: [string, string]
   static baseSpecs: BaseSpec[] = [
-    { name: 'Circadian', bh: 'none', bf: ['%', 'E2'] }, // no base
+    { name: 'Circadian', bh: '-', bf: ['%', 'E2'] }, // no base
     { name: 'AI',        bh: 'E1', bf: ['G1', 'E2'] },
     { name: 'Zcharo',    bh: 'E2', bf: ['C', 'G1'] },
     { name: 'Leyrein',   bh: 'E2', bf: ['C', 'E2'] },
@@ -225,7 +226,7 @@ export class Panel extends PlayerPanel {
   ]
   facName: FactionName;
   baseSpec!: BaseSpec;
-  panelSpec!:FacSpec;
+  facSpec!:FacSpec;
 
   declare mapCont: MapCont;            // player.makeCardRack() will set mapCont = cardPanel
   declare player: Player;
@@ -254,7 +255,7 @@ export class Panel extends PlayerPanel {
     this.bg0 = C.grey64; 'rgb(56, 56, 56)';
     this.bg1 = this.bg0;
     const facName = this.facName = this.player.facName;
-    this.panelSpec = Panel.panelSpecs.find(spec => (spec.name == facName))!;
+    this.facSpec = Panel.facSpecs.find(spec => (spec.name == facName))!;
     this.baseSpec = Panel.baseSpecs.find(spec => (spec.name == facName))!;
     console.log(stime(this, `.constructor: factionId=${this.factionId} cname=${this.player.cname} ${facName}`))
     this.layoutPanel(table);
@@ -274,8 +275,9 @@ export class Panel extends PlayerPanel {
    */
   layoutPanel(table: ChaosTable) {
     this.cardPanel = this.addCardPanel(table);
-    this.addRelics(this.panelSpec);
-    this.addBuildings(this.panelSpec);
+    this.addRelics(this.facSpec);
+    this.addBuildings(this.facSpec);
+    this.addFoundations(this.facSpec, table)
     this.setupBase(this.baseSpec);
     this.player.gamePlay.hexMap
     return this.children;
@@ -308,10 +310,43 @@ export class Panel extends PlayerPanel {
 
   }
 
+  addFoundations(spec: FacSpec, table: Table) {
+    const fg = spec.fg, r = [ 1, 2, 3, 2, 3 ], c = [ 1, 1, 1, 0, 0 ];
+    const fn: Record<FoundationId, string> = {
+      research: 'Gem\nto\nResearch',
+      harvest: 'All\n\nHarvest',
+      adjacent: 'All\n\nadjacent',
+      unlock: '-E2\nV\nunlock',
+      handlimit: '+E2\n\n5 Cards'
+    }
+    const s = Foundation.xy, x0 = s * .55, y0 = s * .55;
+    const s1 = s * 1.1;
+    const nc = this.numChildren;
+    arrayN(5).forEach(ndx => {
+      const fx = x0 + s1 * c[ndx];
+      const fy = y0 + s1 * r[ndx];
+      const fid = foundationIds[ndx];
+      const bg = new BgFound(fid, fn[fid] as RESOURCE, s * .2);
+      bg.x = fx;
+      bg.y = fy;
+      bg.icon.y -= (bg.icon as CenterText).getMeasuredLineHeight() * 1.0; // raise to center
+      this.addChildAt(bg, nc);
+
+      const f = new Foundation(fid, '-', s * .2);
+      if (ndx == 0 || ndx == fg) {
+        f.addGemLock();
+      }
+      f.homeXY = { x: fx, y: fy };
+      f.x = fx; f.y = fy;
+      f.faceUp()
+      this.addChild(f);
+    })
+  }
+
   baseTile!: ChaosTile;
   // make ChaosTile, set color, set Harvest token
   setupBase(spec: BaseSpec) {
-    const h = spec.bh ?? 'none';
+    const h = spec.bh ?? '-';
     const baseTile = new ChaosTile(`${this.facName}Base`, 'Base', h, this.player);
     baseTile.paint(this.pColor)
   }

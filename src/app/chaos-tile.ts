@@ -1,10 +1,12 @@
 import { C, stime } from "@thegraid/common-lib";
-import { CenterText, CircleShape, PaintableShape, RectShape } from "@thegraid/easeljs-lib";
+import { CenterText, CircleShape, NamedContainer, PaintableShape, RectShape } from "@thegraid/easeljs-lib";
 import { Container } from "@thegraid/easeljs-module";
-import { type DragContext, HexShape, type IHex2, MapTile, Player as PlayerLib, type Table, TP } from "@thegraid/hexlib";
-import { type ChaosHex as Hex1, type ChaosHex2 as Hex2 } from "./chaos-hex";
+import { type DragContext, HexShape, type IHex2, MapTile, Player as PlayerLib, type Table, type TileSource, TP } from "@thegraid/hexlib";
+import { type ChaosHex2, type ChaosHex as Hex1 } from "./chaos-hex";
 import { type ChaosTable } from "./chaos-table";
+import type { Foundation } from "./foundation";
 import type { GamePlay } from "./game-play";
+import type { AI_Trap, Barracks, Factory, Fighter, Leader, Morale, Stronghold } from "./meeples";
 import type { Player } from "./player";
 
 declare module '@thegraid/easeljs-module' {
@@ -56,9 +58,12 @@ class HarvestToken {
 
 // 'Base' tile marks space where a Faction Base can be placed (replacing the place-keeper)
 const terrainIds = ['Mtn', 'Hills', 'Swamp', 'Plains', 'Lake', 'Base'] as const;
+
 // 'energy' is E2, 'energy1' is E1, 'recruit1' is 'R1'
-const resourceIds = ['none', 'E2', 'G1', 'C', 'E1', 'R1', '%'] as const;
 // energy1 on AI Base; 'recruit1' on Oxytaya Base
+// Note: Tile.setNameText() converts '-' to newline
+const resourceIds = ['-', 'E2', 'G1', 'C', 'E1', 'R1', '%'] as const;
+
 /** upgrade tokens which can be flipped; Leader deploy/upgrade for -2E, Build for -1E */
 const harvestTokenId = ['%', 'R3', 'G2', 'E4', 'E1C', 'R1C', 'Lm2', 'Bm1'] as const;
 
@@ -89,6 +94,19 @@ const colorOfTerrain: Record<TERRAIN, string> = {
 }
 
 
+/** per-Player bit on map Hex */
+class FactionOnTile extends NamedContainer {
+  constructor(player: Player) {
+    super(`fac-${player.facId}`);
+  }
+  leaders: Leader[] = [ ];              // 2 slots (own + Rhyzu), Zcharo: 4, Oxytaya: 4
+  Fighters!: TileSource<Fighter>;       // Fighter in slot, followed by Leader(s)
+  strength = 0;                         // Apparent strength of Faction
+  pins = 0;
+  // TODO: methods to add/remove elements
+}
+
+
 /** MapTile
  * ChaosTile: Tile with Terrain & Harvest icon.
  *
@@ -105,13 +123,14 @@ export class ChaosTile extends MapTile {
     return [resourceIds[harv], terrainIds[terr]];
   }
   /** compose thid from TERRAIN & RESOURCE */
-  static thid(terr: TERRAIN, harv: RESOURCE = 'none') {
+  static thid(terr: TERRAIN, harv: RESOURCE = '-') {
     return resourceIds.indexOf(harv) * 10 + terrainIds.indexOf(terr);
   }
 
   static readonly allChaosTiles: ChaosTile[] = [];
 
   declare gamePlay: GamePlay;
+  get chex() { return super.hex as ChaosHex2; }
 
   static curTable: ChaosTable;
 
@@ -126,6 +145,17 @@ export class ChaosTile extends MapTile {
   readonly terrain!: TERRAIN; // immutable
   harvest!: HARVEST;          // can place harvest buff token to change
   harvest_buff?: HARVEST;     // TODO: need additional HARVEST types
+
+  /** hold all the Faction Units; index by FactionId (or PlayerId?) */
+  factions: FactionOnTile[] = [];
+  special: { morale?: Morale, trap?: AI_Trap } = {}
+
+  // Tiles: isLegalTarget(hex, ctx) => (hex.foundations.length < 3)
+  foundations: [Foundation?, Foundation?, Foundation?] = [undefined, undefined, undefined]; // Factory, Baracks, Stronghold
+  // Meeples: isLegalTarget(hex, ctx) => !hex[this.type] && foundations.find(f=>!f.bldg)
+  Factory!: Factory;        //
+  Barracks!: Barracks;      //
+  Stronghold!: Stronghold;  //
 
   constructor(Aname: string, t: TERRAIN, h: HARVEST, player?: PlayerLib) {
     console.log(stime(`ChaosTile.new(${Aname}, ${t}, ${h})`))
@@ -154,11 +184,12 @@ export class ChaosTile extends MapTile {
     const cont = new Container();
     const colorForHarv: Partial<Record<HARVEST, string>> = { E2: 'gold', E1: 'gold', G1: 'red', C: 'white', R1: 'orange' }
     const cHarv = colorForHarv[h], rad = this.radius * .13, fs = this.radius * .15;
-    const icon = (h == 'C') ? new RectShape({ x: -rad, y: -rad, w: rad * 2, h: rad * 2.2 }, cHarv, '') :  new CircleShape(cHarv, rad, '');
+    const cardRect = { x: -rad, y: -rad, w: rad * 2, h: rad * 2.2 };
+    const icon = (h == 'C') ? new RectShape(cardRect, cHarv, '') : new CircleShape(cHarv, rad, '');
     const tColor = (h == 'G1') ? 'white' : 'black';
-    const iText = new CenterText(h == 'C' ? '+' : h == 'none' ? '' : h, fs, tColor);
-    cont.y = rad * 1.5;
-    if (h !== 'none') cont.addChild(icon, iText);
+    const iText = new CenterText(h == 'C' ? '+' : h == '-' ? '' : h, fs, tColor);
+    cont.y = this.radius * .37;
+    if (h !== '-') cont.addChild(icon, iText);
     this.addChild(cont);
   }
 
@@ -187,20 +218,35 @@ export class ChaosTile extends MapTile {
     return super.cantBeMovedBy(player, ctx);
   }
 
+  canAddFoundation(f: Foundation) {
+    return this.addFoundation(f, false) !== undefined;
+  }
+
+  // allocate room for 3 foundations; TODO: if user places more...?
+  addFoundation(f: Foundation, commit = true) {
+    const ndx = [1, 2, 0].find(ndx => this.foundations[ndx] == undefined);
+    if (commit && ndx != undefined) {
+      this.foundations[ndx] = f;
+      const hex = this.chex, s = .3, dx = s * f.radius * 1.03, dy = s * f.radius * 1.1;
+      f.x = hex.x + (ndx-1) * dx;
+      f.y = hex.y + hex.radius - dy;
+      f.scaleX = f.scaleY = s;
+      this.chex.mapCont.overCont.addChild(f);
+    }
+    return ndx;
+  }
+
+
   override dragStart(ctx: DragContext): void {
     super.dragStart(ctx); // --> cantBeMovedBy()
   }
 
   // dragStart -> markLegal; dragFunc(ctx.info.first) -> setLegalColors
   override markLegal(table: Table, setLegal = (hex: IHex2) => { hex.setIsLegal(false); }, ctx = table.dragContext) {
-    this.maxV = -1;  // dragStart is before markLegal()
-    ;(table as ChaosTable).gamePlay.curPlayer.unitRack.forEach(setLegal)
-    table.hexMap.forEachHex(setLegal);
+    table.hexMap.forEachHex(setLegal); // --> .isLegalTarget(toHex, ctx)
   }
 
-  /** max of maxV found during markLegal->isLegalTarget */
-  maxV = 0;
-
+  // constraints to drag/drop a ChaosTile (place a Base)
   override isLegalTarget(toHex: Hex1, ctx: DragContext): boolean {
     const tile = (toHex.tile as ChaosTile);
     const rv = !tile || tile.terrain == 'Base';

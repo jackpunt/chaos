@@ -1,6 +1,7 @@
 import { PathShape } from "@thegraid/easeljs-lib";
 import type { Graphics } from "@thegraid/easeljs-module";
-import { Meeple, MeepleShape } from "@thegraid/hexlib";
+import { Meeple, MeepleShape, Tile, type DragContext } from "@thegraid/hexlib";
+import type { ChaosHex2 } from "./chaos-hex";
 import type { Player } from "./player";
 
 
@@ -71,7 +72,7 @@ export class ChaosMeeple extends Meeple {
   constructor(Aname: string, player?: Player) {
     super(Aname, player);
     const clazName = this.constructor.name as ChaosUnitType;  // final class name
-    this.homeHex = player?.panel.unitHomes[clazName]?.[0] // TODO: each subclass: unitRack[ndx].sourceHex
+    this.homeHex = player?.panel.unitHomes[clazName]?.[0] // TODO: each subclass: unitHomes[ndx].sourceHex
   }
 }
 export class ChaosPresence extends ChaosMeeple {}
@@ -92,8 +93,20 @@ export class Leader extends ChaosUnit {
 // player moves during Build phase, auto-move during Combat phase
 // subtypes may contribute Strength
 //
+// Panel has FHex[9], FoundationTile has a FHex (when face up)
+//
 export class ChaosBuilding extends ChaosPresence {
+  type!: ChaosBuildingType;
   addStrength = 0;
+  constructor(Aname: string, player?: Player) {
+    super(Aname, player);
+    const clazName = this.constructor.name as ChaosBuildingType;  // final class name
+    this.homeHex = player?.panel.buildingHomes[clazName]?.[0] // TODO: each subclass: buildingHomes[ndx].sourceHex
+  }
+  override isLegalTarget(toHex: ChaosHex2, ctx?: DragContext): boolean {
+    const tile = toHex.ctile;
+    return !!tile?.foundations.find(f => f && !f.bldg)
+  }
 }
 
 export class Factory extends ChaosBuilding {
@@ -111,15 +124,11 @@ export class Stronghold extends ChaosBuilding {
 // Meeple has unMove & faceUp
 
 // These are more Tile-like:
-/** each subclass has a slot on ChaosHex, but does not confer player 'presence' */
-class ChaosToken extends ChaosMeeple {
+/** each subclass has a slot on ChaosHex, but does not confer faction 'presence' */
+class ChaosToken extends Tile {
 
 }
-// Moves during Build phase (or Discover bonus)
-export class Foundation extends ChaosToken {
-  // typically a building must land on a Foundation
 
-}
 // Player moves only during initial game startup;
 // Auto moves during Relics phase
 export class Relic extends ChaosToken {

@@ -1,9 +1,9 @@
 import { selectN, stime, uniq, type Constructor } from '@thegraid/common-lib';
 import { AliasLoader, TileExporter } from '@thegraid/easeljs-lib';
+import type { Container } from '@thegraid/easeljs-module';
 import { GameSetup as GameSetupLib, H, HexMap, MapCont, PlayerPanel, Scenario as Scenario0, Tile, TP, type Hex, type SetupElt, type StartElt as StartEltLib } from '@thegraid/hexlib';
 import { ChaosHex2, HexMap2 } from './chaos-hex';
 import { ChaosTable as Table } from './chaos-table';
-import { ChaosTile } from './chaos-tile'; // before ./chaos-hex
 import { GamePlay } from './game-play';
 import { mixins } from './mixins';
 import { factionNames, Panel, Player, type FactionId, type FactionName } from './player';
@@ -12,6 +12,11 @@ import { TacticsCard } from './tactics-card';
 // TODO: you can run a tool like dpdm or madge from your terminal window
 // (npx madge --circular --extensions ts .) to map the dependency graph layout
 
+declare module '@thegraid/hexlib' {
+  interface MapCont {
+    overCont: Container;
+  }
+}
 
 /** extend with required FactionIds! */
 export interface StartElt extends StartEltLib {
@@ -185,6 +190,7 @@ class NullGameSetup extends GameSetupLib {
   ) {
     TP.nHexes = 4;
     TP.mHexes = 1;
+    cNames.splice(cNames.indexOf('tileCont')+1, 0, 'overCont')
     const hexMap = super.makeHexMap(hexMC, hexC, cNames) as HexMap2; // hexMap.makeAllHexes(nh=TP.nHexes, mh=TP.mHexes)
     return hexMap;
   }

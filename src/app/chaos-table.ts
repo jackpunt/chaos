@@ -129,12 +129,6 @@ export class ChaosTable extends Table {
     return hex
   }
 
-  /** identify dragTile so it can be rotated by keybinding */
-  get dragTile(): ChaosTile | undefined {
-    const dragging = this.isDragging;
-    return (dragging instanceof ChaosTile) ? dragging : undefined;
-  }
-
   override startGame() {
     super.startGame();         // allTiles.makeDragable(); setNextPlayer()
     this.gamePlay.gameState.start();   // gamePlay.phase(startPhase); enable GUI to drive game

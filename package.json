@@ -10,6 +10,7 @@
     "newhex": "npm i ../../ts/hexlib/thegraid-hexlib-*.tgz ; rm -rf .angular/cache ; date",
     "newejs": "npm i ../../ts/createjs-module/thegraid-easeljs-module-*.tgz ; rm -rf .angular/cache ; date",
     "newlib": "npm i ../../ts/createjs-lib/thegraid-easeljs-lib-*.tgz ; rm -rf .angular/cache; date",
+    "circles": "madge --circular --extensions ts --ts-config ./tsconfig.json ./src",
     "test": "ng test"
   },
   "prettier": {

@@ -143,7 +143,7 @@ export class TacticsCard extends Tile {
     return undefined; // player.cardRack OR (discard && isDoneCard)
   }
 
-  // TacticsCard.discard is Legal
+  // TacticsCard.discard is Legal; here we add/include empty spots on curPlayer.cardRack
   override markLegal(table: Table, setLegal = (hex: Hex2) => { hex.setIsLegal(false); }, ctx?: DragContext): void {
     table.gamePlay.curPlayer.cardRack.forEach(setLegal)
     setLegal(TacticsCard.discard.hex as Hex2)
@@ -154,11 +154,12 @@ export class TacticsCard extends Tile {
   // Discard Card:    player.cardRack -> discard(Play)
   // Rearrange Cards: player.cardRack -> player.cardRack(rearrange)
   // Play phase Card: player.cardRack -> table.discard (in Phase)
-  // Use Combat Card: player.cardRack -> player.combatWheel(for Combat)
+  // Use Tactic Card: player.cardRack -> player.combatWheel(for Battle)
   // Spurious click:  table.discard   -> discard, player.cardRack (undo-discard?, look behind?)
   override isLegalTarget(toHex: Hex2, ctx: DragContext): boolean {
     // Ok to move from player.cardRack (to rearrange?)
     const gameState = ctx.gameState as GameState;
+    // TODO: legal per phase & toHex
     return true;
   }
 
