@@ -226,7 +226,7 @@ export class ChaosTile extends MapTile {
     const ndx = [1, 2, 0].find(ndx => this.foundations[ndx] == undefined);
     if (commit && ndx != undefined) {
       this.foundations[ndx] = f;
-      const hex = this.chex, s = .3, dx = s * f.radius * 1.03, dy = s * f.radius * 1.1;
+      const hex = this.chex, s = .3, dx = s * f.radius * 1.03, dy = s * f.radius * 1.2;
       f.x = hex.x + (ndx-1) * dx;
       f.y = hex.y + hex.radius - dy;
       f.scaleX = f.scaleY = s;  // scale down when drop on map

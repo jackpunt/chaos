@@ -1,6 +1,7 @@
-import type { XY } from "@thegraid/common-lib";
-import { PathShape, type Paintable } from "@thegraid/easeljs-lib";
-import type { Graphics } from "@thegraid/easeljs-module";
+import { type XY, type XYWH } from "@thegraid/common-lib";
+import { NamedContainer, PathShape, RectShape, type Paintable } from "@thegraid/easeljs-lib";
+import type { Rectangle } from "@thegraid/easeljs-module";
+import { Graphics } from "@thegraid/easeljs-module";
 import { Meeple, MeepleShape, Tile, TP, type DragContext } from "@thegraid/hexlib";
 import type { ChaosHex2 } from "./chaos-hex";
 import type { RESOURCE } from "./chaos-tile";
@@ -15,6 +16,44 @@ export type ChaosUnitType = typeof chaosUnitType[number];
 const chaosBuildingType = ['Factory', 'Barracks', 'Stronghold'] as const;
 export type ChaosBuildingType = typeof chaosBuildingType[number];
 
+
+export class PaintableCont extends NamedContainer implements Paintable {
+  constructor(Aname = '', cx = 0, cy = 0) {
+    super(Aname, cx, cy);
+  }
+  paint(colorn?: string, force?: boolean): Graphics {
+    let rv = new Graphics();
+    this.children.forEach(child => {
+      const pc = child as Paintable;
+      if (typeof pc.paint == 'function') {
+        rv = pc.paint(colorn, force); // capture the last Paintable Graphics
+      }
+    })
+    return rv;
+  }
+
+  calcBounds(): XYWH {
+    const { x, y, width: w, height: h } = this.getBounds();
+    return {x, y, w, h};
+  }
+
+  /** ensure PaintableCont is cached; uses getBounds() ?? calcBounds().
+   *
+   * copied from PaintableShape
+   *
+   * @param scale [1] scale to use if cache is created
+   */
+  setCacheID(scale = 1) {
+    if (this.cacheID) return;  // also: if already cached, get/setBounds is useless
+    let b = this.getBounds() as Pick<Rectangle, 'x' | 'y' | 'width' | 'height'>
+    if (!b) {
+      const { x, y, w, h } = this.calcBounds();
+      b = { x, y, width: w, height: h }
+    }
+    this.cache(b.x, b.y, b.width, b.height, scale);
+  }
+}
+
 /** constructor sets this.pColor, this.radius.
  *
  * subclass can override static pointAry, static get points, or mscgf(...)
@@ -26,11 +65,21 @@ class PathShapeMeeple extends MeepleShape {
   /** return this.pointAry [static] */
   static get points(): XYp[] { return  this.pointAry};
 
-  /** subclass override mscgf(...) for non-PathShape */
-  override mscgf(color = this.pColor, ss?: number, rs?: number): Graphics {
-    return new PathShape({ points: (this.constructor as typeof PathShapeMeeple).points}, this.graphics).graphics;
+  morph(points: XYp[], radius = TP.meepleRad/4) {
+    return points.map(([x,y]) => [x * radius, (y + 1) * radius] as XYp)
   }
+
+  /** subclass override mscgf(...) for non-PathShape */
+  override mscgf(fillc = this.pColor, ss?: number, rs?: number): Graphics {
+    const points0 = (this.constructor as typeof PathShapeMeeple).points;
+    const points = this.morph(points0, this.radius)
+    return new PathShape({ points, fillc}, this.graphics).graphics;
+  }
+
   // TODO: makeOverlay for backside Shape
+  override makeOverlay(y0?: number): createjs.Shape {
+    return super.makeOverlay(y0); // make an overlay shape for the backside of baseShape.
+  }
 }
 class FactoryShape extends PathShapeMeeple {
   /** flatish pentagon */
@@ -39,16 +88,16 @@ class FactoryShape extends PathShapeMeeple {
 class BarrackShape extends PathShapeMeeple {
   static makePointAry() {
     // enforce symmetry:
-    const leftPts = [[-1, 0], [-1, -1.5], [-.9, -1.5], [-.9, -1], [0, -1.5]] as XYp[];
+    const leftPts = [[-1, 0], [-1, -1.4], [-.8, -1.4], [-.8, -1], [0, -1.5]] as XYp[];
     const rightPts = leftPts.map(([x, y]) => [-x, y]).slice(0, -1).reverse() as XYp[];
-    return leftPts.concat(...rightPts);
+    return leftPts.concat(rightPts);
   }
   /** larger, w/walls */
   static override pointAry = BarrackShape.makePointAry();
 }
 class StrongholdShape extends PathShapeMeeple {
   /** larget, w/tower */
-  static override pointAry = [[-1, 0], [-1, -2], [-.9, -2], [-.9, -1.5], [0, -2], [1, -1.5], [1, 0]] as XYp[];
+  static override pointAry = [[-1, 0], [-1, -2], [-.8, -2], [-.8, -1.5], [0, -2], [1, -1.5], [1, 0]] as XYp[];
 }
 
 
@@ -96,13 +145,28 @@ export class Leader extends ChaosUnit {
 // Panel has FHex[9], FoundationTile has a FHex (when face up)
 //
 export class ChaosBuilding extends ChaosPresence {
+  override get radius() { return TP.meepleRad; }
   readonly bText!: RESOURCE;           // 'E2' 'C' 'G1'
   homeAry!: ChaosBuilding[];  // buildings in residence (take/put from left)
   homeXY!: XY;                // loc of leftmost slot
   addStrength = 0;
+
   constructor(Aname: string, player: Player, homeAry: ChaosBuilding[]) {
     super(Aname, player);
     this.homeAry = homeAry;
+  }
+
+  override makeShape(size = this.radius/2): Paintable {
+    const bShape = this.makeShape0(size);
+    return bShape;
+    const cont = new PaintableCont(this.Aname)
+    cont.addChild(bShape)
+    cont.paint(this.pColor);
+    return cont;
+  }
+
+  makeShape0(size = 20): Paintable {
+    return new RectShape({ x: -size/2, y: -size/2, w: size, h: size, }, 'rgba(0, 0, 0, 0.3)', 'black')
   }
 
   override isLegalTarget(toHex: ChaosHex2, ctx?: DragContext): boolean {
@@ -131,7 +195,7 @@ export class ChaosBuilding extends ChaosPresence {
 
 export class Factory extends ChaosBuilding {
   override bText = 'E2' as RESOURCE;
-  override makeShape(size = TP.meepleRad/2): Paintable {
+  override makeShape0(size = TP.meepleRad): Paintable {
     const bs = new FactoryShape(undefined, size)
     return bs;
   }
@@ -139,7 +203,7 @@ export class Factory extends ChaosBuilding {
 
 export class Barracks extends ChaosBuilding {
   override bText = 'C' as RESOURCE;
-  override makeShape(size = TP.meepleRad/2): Paintable {
+  override makeShape0(size = TP.meepleRad): Paintable {
     return new BarrackShape(undefined, size)
   }
   override addStrength = 2;
@@ -147,7 +211,7 @@ export class Barracks extends ChaosBuilding {
 
 export class Stronghold extends ChaosBuilding {
   override bText = 'G1' as RESOURCE;
-  override makeShape(size = TP.meepleRad/2): Paintable {
+  override makeShape0(size = TP.meepleRad): Paintable {
     return new StrongholdShape(undefined, size);
   }
 }

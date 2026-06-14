@@ -274,8 +274,7 @@ export class Panel extends PlayerPanel {
    * Also: setup Base hex: [Ship, E1, E2, E2, G1, R1]
    */
   layoutPanel(table: ChaosTable) {
-    this.wh = this.getBounds().width / 14;
-    TP.meepleRad = this.wh;
+    this.wh = TP.meepleRad;
     this.cardPanel = this.addCardPanel(table);
     this.addRelics(this.facSpec);
     this.addBuildings(this.facSpec);
@@ -286,12 +285,12 @@ export class Panel extends PlayerPanel {
   }
 
   /** common wh for relics & foundations & buildings */
-  wh = TP.hexRad * .8;
+  wh = TP.meepleRad;
 
   addRelics(spec: FacSpec) {
     const { x, y, width, height } = this.getBounds();
-    const h = this.wh, w = h * 2, gap = h * .2;
-    const x0 = x + w * 2, y0 = y + h * .65;
+    const h = this.wh, w = h * 2, gap = h * .15;
+    const x0 = x + w * 1.76, y0 = y + h * .65;
     const sp = spec.rb;
     arrayN(5).forEach(n => {
       const cont = new NamedContainer(`Relic${n}`)
@@ -329,12 +328,15 @@ export class Panel extends PlayerPanel {
           const fg = new BC(Aname, this.player, homeAry);
           const bg = new BgFound(Aname, fg.bText, fs);
           if (gl == 1) {
-            bg.addGemLock(.35, .5);
+            bg.addGemLock(.35, .65);
           }
           return { bg, fg };
         }
         const { bg, fg } = this.makePair({ x: x00, y: y0 }, maker); // homeXY = (x00, y0)
         bg.x = x;
+        fg.paint(this.pColor);
+        const bs = (fg as ChaosBuilding).backSide;
+        // if (bs) bs.visible = true
       })
       x00 += (wh) * nbldgs + wh * .3;
     })

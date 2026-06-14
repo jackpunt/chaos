@@ -66,7 +66,7 @@ class NullGameSetup extends GameSetupLib {
     TP.gport = Number.parseInt(port || TP.gport.toString(10), 10)
     TP.networkGroup = 'chaos:game1';
     TP.networkUrl = TP.buildURL(undefined);
-    TP.meepleRad = TP.hexRad * .3;  // scale size of Meeples (factory...Leader, Fighter)
+    TP.meepleRad = TP.hexRad * .8;  // scale size of Meeples (factory...Leader, Fighter)
     TP.meepleY0 = 0;                // each is different, put it at {0, 0}
     super.initialize(canvasId);
     let rfn = document.getElementById('readFileName') as HTMLInputElement;

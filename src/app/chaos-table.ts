@@ -97,7 +97,7 @@ export class ChaosTable extends Table {
   orig_doneClick!: (evt?: any) => void;
 
   override get panelHeight() { return Math.max(super.panelHeight, 3.8) }
-  override get panelWidth() { return 6.5 }
+  override get panelWidth() { return 7 }
 
   override panelLocsForNp(np: number): number[] {
     return [[], [0], [0, 2], [0, 3, 2], [0, 3, 5, 2], [0, 3, 4, 5, 2], [0, 3, 4, 5, 2, 1]][np];

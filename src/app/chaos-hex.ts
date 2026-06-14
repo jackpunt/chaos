@@ -5,6 +5,7 @@ import { H, Hex1 as Hex1Lib, Hex2Mixin, HexMap, HexMark, TileSource, TP, type He
 import { ChaosTile, type HARVEST, type TERRAIN } from "./chaos-tile";
 import { Fighter } from "./meeples";
 import type { TacticsCard } from "./tactics-card";
+import { Foundation } from "./foundation";
 
 
 // Hex1 has get/set tile/meep -> _tile/_meep
@@ -244,6 +245,13 @@ export class HexMap2 extends HexMap<ChaosHex2> {
           delete hex0.links[dir!]
           delete hex2.links[H.dirRev[dir!]]
         })
+      }
+    })
+
+    map.forEachHex(hex => {
+      if (hex.ctile?.terrain == 'Swamp') {
+        const f = new Foundation('Base!', 'C', 20)
+        hex.ctile.addFoundation(f, true);    // hack to add some Foundation to map:
       }
     })
 
