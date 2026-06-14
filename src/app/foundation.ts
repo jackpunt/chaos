@@ -2,7 +2,7 @@ import { type XY } from "@thegraid/common-lib";
 import { CenterText, CircleShape, RectShape, type Paintable } from "@thegraid/easeljs-lib";
 import type { DisplayObject } from "@thegraid/easeljs-module";
 import { Tile, TP, type DragContext, type Table } from "@thegraid/hexlib";
-import { ChaosHex2 } from "./chaos-hex";
+import { ChaosHex2 as Hex2 } from "./chaos-hex";
 import type { RESOURCE } from "./chaos-tile";
 import type { ChaosBuilding } from "./meeples";
 
@@ -68,7 +68,7 @@ export class Foundation extends Tile {
     super.dragStart(ctx);
   }
 
-  override isLegalTarget(toHex: ChaosHex2, ctx: DragContext): boolean {
+  override isLegalTarget(toHex: Hex2, ctx: DragContext): boolean {
     if (!toHex) return false;
     const tile = toHex.ctile!;
     if (!tile) return false;
@@ -77,7 +77,7 @@ export class Foundation extends Tile {
     return true;
   }
 
-  override dropFunc(targetHex: ChaosHex2, ctx: DragContext): void {
+  override dropFunc(targetHex: Hex2, ctx: DragContext): void {
     if (!targetHex) {
       this.sendHome(); // Note: once placed on map, home is on HexMap, not Panel
       return;
@@ -100,6 +100,6 @@ export class BgFound extends Foundation {
 }
 
 /** for Foundation Tiles */ // see also: tactics-card.ts: CardHex
-export class FHex extends ChaosHex2 {
+export class FHex extends Hex2 {
 
 }

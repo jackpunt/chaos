@@ -2,7 +2,7 @@ import { C, permute, S, stime } from "@thegraid/common-lib";
 import { CenterText, NamedContainer, RectShape, type DragInfo, type Paintable } from "@thegraid/easeljs-lib";
 import type { Text } from "@thegraid/easeljs-module";
 import { DisplayObject, Graphics, MouseEvent } from "@thegraid/easeljs-module";
-import { H, LegalMark, MapCont, NumCounter, Tile, TileSource, type DragContext, type IHex2, TP } from "@thegraid/hexlib";
+import { H, LegalMark, MapCont, NumCounter, Tile, TileSource, TP, type DragContext, type IHex2 } from "@thegraid/hexlib";
 import { CardShape } from "./card-shape";
 import { ChaosHex2 as Hex2, type ChaosHex as Hex1, type HexMap2 } from "./chaos-hex";
 import type { ChaosTable as Table } from "./chaos-table";
@@ -222,9 +222,9 @@ export class TacticsCard extends Tile {
   // Player can drag it to discard pile during appropriate phase: eval effect
   // or drag it to combat wheel during Combat (discard after Combat)
   //
-  override dropFunc(targetHex: IHex2, ctx: DragContext): void {
-    const toHex = targetHex as Hex2, card = toHex.card;
-    if (card && card !== this) card.moveCard(toHex, ctx);
+  override dropFunc(targetHex: Hex2, ctx: DragContext): void {
+    const card = targetHex.card;
+    if (card && card !== this) card.moveCard(targetHex, ctx);
     super.dropFunc(targetHex ?? TacticsCard.discard.hex, ctx);
     if (this.hex === TacticsCard.discard.hex) {
       TacticsCard.discard.availUnit(this);
@@ -362,7 +362,7 @@ export class CardBack extends TacticsCard {
   override isDragable(ctx?: DragContext): boolean {
     return false;
   }
-  override dropFunc(targetHex: IHex2, ctx: DragContext): void {
+  override dropFunc(targetHex: Hex2, ctx: DragContext): void {
     // do not move or place this card...
   }
   clicked(evt?: MouseEvent) {

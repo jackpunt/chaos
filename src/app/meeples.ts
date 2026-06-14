@@ -3,7 +3,7 @@ import { NamedContainer, PathShape, RectShape, type Paintable } from "@thegraid/
 import type { Rectangle } from "@thegraid/easeljs-module";
 import { Graphics } from "@thegraid/easeljs-module";
 import { Meeple, MeepleShape, Tile, TP, type DragContext } from "@thegraid/hexlib";
-import type { ChaosHex2 } from "./chaos-hex";
+import type { ChaosHex2 as Hex2 } from "./chaos-hex";
 import type { RESOURCE } from "./chaos-tile";
 import type { Player } from "./player";
 
@@ -121,6 +121,10 @@ class StrongholdShape extends PathShapeMeeple {
 export class ChaosMeeple extends Meeple {
   declare player: Player;
 
+  /** invoke from startDrag() to prevent movement */
+  stopDrag() {
+    this.player.gamePlay.table.dragger.stopDrag()
+  }
 
 }
 /** marker class denoting Faction presence in a Region */
@@ -159,37 +163,44 @@ export class ChaosBuilding extends ChaosPresence {
   override makeShape(size = this.radius/2): Paintable {
     const bShape = this.makeShape0(size);
     return bShape;
-    const cont = new PaintableCont(this.Aname)
-    cont.addChild(bShape)
-    cont.paint(this.pColor);
-    return cont;
   }
 
   makeShape0(size = 20): Paintable {
     return new RectShape({ x: -size/2, y: -size/2, w: size, h: size, }, 'rgba(0, 0, 0, 0.3)', 'black')
   }
 
-  override isLegalTarget(toHex: ChaosHex2, ctx?: DragContext): boolean {
+  override isLegalTarget(toHex: Hex2, ctx?: DragContext): boolean {
     const tile = toHex.ctile;
     return !!tile?.foundations.find(f => f && !f.bldg)
   }
 
   override sendHome(): void {
     super.sendHome
-    // ASSERT there is always an open slot
-    const lim = this.homeAry.length - 1;
-    const fndx = (this.homeAry.findIndex(bldg => bldg == undefined));
     const wh = this.player!.panel.wh;
-    const ndx = (fndx < 0) ? 0 : fndx;
+    const lim = this.homeAry.length - 1;
+    // ASSERT there is always an open slot
+    const rndx = this.homeAry.toReversed().findIndex(bldg => bldg == undefined);
+    const ndx = lim - (rndx < 0 ? 0 : rndx);
+    const slot = ndx;
     this.homeAry[ndx] = this;
-    this.x = this.homeXY.x + (lim - ndx) * wh
+    this.x = this.homeXY.x + slot * wh; // fill from the right
     this.y = this.homeXY.y;
     this.player.panel.addChild(this); // set parent and raise to top of display list
   }
 
   override dragStart(ctx: DragContext): void {
-    const ndx = this.homeAry.indexOf(this) ;
-    delete this.homeAry[ndx];
+    const ndx = this.homeAry.indexOf(this);
+    if (ndx < 0) return;        // OK to drag
+    const fndx = this.homeAry.findIndex(bldg => bldg !== undefined)
+    if (ndx == fndx) {
+      delete this.homeAry[ndx]; // OK to drag; remove from Panel
+    } else {
+      this.stopDrag();          // leave on Panel
+    }
+  }
+
+  override dropFunc(targetHex: Hex2, ctx: DragContext): void {
+    super.dropFunc(targetHex, ctx);
   }
 }
 

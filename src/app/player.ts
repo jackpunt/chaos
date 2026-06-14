@@ -317,11 +317,12 @@ export class Panel extends PlayerPanel {
     let x00 = x0;
     specBg.forEach((spec, btype) => {  // btype: 0: Factory, 1: Barracks, 2: Stronghold
       const nbldgs = spec.length;
-      const homeAry = new Array<ChaosBuilding>(nbldgs);
+      const homeAry = new Array<ChaosBuilding>(nbldgs); // each Factory instance shares the same homeAry
       const bid = ['F', 'B', 'S'][btype];
       const BC = [Factory, Barracks, Stronghold][btype] as Constructor<ChaosBuilding>;
-      spec.forEach((gl, ndx) => {
-        const x = x00 + (nbldgs -1 - ndx) * wh; // place bg from left-to-right
+      spec.toReversed().forEach((gl, rndx) => {
+        const ndx = nbldgs - 1 - rndx; // actual ndx in homeAry
+        const x = x00 + ndx * wh; // place bg from left-to-right
         const y = y0;
         const maker = (fs: number) => {
           const Aname = `${bid}${this.player.facId}.${ndx}`;

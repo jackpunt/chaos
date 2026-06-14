@@ -2,7 +2,7 @@ import { C, stime } from "@thegraid/common-lib";
 import { CenterText, CircleShape, NamedContainer, PaintableShape, RectShape } from "@thegraid/easeljs-lib";
 import { Container } from "@thegraid/easeljs-module";
 import { type DragContext, HexShape, type IHex2, MapTile, Player as PlayerLib, type Table, type TileSource, TP } from "@thegraid/hexlib";
-import { type ChaosHex2, type ChaosHex as Hex1 } from "./chaos-hex";
+import { type ChaosHex2 as Hex2, type ChaosHex as Hex1 } from "./chaos-hex";
 import { type ChaosTable } from "./chaos-table";
 import type { Foundation } from "./foundation";
 import type { GamePlay } from "./game-play";
@@ -130,7 +130,7 @@ export class ChaosTile extends MapTile {
   static readonly allChaosTiles: ChaosTile[] = [];
 
   declare gamePlay: GamePlay;
-  get chex() { return super.hex as ChaosHex2; }
+  get chex() { return super.hex as Hex2; }
 
   static curTable: ChaosTable;
 
@@ -251,7 +251,7 @@ export class ChaosTile extends MapTile {
     const rv = !tile || tile.terrain == 'Base';
     return rv;
   }
-  override dropFunc(targetHex: IHex2, ctx: DragContext): void {
+  override dropFunc(targetHex: Hex2, ctx: DragContext): void {
     if (targetHex.tile) {
       targetHex.tile.sendHome();
     }
