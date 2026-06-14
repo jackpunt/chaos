@@ -1,7 +1,9 @@
-import { PathShape } from "@thegraid/easeljs-lib";
+import type { XY } from "@thegraid/common-lib";
+import { PathShape, type Paintable } from "@thegraid/easeljs-lib";
 import type { Graphics } from "@thegraid/easeljs-module";
-import { Meeple, MeepleShape, Tile, type DragContext } from "@thegraid/hexlib";
+import { Meeple, MeepleShape, Tile, TP, type DragContext } from "@thegraid/hexlib";
 import type { ChaosHex2 } from "./chaos-hex";
+import type { RESOURCE } from "./chaos-tile";
 import type { Player } from "./player";
 
 
@@ -68,13 +70,11 @@ class StrongholdShape extends PathShapeMeeple {
  * - ChaosToken(Trap, Morale, Foundation, PricingToken, 'Relic', )
  */
 export class ChaosMeeple extends Meeple {
+  declare player: Player;
 
-  constructor(Aname: string, player?: Player) {
-    super(Aname, player);
-    const clazName = this.constructor.name as ChaosUnitType;  // final class name
-    this.homeHex = player?.panel.unitHomes[clazName]?.[0] // TODO: each subclass: unitHomes[ndx].sourceHex
-  }
+
 }
+/** marker class denoting Faction presence in a Region */
 export class ChaosPresence extends ChaosMeeple {}
 
 class ChaosUnit extends ChaosPresence {
@@ -96,34 +96,65 @@ export class Leader extends ChaosUnit {
 // Panel has FHex[9], FoundationTile has a FHex (when face up)
 //
 export class ChaosBuilding extends ChaosPresence {
-  type!: ChaosBuildingType;
+  readonly bText!: RESOURCE;           // 'E2' 'C' 'G1'
+  homeAry!: ChaosBuilding[];  // buildings in residence (take/put from left)
+  homeXY!: XY;                // loc of leftmost slot
   addStrength = 0;
-  constructor(Aname: string, player?: Player) {
+  constructor(Aname: string, player: Player, homeAry: ChaosBuilding[]) {
     super(Aname, player);
-    const clazName = this.constructor.name as ChaosBuildingType;  // final class name
-    this.homeHex = player?.panel.buildingHomes[clazName]?.[0] // TODO: each subclass: buildingHomes[ndx].sourceHex
+    this.homeAry = homeAry;
   }
+
   override isLegalTarget(toHex: ChaosHex2, ctx?: DragContext): boolean {
     const tile = toHex.ctile;
     return !!tile?.foundations.find(f => f && !f.bldg)
   }
+
+  override sendHome(): void {
+    super.sendHome
+    // ASSERT there is always an open slot
+    const lim = this.homeAry.length - 1;
+    const fndx = (this.homeAry.findIndex(bldg => bldg == undefined));
+    const wh = this.player!.panel.wh;
+    const ndx = (fndx < 0) ? 0 : fndx;
+    this.homeAry[ndx] = this;
+    this.x = this.homeXY.x + (lim - ndx) * wh
+    this.y = this.homeXY.y;
+    this.player.panel.addChild(this); // set parent and raise to top of display list
+  }
+
+  override dragStart(ctx: DragContext): void {
+    const ndx = this.homeAry.indexOf(this) ;
+    delete this.homeAry[ndx];
+  }
 }
 
 export class Factory extends ChaosBuilding {
-
+  override bText = 'E2' as RESOURCE;
+  override makeShape(size = TP.meepleRad/2): Paintable {
+    const bs = new FactoryShape(undefined, size)
+    return bs;
+  }
 }
 
 export class Barracks extends ChaosBuilding {
+  override bText = 'C' as RESOURCE;
+  override makeShape(size = TP.meepleRad/2): Paintable {
+    return new BarrackShape(undefined, size)
+  }
   override addStrength = 2;
 }
 
 export class Stronghold extends ChaosBuilding {
-
+  override bText = 'G1' as RESOURCE;
+  override makeShape(size = TP.meepleRad/2): Paintable {
+    return new StrongholdShape(undefined, size);
+  }
 }
 
 // Meeple has unMove & faceUp
 
-// These are more Tile-like:
+// These are more Tile-like: See also: Foundation (TODO: merge)
 /** each subclass has a slot on ChaosHex, but does not confer faction 'presence' */
 class ChaosToken extends Tile {
 

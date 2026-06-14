@@ -487,7 +487,7 @@ export class CardPanel extends MapCont {
     table.dragger.clickToDrag(this, true);
   }
 
-  scaleXY = 2;
+  scaleXY = 1.6; // scale up while dragging
   cardPanel_dragStart0(c: DisplayObject, info?: DragInfo) {
     if (info?.first) {
       const s = this.scaleX = this.scaleY = this.scaleXY;
@@ -508,7 +508,7 @@ export class CardPanel extends MapCont {
   }
 
   dropFunc(dobj: DisplayObject, ctx?: DragInfo) {
-    this.scaleX = this.scaleY = 1.0;
+    this.scaleX = this.scaleY = 1.0;  // return to original scale
   }
 
   addCard(card?: TacticsCard) {

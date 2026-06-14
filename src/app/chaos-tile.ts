@@ -158,7 +158,6 @@ export class ChaosTile extends MapTile {
   Stronghold!: Stronghold;  //
 
   constructor(Aname: string, t: TERRAIN, h: HARVEST, player?: PlayerLib) {
-    console.log(stime(`ChaosTile.new(${Aname}, ${t}, ${h})`))
     super(Aname, player);
     this.terrain = t;
     this.harvest = h;
@@ -230,7 +229,7 @@ export class ChaosTile extends MapTile {
       const hex = this.chex, s = .3, dx = s * f.radius * 1.03, dy = s * f.radius * 1.1;
       f.x = hex.x + (ndx-1) * dx;
       f.y = hex.y + hex.radius - dy;
-      f.scaleX = f.scaleY = s;
+      f.scaleX = f.scaleY = s;  // scale down when drop on map
       this.chex.mapCont.overCont.addChild(f);
     }
     return ndx;

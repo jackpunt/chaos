@@ -63,9 +63,9 @@ export class ChaosTable extends Table {
   override layoutTable2() {
     this.initialVis = false;
     super.layoutTable2();
-    const toprow = Math.min(1, TP.nHexes - 5), lefcol = 1;
+    const toprow = 7.5, lefcol = 1;
 
-    const [source, discard] = TacticsCard.makeCardSources(this, {row: toprow + .9, col: lefcol})
+    const [source, discard] = TacticsCard.makeCardSources(this, { row: toprow + .9, col: lefcol })
     this.cardSource = source;
     this.cardDiscard = discard;
 
@@ -108,6 +108,7 @@ export class ChaosTable extends Table {
   // constructor does: { mapCont.backCont.addChild(playerPanel); setToRowCol(this, row, col); ... }
   override makePlayerPanel(table: Table, player: PlayerLib, high: number, wide: number, row: number, col: number, dir = -1): PlayerPanel {
     if (player.index === undefined) debugger;
+    if (col > 0) col -= 1;  // inset Panels on the right-hand side
     const playerPanel = new Panel(table as ChaosTable, player as Player, high, wide, row - high / 2, col - wide / 2, dir);
     playerPanel.showPlayer(false); // trigger repaint with background and other content
     return playerPanel;

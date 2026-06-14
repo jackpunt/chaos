@@ -1,13 +1,12 @@
-import { arrayN, C, Constructor, stime } from "@thegraid/common-lib";
+import { arrayN, C, Constructor, stime, type XY } from "@thegraid/common-lib";
 import { CenterText, NamedContainer, RectShape } from "@thegraid/easeljs-lib";
-import { HexMap, newPlanner, NumCounter, Player as PlayerLib, PlayerPanel, type IHex2, type MapCont, type TileSource } from "@thegraid/hexlib";
+import { HexMap, newPlanner, NumCounter, Player as PlayerLib, PlayerPanel, TP, type IHex2, type MapCont, type Tile, type TileSource } from "@thegraid/hexlib";
 import { ChaosHex2 as Hex2, type ChaosHex2 } from "./chaos-hex";
 import { type ChaosTable, type ChaosTable as Table } from "./chaos-table";
 import { ChaosTile, type RESOURCE } from "./chaos-tile";
 import { BgFound, Foundation } from "./foundation";
 import { type GamePlay } from "./game-play";
-import { ChaosPresence, type Barracks, type ChaosBuildingType, type ChaosUnitType, type Factory, type Fighter, type Leader, type Stronghold } from "./meeples";
-import { TP } from "./table-params";
+import { Barracks, ChaosBuilding, ChaosPresence, Factory, Stronghold, type ChaosUnitType, type Fighter, type Leader } from "./meeples";
 import { CardBack, CardPanel } from "./tactics-card";
 
 /** Canonical Faction colors, aligned with gameSetup.factionNames.
@@ -206,12 +205,12 @@ export class Panel extends PlayerPanel {
   // Oxytaya: Recruit: placement option
 
   static facSpecs: FacSpec[] = [
-    { name: 'Circadian', rb: ['G1', 'Up', 'G1', 'Up', 'Up', ], fg: 2, bg: [[0,0,0], [0,0,0], [1,1,1]], nr: [6, 2, 0, 2], bi: 3, }, // no base; 10 Fighters
-    { name: 'AI',        rb: ['F1', 'F2', 'F2', 'F3', 'F4', ], fg: 2, bg: [[0,1,1], [0,0,1,1], [0,1]], nr: [12, 8], }, // +10 on copious
-    { name: 'Zcharo',    rb: ['G1', 'G1', 'G1', 'G1', 'G1', ], fg: 3, bg: [[0,0,0], [1,1,1], [0,1,1]], nr: [9, 5, 6], bi: 3, },
-    { name: 'Leyrein',   rb: ['M0', 'F2', 'F2', 'F3', 'F3', ], fg: 1, bg: [[0,0,1], [0,0,1], [1,1,1]], nr: [8, 6, 6], },
-    { name: 'Jrayek',    rb: ['E2', 'F1', 'E3', 'F1', 'F1', ], fg: 2, bg: [[0,0,1], [0,1,1], [0,0,1]], nr: [10, 4, 6], },
-    { name: 'Oxytaya',   rb: ['F1', 'F1', 'F1', 'F2', 'F3', ], fg: 1, bg: [[0,1,1], [0,0,1], [0,1,1]], nr: [12, 3, 5], },
+    { name: 'Circadian', rb: ['G1', 'Up', 'G1', 'Up', 'Up', ], fg: 2, bg: [[3,0,0,0], [0,0,0], [1,1,1]], nr: [6, 2, 0, 2], bi: 3, }, // no base; 10 Fighters
+    { name: 'AI',        rb: ['F1', 'F2', 'F2', 'F3', 'F4', ], fg: 2, bg: [[2,0,1,1], [0,0,1,1], [0,1]], nr: [12, 8], }, // +10 on copious
+    { name: 'Zcharo',    rb: ['G1', 'G1', 'G1', 'G1', 'G1', ], fg: 3, bg: [[3,0,0,0], [1,1,1], [0,1,1]], nr: [9, 5, 6], bi: 3, },
+    { name: 'Leyrein',   rb: ['M0', 'F2', 'F2', 'F3', 'F3', ], fg: 1, bg: [[2,0,0,1], [0,0,1], [1,1,1]], nr: [8, 6, 6], },
+    { name: 'Jrayek',    rb: ['E2', 'F1', 'E3', 'F1', 'F1', ], fg: 2, bg: [[2,0,0,1], [0,1,1], [0,0,1]], nr: [10, 4, 6], },
+    { name: 'Oxytaya',   rb: ['F1', 'F1', 'F1', 'F2', 'F3', ], fg: 1, bg: [[2,0,1,1], [0,0,1], [0,1,1]], nr: [12, 3, 5], },
   ]
 
   // Base harvest= bh?: E1, E2, G1, R1
@@ -240,7 +239,7 @@ export class Panel extends PlayerPanel {
   // QQQ: is UnitRack based on Hex2[] or TileSource?
   // ANS: Hex2[], and ChaosMeeple has specialized unit.sendHome()
   readonly unitHomes: Partial<Record<ChaosUnitType, Hex2[]>> = {};
-  readonly buildingHomes: Partial<Record<ChaosBuildingType, Hex2[]>> = {};
+  readonly buildingHomes: Hex2[][] = [];  // fill per spec -> Building.homeAry
 
   /** the 'hand' of TacticsCards */
   readonly cardRack: Hex2[] = [];
@@ -258,6 +257,7 @@ export class Panel extends PlayerPanel {
     this.facSpec = Panel.facSpecs.find(spec => (spec.name == facName))!;
     this.baseSpec = Panel.baseSpecs.find(spec => (spec.name == facName))!;
     console.log(stime(this, `.constructor: factionId=${this.factionId} cname=${this.player.cname} ${facName}`))
+    player.panel = this;       // set it so layout can easily find the Player
     this.layoutPanel(table);
   }
 
@@ -274,6 +274,8 @@ export class Panel extends PlayerPanel {
    * Also: setup Base hex: [Ship, E1, E2, E2, G1, R1]
    */
   layoutPanel(table: ChaosTable) {
+    this.wh = this.getBounds().width / 14;
+    TP.meepleRad = this.wh;
     this.cardPanel = this.addCardPanel(table);
     this.addRelics(this.facSpec);
     this.addBuildings(this.facSpec);
@@ -283,22 +285,25 @@ export class Panel extends PlayerPanel {
     return this.children;
   }
 
+  /** common wh for relics & foundations & buildings */
+  wh = TP.hexRad * .8;
+
   addRelics(spec: FacSpec) {
     const { x, y, width, height } = this.getBounds();
-    const w = width / (6.5), h = w / 2, gap = 4;
-    const x0 = x + w * 2, y0 = y + h / 2;
+    const h = this.wh, w = h * 2, gap = h * .2;
+    const x0 = x + w * 2, y0 = y + h * .65;
     const sp = spec.rb;
     arrayN(5).forEach(n => {
       const cont = new NamedContainer(`Relic${n}`)
       const foreColor = C.nameToRgbaString(this.player.color, .7);
-      const bgrect = new RectShape({ x: -w/2, y: -h/2, w: w-gap, h, s: 0 }, foreColor, '');
+      const bgrect = new RectShape({ x: -w/2, y: -h/2, w, h, s: 0 }, foreColor, '');
       const fs = h / 2, dx = w * .23;
       const resIcon = new CenterText('%', fs, C.white);
       resIcon.x = - dx; resIcon.y = 0;
       const specIcon = new CenterText(sp[n], fs, C.white);
       specIcon.x = + dx; specIcon.y = 0;
       cont.addChild(bgrect, resIcon, specIcon);
-      cont.x = x0 + n * w - gap/2;
+      cont.x = x0 + n * (w + gap);
       cont.y = y0;
       this.addChild(cont);
     });
@@ -306,40 +311,76 @@ export class Panel extends PlayerPanel {
   }
 
   // add Income & Buildings; set playerColor & Harvest icon on Base.
+  // FacSpec.bg: number[][] building w/gemlock (index per type); // indicates number of slots for each type
   addBuildings(spec: FacSpec) {
+    const wh = this.wh, x0 = wh * 2.95, y0 = wh * 1.65;
+    const specBg = spec.bg;
+    let x00 = x0;
+    specBg.forEach((spec, btype) => {  // btype: 0: Factory, 1: Barracks, 2: Stronghold
+      const nbldgs = spec.length;
+      const homeAry = new Array<ChaosBuilding>(nbldgs);
+      const bid = ['F', 'B', 'S'][btype];
+      const BC = [Factory, Barracks, Stronghold][btype] as Constructor<ChaosBuilding>;
+      spec.forEach((gl, ndx) => {
+        const x = x00 + (nbldgs -1 - ndx) * wh; // place bg from left-to-right
+        const y = y0;
+        const maker = (fs: number) => {
+          const Aname = `${bid}${this.player.facId}.${ndx}`;
+          const fg = new BC(Aname, this.player, homeAry);
+          const bg = new BgFound(Aname, fg.bText, fs);
+          if (gl == 1) {
+            bg.addGemLock(.35, .5);
+          }
+          return { bg, fg };
+        }
+        const { bg, fg } = this.makePair({ x: x00, y: y0 }, maker); // homeXY = (x00, y0)
+        bg.x = x;
+      })
+      x00 += (wh) * nbldgs + wh * .3;
+    })
+  }
 
+  /**
+   *
+   * @param fxy Panel location of bg & fg
+   * @param produce { bg, fg }
+   * @returns
+   */
+  makePair(fxy: XY, maker: (fs: number) => { bg: Foundation, fg: Tile & { homeXY?: XY} }) {
+    const fs = this.wh * .2
+    const { bg, fg } = maker(fs);
+    bg.x = fxy.x;
+    bg.y = fxy.y;
+    fg.homeXY = fxy;
+    fg.sendHome();
+    this.addChild(bg, fg);
+    return { bg, fg }
   }
 
   addFoundations(spec: FacSpec, table: Table) {
-    const fg = spec.fg, r = [ 1, 2, 3, 2, 3 ], c = [ 1, 1, 1, 0, 0 ];
+    const gl = spec.fg, r = [ 1, 2, 3, 2, 3 ], c = [ 1, 1, 1, 0, 0 ];
     const fn: Record<FoundationId, string> = {
-      research: 'Gem\nto\nResearch',
+      research: 'Gem\n---->\nResearch',
       harvest: 'All\n\nHarvest',
       adjacent: 'All\n\nadjacent',
       unlock: '-E2\nV\nunlock',
       handlimit: '+E2\n\n5 Cards'
     }
-    const s = Foundation.xy, x0 = s * .55, y0 = s * .55;
-    const s1 = s * 1.1;
-    const nc = this.numChildren;
-    arrayN(5).forEach(ndx => {
-      const fx = x0 + s1 * c[ndx];
-      const fy = y0 + s1 * r[ndx];
-      const fid = foundationIds[ndx];
-      const bg = new BgFound(fid, fn[fid] as RESOURCE, s * .2);
-      bg.x = fx;
-      bg.y = fy;
-      bg.icon.y -= (bg.icon as CenterText).getMeasuredLineHeight() * 1.0; // raise to center
-      this.addChildAt(bg, nc);
-
-      const f = new Foundation(fid, '-', s * .2);
-      if (ndx == 0 || ndx == fg) {
-        f.addGemLock();
+    const wh = this.wh, x0 = wh * .55, y0 = wh * .55;
+    const s1 = wh * 1.1;
+    foundationIds.forEach((fid, ndx) => {
+      const bText = fn[fid] as RESOURCE;
+      const x = x0 + s1 * c[ndx];
+      const y = y0 + s1 * r[ndx];
+      const maker = (fs: number) => {
+        const bg = new BgFound(fid, bText as RESOURCE, fs);;
+        const fg = new Foundation(fid, '-', fs);
+        if (ndx == 0 || ndx == gl) {
+          fg.addGemLock();
+        }
+        return { bg, fg };
       }
-      f.homeXY = { x: fx, y: fy };
-      f.x = fx; f.y = fy;
-      f.faceUp()
-      this.addChild(f);
+      this.makePair({ x, y }, maker);
     })
   }
 
