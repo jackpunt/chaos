@@ -4,7 +4,7 @@ import type { Rectangle } from "@thegraid/easeljs-module";
 import { Graphics } from "@thegraid/easeljs-module";
 import { Meeple, MeepleShape, Tile, TP, type DragContext, type IHex2 } from "@thegraid/hexlib";
 import type { ChaosHex2 as Hex2 } from "./chaos-hex";
-import type { RESOURCE } from "./chaos-tile";
+import type { BONUS } from "./chaos-tile";
 import { Foundation } from "./foundation";
 import type { Player } from "./player";
 
@@ -153,7 +153,7 @@ export class ChaosBuilding extends ChaosPresence {
   addStrength = 0;    // maybe something more general with Effects or Advice
 
   override get radius() { return TP.meepleRad; }
-  readonly bText!: RESOURCE;           // 'E2' 'C' 'G1'
+  readonly bText!: BONUS;           // 'E2' 'C' 'G1'
   homeAry!: Foundation[];  // buildings in residence (take/put from left)
   homeXY!: XY;                // loc of leftmost slot
 
@@ -252,7 +252,7 @@ export class ChaosBuilding extends ChaosPresence {
 }
 
 export class Factory extends ChaosBuilding {
-  override bText = 'E2' as RESOURCE;
+  override bText = 'E2' as BONUS;
   override makeShape0(size = TP.meepleRad): Paintable {
     const bs = new FactoryShape(undefined, size)
     return bs;
@@ -260,7 +260,7 @@ export class Factory extends ChaosBuilding {
 }
 
 export class Barracks extends ChaosBuilding {
-  override bText = 'C' as RESOURCE;
+  override bText = 'C' as BONUS;
   override makeShape0(size = TP.meepleRad): Paintable {
     return new BarrackShape(undefined, size)
   }
@@ -268,7 +268,7 @@ export class Barracks extends ChaosBuilding {
 }
 
 export class Stronghold extends ChaosBuilding {
-  override bText = 'G1' as RESOURCE;
+  override bText = 'G1' as BONUS;
   override makeShape0(size = TP.meepleRad): Paintable {
     return new StrongholdShape(undefined, size);
   }

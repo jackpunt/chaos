@@ -3,7 +3,7 @@ import { CenterText, CircleShape, RectShape, type Paintable } from "@thegraid/ea
 import type { DisplayObject } from "@thegraid/easeljs-module";
 import { Tile, TP, type DragContext, type Table } from "@thegraid/hexlib";
 import { ChaosHex2 as Hex2 } from "./chaos-hex";
-import type { ChaosTile, RESOURCE } from "./chaos-tile";
+import { bonusIcon, type BONUS, type ChaosTile } from "./chaos-tile";
 import type { ChaosBuilding } from "./meeples";
 
 // the Relic Foundations & extra non-Relic Foundations
@@ -33,7 +33,8 @@ export class Foundation extends Tile {
       this.parent.addChild(b);
     }
   }
-  bonus: RESOURCE = '-'; // upgrade Foundations (none); other startup & Relic Foundations have a bonus RESOURCE
+  // panel Foundations ('-'); other startup & Relic Foundations have a BONUS with icon
+  bonus: BONUS;
   // buildings have an income bonus (Ex, C, G1)
   icon!: DisplayObject;
   gemlock?: DisplayObject;
@@ -47,12 +48,12 @@ export class Foundation extends Tile {
    * @param bonus underlying bonus text (S2, H, [Region, Trap, S1, Morale, D2+S, Recruit])
    * @param fs fontSize of icon text
    */
-  constructor(Aname: string, bonus: RESOURCE = '-', fs?: number) {
+  constructor(Aname: string, bonus: BONUS = '-', fs?: number) {
     super(Aname)
     this.bonus = bonus;
     const ctext = new CenterText(bonus, fs ?? this.radius * .5, 'white');
     ctext.y = (ctext.getMeasuredLineHeight() -ctext.getMeasuredHeight())/2; // raise to center: TODO count the newlines...
-    this.icon = ctext;
+    this.icon = bonusIcon(bonus) ?? ctext;
     this.addChild(this.icon);
     this.nameText.y -= 6
   }

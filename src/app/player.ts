@@ -1,12 +1,12 @@
 import { arrayN, C, Constructor, stime, type XY } from "@thegraid/common-lib";
 import { CenterText, NamedContainer, RectShape } from "@thegraid/easeljs-lib";
-import { HexMap, newPlanner, NumCounter, Player as PlayerLib, PlayerPanel, TP, type IHex2, type MapCont, type Tile, type TileSource } from "@thegraid/hexlib";
+import { HexMap, newPlanner, NumCounter, Player as PlayerLib, PlayerPanel, TP, type IHex2, type MapCont, type Phase, type Tile, type TileSource } from "@thegraid/hexlib";
 import { ChaosHex2 as Hex2, type ChaosHex2 } from "./chaos-hex";
 import { type ChaosTable, type ChaosTable as Table } from "./chaos-table";
-import { ChaosTile, type RESOURCE } from "./chaos-tile";
+import { ChaosTile, type BONUS, type FAME_BONUS, type HARVEST } from "./chaos-tile";
 import { BgFound, Foundation } from "./foundation";
 import { type GamePlay } from "./game-play";
-import { Barracks, ChaosBuilding, ChaosPresence, Factory, Stronghold, type ChaosUnitType, type Fighter, type Leader } from "./meeples";
+import { Barracks, ChaosPresence, Factory, Stronghold, type ChaosUnitType, type Fighter, type Leader } from "./meeples";
 import { CardBack, CardPanel } from "./tactics-card";
 
 /** Canonical Faction colors, aligned with gameSetup.factionNames.
@@ -24,11 +24,12 @@ type FoundationId = typeof foundationIds[number];
 /** presentation name of each Faction */  // TODO: move these to Scenario & parser?
 export const factionNames = ['Circadian', 'AI', 'Zcharo', 'Leyrein', 'Jrayek', 'Oxytaya'] as const;
 export type FactionName = typeof factionNames[number];
-export type FactionId = 0 | 1 | 2 | 3 | 4;  // at most 5 Factions in game
+export type FactionId = 0 | 1 | 2 | 3 | 4 | 5;  // at most 5 Factions in game
 
-/** rb: RelicBonus, fg: foundation w/gem, serial [0..4], bg: building w/gemlock (index per type), nr: number in recruit, bi: income0 */
-type FacSpec = {name: FactionName, rb: string[], fg: number, bg: number[][], nr?: number[], bi?: number };
-type BaseSpec = {name: FactionName, bh?: RESOURCE, bf: [RESOURCE, RESOURCE] }
+/** bh: HARVEST in base, bf: beginning Foundations */
+type BaseSpec = {name: FactionName, bh?: BONUS, bf?: [HARVEST, HARVEST] }
+/** rb: RelicBonus, fg: foundation w/gem, serial [0..4], bg: building w/gemlock (index per type), nr: number in recruit */
+type FacSpec = {name: FactionName, rb: string[], fg: number, bg: number[][], nr?: number[] } & BaseSpec;
 
 /** per-Player bits on PlayerPanel */
 class PlayerBits {
@@ -38,12 +39,63 @@ class PlayerBits {
   barracks!: TileSource<Barracks>;      // Spread TileSource.filterUnits((u)=>!u.hex.isOnMap) across board
   strongholds!: TileSource<Stronghold>; // Spread TileSource.filterUnits((u)=>!u.hex.isOnMap) across board
   foundations!: Record<FoundationId, ChaosHex2>; // the 5 foundations in their places
-  // extend with Morale[], AI_Trap[], RhyzuToken[]
+  // extend with Morale[], AI_Trap[], RhyzuToken[], Intel Cards
+}
+
+class Faction {
+  static allFactions: Faction[] = [];
+
+  player!: Player;
+
+  facId!: 0|1|2|3|4|5;
+  fColor!: PlayerColor;
+  facName!: FactionName;
+  facSpec!: FacSpec;
+  baseSpec!: BaseSpec;
+
+  _fame = 0;
+  fameTrack = [] as FAME_BONUS[];
+
+  get fame() { return this._fame } // readonly
+  incFame() {
+    this._fame += 1;
+    const bonus = this.fameTrack[this.fame];
+    if (bonus) {
+      // TODO: implement bonus
+      switch (bonus) {
+        case "E1": {
+          this.player.coins += 1;
+          break;
+        }
+        case "E2": {
+          this.player.coins += 2;
+          break;
+        }
+        case "G1": {
+          this.player.gems += 1;
+          break;
+        }
+        // TODO: Player choice/actions and completion:
+        case "C":  // draw, show, (maybe discard/play), wait for ack/continue
+        case "%":  // wait for click on track;
+        case "R1": // wait for choice to fast-track
+        case "R2": // wait for choice to fast-track
+        case "M1": // wait for choice of Redeploy
+        case 'Win': // signal instant win
+      }
+    }
+  }
+
+  /** override for phase specific checks; Faction attributes */
+  checkPhase(phase: Phase) {
+
+  }
+
 }
 
 export class Player extends PlayerLib {
   static initialCoins = 6;
-  static initialGems = 0;
+  static initialGems = 1;
 
   // {gold: 'gold', lightblue: 'lightblue', violet: 'Violet', blue: 'blue', orange: 'orange' };
   static override colorScheme = {
@@ -65,12 +117,12 @@ export class Player extends PlayerLib {
   declare panel: Panel;
   declare table: ChaosTable;
 
-  facName: FactionName;
   facId: FactionId;
+  get facName() { return Panel.facSpecs[this.facId].name; }
 
   constructor(index: number, gamePlay: GamePlay) {
     super(index, gamePlay); // <-- index is 'table ordinal'
-    this.facName = gamePlay.gameSetup.facNames[index];
+    // this.facName = gamePlay.gameSetup.facNames[index];
     this.facId = gamePlay.gameSetup.facIds[index];     // Aname and HTML color should be aligned with facId
     const cname = playerColors[this.facId];
     ;(this as any).Aname = `P${index}:${cname}*`
@@ -205,9 +257,9 @@ export class Panel extends PlayerPanel {
   // Oxytaya: Recruit: placement option
 
   static facSpecs: FacSpec[] = [
-    { name: 'Circadian', rb: ['G1', 'Up', 'G1', 'Up', 'Up', ], fg: 2, bg: [[3,0,0,0], [0,0,0], [1,1,1]], nr: [6, 2, 0, 2], bi: 3, }, // no base; 10 Fighters
+    { name: 'Circadian', rb: ['G1', 'Up', 'G1', 'Up', 'Up', ], fg: 2, bg: [[3,0,0,0], [0,0,0], [1,1,1]], nr: [6, 2, 0, 2] }, // no base; 10 Fighters
     { name: 'AI',        rb: ['F1', 'F2', 'F2', 'F3', 'F4', ], fg: 2, bg: [[2,0,1,1], [0,0,1,1], [0,1]], nr: [12, 8], }, // +10 on copious
-    { name: 'Zcharo',    rb: ['G1', 'G1', 'G1', 'G1', 'G1', ], fg: 3, bg: [[3,0,0,0], [1,1,1], [0,1,1]], nr: [9, 5, 6], bi: 3, },
+    { name: 'Zcharo',    rb: ['G1', 'G1', 'G1', 'G1', 'G1', ], fg: 3, bg: [[3,0,0,0], [1,1,1], [0,1,1]], nr: [9, 5, 6] },
     { name: 'Leyrein',   rb: ['M0', 'F2', 'F2', 'F3', 'F3', ], fg: 1, bg: [[2,0,0,1], [0,0,1], [1,1,1]], nr: [8, 6, 6], },
     { name: 'Jrayek',    rb: ['E2', 'F1', 'E3', 'F1', 'F1', ], fg: 2, bg: [[2,0,0,1], [0,1,1], [0,0,1]], nr: [10, 4, 6], },
     { name: 'Oxytaya',   rb: ['F1', 'F1', 'F1', 'F2', 'F3', ], fg: 1, bg: [[2,0,1,1], [0,0,1], [0,1,1]], nr: [12, 3, 5], },
@@ -223,8 +275,12 @@ export class Panel extends PlayerPanel {
     { name: 'Jrayek',    bh: 'G1', bf: ['G1', '%'] },
     { name: 'Oxytaya',   bh: 'R1', bf: ['C', 'C'] },
   ]
-  facName: FactionName;
-  baseSpec!: BaseSpec;
+  static {
+    // append/include baseSpecs in facSpecs:
+    this.baseSpecs.forEach((bs, ndx) => this.facSpecs[ndx] = { ...this.facSpecs[ndx], ... bs })
+  }
+  // facName: FactionName;
+  // baseSpec!: BaseSpec;
   facSpec!:FacSpec;
 
   declare mapCont: MapCont;            // player.makeCardRack() will set mapCont = cardPanel
@@ -253,10 +309,11 @@ export class Panel extends PlayerPanel {
     this.player.color = Player.playerColor(this.player.cname!); // override Player.colorScheme
     this.bg0 = C.grey64; 'rgb(56, 56, 56)';
     this.bg1 = this.bg0;
-    const facName = this.facName = this.player.facName;
-    this.facSpec = Panel.facSpecs.find(spec => (spec.name == facName))!;
-    this.baseSpec = Panel.baseSpecs.find(spec => (spec.name == facName))!;
-    console.log(stime(this, `.constructor: factionId=${this.factionId} cname=${this.player.cname} ${facName}`))
+    // const facName = this.facName = this.player.facName;
+    // this.facSpec = Panel.facSpecs.find(spec => (spec.name == facName))!;
+    // this.baseSpec = Panel.baseSpecs.find(spec => (spec.name == facName))!;
+    const facSpec = this.facSpec = Panel.facSpecs[this.factionId];
+    console.log(stime(this, `.constructor: factionId=${this.factionId} cname=${this.player.cname} ${facSpec.name}`))
     player.panel = this;       // set it so layout can easily find the Player
     this.layoutPanel(table);
   }
@@ -279,7 +336,7 @@ export class Panel extends PlayerPanel {
     this.addRelics(this.facSpec);
     this.addBuildings(this.facSpec);
     this.addFoundations(this.facSpec, table)
-    this.setupBase(this.baseSpec);
+    this.setupBase(this.facSpec);
     this.player.gamePlay.hexMap
     return this.children;
   }
@@ -311,6 +368,7 @@ export class Panel extends PlayerPanel {
 
   // add Income & Buildings; set playerColor & Harvest icon on Base.
   // FacSpec.bg: number[][] building w/gemlock (index per type); // indicates number of slots for each type
+  /** 10 Foundations and 9 Buildings */
   addBuildings(spec: FacSpec) {
     const wh = this.wh, x0 = wh * 2.95, y0 = wh * 1.65, fs = wh * .2;
     const specBg = spec.bg;
@@ -322,23 +380,29 @@ export class Panel extends PlayerPanel {
         [Factory, 'E2', 'F'],
         [Barracks, 'C', 'B'],
         [Stronghold, 'G1', 'S'],
-      ][btype] as [typeof Factory|typeof Barracks|typeof Stronghold, RESOURCE, number]
+      ][btype] as [typeof Factory|typeof Barracks|typeof Stronghold, BONUS, number]
 
       spec.toReversed().forEach((gl, rndx) => {
         const ndx = nbldgs - 1 - rndx; // actual ndx in homeAry
-        const x = x00 + ndx * wh; // place bg from left-to-right
+        const x = x00 + ndx * wh * 1.01; // place bg from left-to-right
         const y = y0;
+        // TODO: use TextTweaks to convert E*, C, G* to glyphs?
+        const bonus = gl < 2 ? bText : [ 'E2  /    \n/\n    /  G1', 'E3'][gl-2] as BONUS;
         const Aname = `${bid}${this.player.facId}.${ndx}`;
-        const bg = homeAry[ndx] = new BgFound(Aname, bText, fs);
+        const bg = homeAry[ndx] = new BgFound(Aname, bonus, fs);
         if (gl == 1) bg.addGemLock(.35, .65);
         this.addChild(bg); bg.x = x; bg.y = y;
+        if (gl == 2 || gl == 3) {
+          bg.reCache();
+          return; // no building in Factory slot 0
+        }
         const fg = new BC(Aname, this.player, bg, homeAry);
         fg.sendHome();
         fg.paint(this.pColor);
         const bs = fg.backSide;
         // if (bs) bs.visible = true
       })
-      x00 += (wh) * nbldgs + wh * .3;
+      x00 += (wh) * nbldgs + wh * .29;
     })
   }
 
@@ -359,23 +423,24 @@ export class Panel extends PlayerPanel {
     return { bg, fg }
   }
 
+  /** the 5 left-side bonus Foundations */
   addFoundations(spec: FacSpec, table: Table) {
     const gl = spec.fg, r = [ 1, 2, 3, 2, 3 ], c = [ 1, 1, 1, 0, 0 ];
     const fn: Record<FoundationId, string> = {
       research: 'Gem\n---->\nResearch',
       harvest: 'All\n\nHarvest',
       adjacent: 'All\n\nadjacent',
-      unlock: '-E2\nV\nunlock',
+      unlock: '-E2\nv\nunlock',
       handlimit: '+E2\n\n5 Cards'
     }
     const wh = this.wh, x0 = wh * .55, y0 = wh * .55;
     const s1 = wh * 1.1;
     foundationIds.forEach((fid, ndx) => {
-      const bText = fn[fid] as RESOURCE;
+      const bText = fn[fid] as BONUS;
       const x = x0 + s1 * c[ndx];
       const y = y0 + s1 * r[ndx];
       const maker = (fs: number) => {
-        const bg = new BgFound(fid, bText as RESOURCE, fs);;
+        const bg = new BgFound(fid, bText as BONUS, fs);;
         const fg = new Foundation(fid, '-', fs);
         if (ndx == 0 || ndx == gl) {
           fg.addGemLock();
@@ -388,9 +453,9 @@ export class Panel extends PlayerPanel {
 
   baseTile!: ChaosTile;
   // make ChaosTile, set color, set Harvest token
-  setupBase(spec: BaseSpec) {
+  setupBase(spec: FacSpec) {
     const h = spec.bh ?? '-';
-    const baseTile = new ChaosTile(`${this.facName}Base`, 'Base', h, this.player);
+    const baseTile = new ChaosTile(`${spec.name}Base`, 'Base', h, this.player);
     baseTile.paint(this.pColor)
   }
 

@@ -1,11 +1,11 @@
-import { C, Random, stime, type Constructor } from "@thegraid/common-lib";
+import { C, permute, Random, stime, type Constructor } from "@thegraid/common-lib";
 import { NamedContainer, PathShape, RectShape } from "@thegraid/easeljs-lib";
 import type { DisplayObject } from "@thegraid/easeljs-module";
 import { H, Hex1 as Hex1Lib, Hex2Mixin, HexMap, HexMark, TileSource, TP, type HexDir, type HexM, type IHex2, type Tile } from "@thegraid/hexlib";
-import { ChaosTile, type HARVEST, type TERRAIN } from "./chaos-tile";
+import { ChaosTile, type BONUS, type HARVEST, type TERRAIN } from "./chaos-tile";
+import { Foundation } from "./foundation";
 import { Fighter } from "./meeples";
 import type { TacticsCard } from "./tactics-card";
-import { Foundation } from "./foundation";
 
 
 // Hex1 has get/set tile/meep -> _tile/_meep
@@ -250,7 +250,7 @@ export class HexMap2 extends HexMap<ChaosHex2> {
 
     map.forEachHex(hex => {
       if (hex.ctile?.terrain == 'Swamp') {
-        const f = new Foundation('Base!', 'C', 20)
+        const f = new Foundation('Base!', permute(['E1', 'C', 'G1'])[0] as BONUS, 20)
         hex.ctile.addFoundation(f, true);    // hack to add some Foundation to map:
       }
     })

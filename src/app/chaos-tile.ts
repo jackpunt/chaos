@@ -62,18 +62,29 @@ const terrainIds = ['Mtn', 'Hills', 'Swamp', 'Plains', 'Lake', 'Base'] as const;
 // 'energy' is E2, 'energy1' is E1, 'recruit1' is 'R1'
 // energy1 on AI Base; 'recruit1' on Oxytaya Base
 // Note: Tile.setNameText() converts '-' to newline
-const resourceIds = ['-', 'E2', 'G1', 'C', 'E1', 'R1', '%'] as const;
+// board_HARVEST:          ['E2', 'G1', 'C']
+// relic_Foundation bonus: ['E2', 'G1', 'C', '%', '-', ]  ('-' on Relic-6: never claimed)
+// panel_Foundation bonus: ['-']
+// panel_BgFound bonus:    [... various text...]
+// panel_Building income:  ['E3', 'E2', 'G1', 'C']    // E3 for BldgFoundation[0] (base Income)
+/** basic Bonus for Foundation and Harvest */
+const bonusIds = ['-', 'E3', 'E2', 'E1', 'C', 'G1', 'R1', '%'] as const; //
 
-/** upgrade tokens which can be flipped; Leader deploy/upgrade for -2E, Build for -1E */
-const harvestTokenId = ['%', 'R3', 'G2', 'E4', 'E1C', 'R1C', 'Lm2', 'Bm1'] as const;
+/** upgrade tokens which can be flipped; Lm2: Leader deploy/upgrade for -2E; Bm1: Build for -1E */
+const baseProdTokenIds = ['%', 'R3', 'G2', 'E4', 'E1C', 'R1C', 'Lm2', 'Bm1'] as const; // 8 basic
+const upgradeProdTokenIds = ['%E2', 'R4', 'G2R1', 'E6', 'E3C', 'R2C', 'LE0', 'BG0'] as const;
+// BG0: Build w/free gemlock (~B -2E if you have the unlock Foundation)
 
 export type TERRAIN = typeof terrainIds[number];
-export type RESOURCE = typeof resourceIds[number];
-export type HARVEST_UPGRADE = typeof harvestTokenId[number];
-export type HARVEST = RESOURCE | HARVEST_UPGRADE;
+export type BONUS = typeof bonusIds[number];
+export type BASE_PROD_TOKEN = typeof baseProdTokenIds[number];
+export type UPGRADE_PROD_TOKEN = typeof upgradeProdTokenIds[number];
+export type PROD_TOKEN = BASE_PROD_TOKEN | UPGRADE_PROD_TOKEN;
+export type HARVEST = BONUS | PROD_TOKEN;
+export type FAME_BONUS = 'E1' | 'E2' | 'C' | 'G1' | '%' | 'R1' | 'R2' | 'M1' | 'Win'; // M1 is Redeploy
 
 // the harvest token when upgraded gains the second
-const flipBuff: Partial<Record<HARVEST_UPGRADE, string>> = {
+const flipBuff: Partial<Record<PROD_TOKEN, string>> = {
   '%': '%E2',
   R3: 'R4',
   G2: 'G2R1',
@@ -83,6 +94,22 @@ const flipBuff: Partial<Record<HARVEST_UPGRADE, string>> = {
   Lm2: 'LE0',
   Bm1: 'BG0',
 };
+
+  /** also use for Income icons */ // TODO: maybe use TextTweaks to place the glyphs?
+export function bonusIcon(harv: HARVEST, radius = TP.hexRad) {
+    if (!bonusIds.includes(harv as BONUS)) return undefined;
+    const spotmap = { E: 'yellow', G: 'red', C: 'white', R: 'orange', U: 'gold' };
+    const icon = new Container();
+    const h0 = harv[0] as keyof typeof spotmap;
+    const cHarv = spotmap[h0] ?? C.transparent;
+    const w = radius * .25, h = w * 1.4, fs = radius * .15;
+    const cardRect = { x: -w / 2, y: -h / 2, w, h };
+    const shape = (h0 == 'C' || h0 == 'U' ) ? new RectShape(cardRect, cHarv, '') : new CircleShape(cHarv, w * .6, '');
+    const tColor = C.pickTextColor(cHarv, ['black', 'white']);
+    const iText = new CenterText(h0 == 'C' ? '+' : harv, fs, tColor);
+    if (harv !== '-') icon.addChild(shape, iText);
+    return icon
+  }
 
 const colorOfTerrain: Record<TERRAIN, string> = {
   Mtn: C.grey64,
@@ -115,17 +142,6 @@ class FactionOnTile extends NamedContainer {
  * Chaos does not need a 'source' of tiles.
  */
 export class ChaosTile extends MapTile {
-
-  /** 9 TERRAIN x HARVEST combinations; convert thid [0..8] to [TERRAIN, HARVEST] */
-  static h_t(thid: number): [HARVEST, TERRAIN] {
-    const harv = Math.floor(thid / 10);
-    const terr = thid % 10;
-    return [resourceIds[harv], terrainIds[terr]];
-  }
-  /** compose thid from TERRAIN & RESOURCE */
-  static thid(terr: TERRAIN, harv: RESOURCE = '-') {
-    return resourceIds.indexOf(harv) * 10 + terrainIds.indexOf(terr);
-  }
 
   static readonly allChaosTiles: ChaosTile[] = [];
 
@@ -179,17 +195,9 @@ export class ChaosTile extends MapTile {
   }
 
   addHarvest() {
-    const h = this.harvest;
-    const cont = new Container();
-    const colorForHarv: Partial<Record<HARVEST, string>> = { E2: 'gold', E1: 'gold', G1: 'red', C: 'white', R1: 'orange' }
-    const cHarv = colorForHarv[h], rad = this.radius * .13, fs = this.radius * .15;
-    const cardRect = { x: -rad, y: -rad, w: rad * 2, h: rad * 2.2 };
-    const icon = (h == 'C') ? new RectShape(cardRect, cHarv, '') : new CircleShape(cHarv, rad, '');
-    const tColor = (h == 'G1') ? 'white' : 'black';
-    const iText = new CenterText(h == 'C' ? '+' : h == '-' ? '' : h, fs, tColor);
-    cont.y = this.radius * .37;
-    if (h !== '-') cont.addChild(icon, iText);
-    this.addChild(cont);
+    const icon = bonusIcon(this.harvest)!;
+    icon.y = this.radius * .37;
+    this.addChild(icon);
   }
 
   // invoked by ParamGUI:
