@@ -2,9 +2,10 @@ import { type XY, type XYWH } from "@thegraid/common-lib";
 import { NamedContainer, PathShape, RectShape, type Paintable } from "@thegraid/easeljs-lib";
 import type { Rectangle } from "@thegraid/easeljs-module";
 import { Graphics } from "@thegraid/easeljs-module";
-import { Meeple, MeepleShape, Tile, TP, type DragContext } from "@thegraid/hexlib";
+import { Meeple, MeepleShape, Tile, TP, type DragContext, type IHex2 } from "@thegraid/hexlib";
 import type { ChaosHex2 as Hex2 } from "./chaos-hex";
 import type { RESOURCE } from "./chaos-tile";
+import { Foundation } from "./foundation";
 import type { Player } from "./player";
 
 
@@ -149,13 +150,25 @@ export class Leader extends ChaosUnit {
 // Panel has FHex[9], FoundationTile has a FHex (when face up)
 //
 export class ChaosBuilding extends ChaosPresence {
+  addStrength = 0;    // maybe something more general with Effects or Advice
+
   override get radius() { return TP.meepleRad; }
   readonly bText!: RESOURCE;           // 'E2' 'C' 'G1'
-  homeAry!: ChaosBuilding[];  // buildings in residence (take/put from left)
+  homeAry!: Foundation[];  // buildings in residence (take/put from left)
   homeXY!: XY;                // loc of leftmost slot
-  addStrength = 0;
 
-  constructor(Aname: string, player: Player, homeAry: ChaosBuilding[]) {
+  _found!: Foundation;
+  get found() { return this._found }
+  set found(f: Foundation) {
+    if (f == this._found) return;  // nothing changed
+    if (this._found) {
+      this._found.bldg = undefined;   // release that foundation.
+    }
+    this._found = f;
+    f.bldg = this;       // inform foundation it is occupied.
+  }
+
+  constructor(Aname: string, player: Player, f: Foundation, homeAry: Foundation[]) {
     super(Aname, player);
     this.homeAry = homeAry;
   }
@@ -176,31 +189,64 @@ export class ChaosBuilding extends ChaosPresence {
 
   override sendHome(): void {
     super.sendHome
-    const wh = this.player!.panel.wh;
     const lim = this.homeAry.length - 1;
     // ASSERT there is always an open slot
-    const rndx = this.homeAry.toReversed().findIndex(bldg => bldg == undefined);
+    const rndx = this.homeAry.toReversed().findIndex(f => f.bldg == undefined || f.bldg == this);
     const ndx = lim - (rndx < 0 ? 0 : rndx);
-    const slot = ndx;
-    this.homeAry[ndx] = this;
-    this.x = this.homeXY.x + slot * wh; // fill from the right
-    this.y = this.homeXY.y;
-    this.player.panel.addChild(this); // set parent and raise to top of display list
+    this.found = this.homeAry[ndx];
   }
 
   override dragStart(ctx: DragContext): void {
-    const ndx = this.homeAry.indexOf(this);
-    if (ndx < 0) return;        // OK to drag
-    const fndx = this.homeAry.findIndex(bldg => bldg !== undefined)
+    const ndx = this.homeAry.findIndex(f => f.bldg == this);
+    if (ndx < 0) {
+      this.scaleX = this.scaleY = 1;
+      return;        // OK to drag
+    }
+    const fndx = this.homeAry.findIndex(f => f.bldg !== undefined)
     if (ndx == fndx) {
-      delete this.homeAry[ndx]; // OK to drag; remove from Panel
+      this.homeAry[ndx].bldg = undefined; // OK to drag; remove from Panel
     } else {
       this.stopDrag();          // leave on Panel
     }
   }
 
+  override dragFunc(hex: IHex2 | undefined, ctx: DragContext): void {
+    super.dragFunc(hex, ctx);
+  }
+
   override dropFunc(targetHex: Hex2, ctx: DragContext): void {
-    super.dropFunc(targetHex, ctx);
+    if (!targetHex) {
+      this.sendHome();
+      return;
+    }
+    // if drop on Panel then sendHome
+    // if (this.parent === this.player.panel) {
+    //   this.sendHome();
+    //   return;
+    // }
+    // on targetHex (on map), place on Foundation
+    if (targetHex) {
+      this.scaleX = this.scaleY = Foundation.mapScale
+      // super.dropFunc(targetHex, ctx);
+      const ctile = targetHex.ctile
+      const f = this.findFoundation(targetHex)
+      f.bldg = this;   // mark Foundation occupied
+      this.x = f.x; this.y = f.y;
+      f.parent.addChild(this);
+      return;
+    }
+  }
+  // invoke before super.dropFunc -> moveTo(hex)
+  // but after dragger.drop: dropCont.addChild(dobj)
+  // this.parent = tileCont ie: meepleCont
+  // this.hex = hexMap@[r,c]
+  findFoundation(hex2: Hex2) {
+    const ctile = hex2.ctile;
+    const x = this.x, y = this.y; // where it dropped
+    // ASSERT: there is an empty Foundation, else not isLegalTarget!
+    const fs = ctile?.foundations.filter(f => f && !f.bldg) as Foundation[];
+    const f = fs.sort((a, b) => Math.abs(Math.abs(a.x - x) - Math.abs(b.x - x)))[0];
+    return f;  // the nearest Foundation
   }
 }
 

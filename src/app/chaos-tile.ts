@@ -1,10 +1,10 @@
-import { C, stime } from "@thegraid/common-lib";
+import { C } from "@thegraid/common-lib";
 import { CenterText, CircleShape, NamedContainer, PaintableShape, RectShape } from "@thegraid/easeljs-lib";
 import { Container } from "@thegraid/easeljs-module";
 import { type DragContext, HexShape, type IHex2, MapTile, Player as PlayerLib, type Table, type TileSource, TP } from "@thegraid/hexlib";
-import { type ChaosHex2 as Hex2, type ChaosHex as Hex1 } from "./chaos-hex";
+import { type ChaosHex as Hex1, type ChaosHex2 as Hex2 } from "./chaos-hex";
 import { type ChaosTable } from "./chaos-table";
-import type { Foundation } from "./foundation";
+import { Foundation } from "./foundation";
 import type { GamePlay } from "./game-play";
 import type { AI_Trap, Barracks, Factory, Fighter, Leader, Morale, Stronghold } from "./meeples";
 import type { Player } from "./player";
@@ -140,7 +140,7 @@ export class ChaosTile extends MapTile {
   }
 
   // use plyrDisk to show Player controlling Region
-  readonly terrFill = new HexShape(TP.hexRad); // may want a plyrDisk later to show owner?
+  readonly colorHex = new HexShape(TP.hexRad); // may want a plyrDisk later to show owner?
   readonly plyrDisk = new CircleShape(C.white, TP.hexRad * .5, '');
   readonly terrain!: TERRAIN; // immutable
   harvest!: HARVEST;          // can place harvest buff token to change
@@ -162,7 +162,7 @@ export class ChaosTile extends MapTile {
     this.terrain = t;
     this.harvest = h;
     this.nameText.y = this.radius * .66;
-    this.addChild(this.terrFill);
+    this.addChild(this.colorHex);
     this.addChild(this.nameText);        // re-add above afHex
     this.addHarvest();
     // this.setPlayerAndPaint(player);
@@ -172,8 +172,8 @@ export class ChaosTile extends MapTile {
 
   // paint the [player] color onto the plyrDisk; for baseShape use paintBase()
   override paint(colorn = this.pColor ?? colorOfTerrain[this.terrain], force?: boolean): void {
-    if (force || colorn !== this.terrFill.colorn) {
-      this.terrFill.paint(colorn, force);
+    if (force || colorn !== this.colorHex.colorn) {
+      this.colorHex.paint(colorn, force);
       this.updateCache();
     }
   }
@@ -226,15 +226,22 @@ export class ChaosTile extends MapTile {
     const ndx = [1, 2, 0].find(ndx => this.foundations[ndx] == undefined);
     if (commit && ndx != undefined) {
       this.foundations[ndx] = f;
-      const hex = this.chex, s = .3, dx = s * f.radius * 1.03, dy = s * f.radius * 1.2;
-      f.x = hex.x + (ndx-1) * dx;
-      f.y = hex.y + hex.radius - dy;
-      f.scaleX = f.scaleY = s;  // scale down when drop on map
+      f.onTile = this;
+      // Graphically above this.hex:
+      const hex = this.chex, dx = f.radius * 1.03, dy = f.radius * 1.25;
+      f.scaleX = f.scaleY = Foundation.mapScale;  // scale down when drop on map
+      f.x = hex.x + (ndx-1) * dx * f.scaleX;
+      f.y = hex.y + hex.radius - dy * f.scaleY;
+      f.faceUp(true);
+      f.homeXY = { x: f.x, y: f.y }
       this.chex.mapCont.overCont.addChild(f);
     }
     return ndx;
   }
 
+  override isDragable(ctx?: DragContext): boolean {
+    return !this.hex?.isOnMap || this.terrain == 'Base';
+  }
 
   override dragStart(ctx: DragContext): void {
     super.dragStart(ctx); // --> cantBeMovedBy()

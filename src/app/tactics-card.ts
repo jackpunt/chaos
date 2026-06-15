@@ -438,7 +438,8 @@ export class CardPanel extends MapCont {
 
     const { dxdc, dydr } = table.hexMap.xywh()
     const w = dxdc * wide, h = dydr * high;
-    this.disp = new RectShape({ w, h }, 'rgba(224,224,224,.5)', '');
+    this.disp = new RectShape({ w, h }, 'rgba(224,224,224,.5)', ''); // handle to grab and drag this CardPanel
+    this.disp.name = 'dragCardPanel';
     this.addChildAt(this.disp, 0);
     this.y = row * dydr;
     this.x = col * dxdc;

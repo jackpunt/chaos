@@ -3,7 +3,7 @@ import { CenterText, CircleShape, RectShape, type Paintable } from "@thegraid/ea
 import type { DisplayObject } from "@thegraid/easeljs-module";
 import { Tile, TP, type DragContext, type Table } from "@thegraid/hexlib";
 import { ChaosHex2 as Hex2 } from "./chaos-hex";
-import type { RESOURCE } from "./chaos-tile";
+import type { ChaosTile, RESOURCE } from "./chaos-tile";
 import type { ChaosBuilding } from "./meeples";
 
 // the Relic Foundations & extra non-Relic Foundations
@@ -11,12 +11,28 @@ import type { ChaosBuilding } from "./meeples";
 // the per-player bonus Foundations: (player.ts: foundationIds)
 // Moves during Build phase (or Discover bonus)
 export class Foundation extends Tile {
-  static wh = TP.hexRad * .8;   // square!
   static color1 = 'rgb(149, 90, 159)';
   static color2 = 'rgba(188, 188, 188, 0.52)';
+  static mapScale = .3;  // scale when on main map
+
+  /** Hex this Foundation has been placed upon; in tile.foundations[] */
+  onTile?: ChaosTile;
+
   // typically a building must land on a Foundation
   // one Leader allows to create a null-Foundation [it goes away if building dies]
-  bldg?: ChaosBuilding;
+  _bldg?: ChaosBuilding;
+  get bldg() { return this._bldg; }
+  set bldg(b: ChaosBuilding | undefined) {
+    if (b == this._bldg) return;  // nothing to change
+    if (b && this._bldg) debugger;     // collision!
+    this._bldg = b;
+    if (b) {
+      b.x = this.x; b.y = this.y;
+      b.found = this;
+      b.scaleX = b.scaleY = this.scaleX;
+      this.parent.addChild(b);
+    }
+  }
   bonus: RESOURCE = '-'; // upgrade Foundations (none); other startup & Relic Foundations have a bonus RESOURCE
   // buildings have an income bonus (Ex, C, G1)
   icon!: DisplayObject;
@@ -63,6 +79,10 @@ export class Foundation extends Tile {
     this.paint(up ? Foundation.color1 : Foundation.color2)
   }
 
+  override isDragable(ctx?: DragContext): boolean {
+    return !this.onTile;
+  }
+
   override dragStart(ctx: DragContext): void {
     this.faceUp(true);
     super.dragStart(ctx);
@@ -88,8 +108,9 @@ export class Foundation extends Tile {
   override sendHome(): void {
     this.x = this.homeXY?.x ?? 0;
     this.y = this.homeXY?.y ?? 0;
-    this.scaleX = this.scaleY = 1;
-    this.faceUp(false);
+    const onTile = !!this.onTile;
+    this.scaleX = this.scaleY = onTile ? Foundation.mapScale : 1;
+    this.faceUp(!!this.onTile);
   }
 }
 
@@ -97,6 +118,8 @@ export class Foundation extends Tile {
 export class BgFound extends Foundation {
   /** not draggable */
   override makeDragable(table: Table): void {  }
+  // alteratively, this is checked by table.dragFunc0()
+  override isDragable(ctx?: DragContext): boolean { return false; }
 }
 
 /** for Foundation Tiles */ // see also: tactics-card.ts: CardHex

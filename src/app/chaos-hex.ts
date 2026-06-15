@@ -112,11 +112,11 @@ export class HexMap2 extends HexMap<ChaosHex2> {
       console.log(stime(this, '.placeMtn: hexes not adjacent'), hex1, hex2);
       return;
     }
-    const dx = TP.hexRad * .9, dy = dx/8;
+    const dx = TP.hexRad * .9, dy = dx/11;
     const mtn = new RectShape({x: -dx/2, y: -dy/2, w: dx, h: dy}, C.PURPLE, '');
     mtn.rotation = (H.dirRot[dir12]);
     hex1.edgePoint(dir12, 1, mtn);           // set mountain on edge of Hex
-    this.mapCont.tileCont.addChild(mtn); // mtn piece on top of other tiles
+    this.mapCont.overCont.addChild(mtn); // mtn piece on top of other tiles
     // remove adjacency links:
     delete hex1.links[dir12];
     delete hex2.links[H.dirRev[dir12]];

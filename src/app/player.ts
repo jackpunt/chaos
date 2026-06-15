@@ -312,31 +312,30 @@ export class Panel extends PlayerPanel {
   // add Income & Buildings; set playerColor & Harvest icon on Base.
   // FacSpec.bg: number[][] building w/gemlock (index per type); // indicates number of slots for each type
   addBuildings(spec: FacSpec) {
-    const wh = this.wh, x0 = wh * 2.95, y0 = wh * 1.65;
+    const wh = this.wh, x0 = wh * 2.95, y0 = wh * 1.65, fs = wh * .2;
     const specBg = spec.bg;
     let x00 = x0;
     specBg.forEach((spec, btype) => {  // btype: 0: Factory, 1: Barracks, 2: Stronghold
       const nbldgs = spec.length;
-      const homeAry = new Array<ChaosBuilding>(nbldgs); // each Factory instance shares the same homeAry
-      const bid = ['F', 'B', 'S'][btype];
-      const BC = [Factory, Barracks, Stronghold][btype] as Constructor<ChaosBuilding>;
+      const homeAry = new Array<Foundation>(nbldgs); // each Factory instance shares the same homeAry
+      const [BC, bText, bid] = [
+        [Factory, 'E2', 'F'],
+        [Barracks, 'C', 'B'],
+        [Stronghold, 'G1', 'S'],
+      ][btype] as [typeof Factory|typeof Barracks|typeof Stronghold, RESOURCE, number]
+
       spec.toReversed().forEach((gl, rndx) => {
         const ndx = nbldgs - 1 - rndx; // actual ndx in homeAry
         const x = x00 + ndx * wh; // place bg from left-to-right
         const y = y0;
-        const maker = (fs: number) => {
-          const Aname = `${bid}${this.player.facId}.${ndx}`;
-          const fg = new BC(Aname, this.player, homeAry);
-          const bg = new BgFound(Aname, fg.bText, fs);
-          if (gl == 1) {
-            bg.addGemLock(.35, .65);
-          }
-          return { bg, fg };
-        }
-        const { bg, fg } = this.makePair({ x: x00, y: y0 }, maker); // homeXY = (x00, y0)
-        bg.x = x;
+        const Aname = `${bid}${this.player.facId}.${ndx}`;
+        const bg = homeAry[ndx] = new BgFound(Aname, bText, fs);
+        if (gl == 1) bg.addGemLock(.35, .65);
+        this.addChild(bg); bg.x = x; bg.y = y;
+        const fg = new BC(Aname, this.player, bg, homeAry);
+        fg.sendHome();
         fg.paint(this.pColor);
-        const bs = (fg as ChaosBuilding).backSide;
+        const bs = fg.backSide;
         // if (bs) bs.visible = true
       })
       x00 += (wh) * nbldgs + wh * .3;
@@ -453,7 +452,7 @@ export class Panel extends PlayerPanel {
     const dy = row0 * dydr;   // y for row0
     for (let col = 0; col < colN; col++) {
         // make hex at row=0, then offset by row0 !? legacy from hextowns half-offset?
-        const hex = table.newHex2(0, col, `CardPanel`, hexC, map); // child of map.mapCont.hexCont
+        const hex = table.newHex2(0, col, `CardSlot`, hexC, map); // child of map.mapCont.hexCont
         rv.push(hex);
         hex.cont.x += (dx + col * gpix);
         hex.cont.y = (dy);

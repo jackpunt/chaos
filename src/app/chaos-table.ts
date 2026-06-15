@@ -125,7 +125,7 @@ export class ChaosTable extends Table {
    */
   override newHex2(row = 0, col = 0, name: string, HexC: Constructor<IHex2> = this.hexC, map: { mapCont: MapCont } = this.hexMap) {
     const hex = new HexC(map, row, col, name);
-    hex.distText.text = name;
+    hex.distText.text = name; // district text
     this.newHexes.push(hex);
     return hex
   }
