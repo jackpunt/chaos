@@ -158,10 +158,10 @@ export class ChaosBuilding extends ChaosPresence {
   homeXY!: XY;                // loc of leftmost slot
 
   _found!: Foundation;
+  /** Assert Building is always assigned to *some* Foundation: panel or map */
   get found() { return this._found }
   set found(f: Foundation) {
-    if (f == this._found) return;  // nothing changed
-    if (this._found) {
+    if (this._found && this._found != f) {
       this._found.bldg = undefined;   // release that foundation.
     }
     this._found = f;
@@ -198,9 +198,9 @@ export class ChaosBuilding extends ChaosPresence {
   }
 
   override dragStart(ctx: DragContext): void {
-    const ndx = this.homeAry.findIndex(f => f.bldg == this);
+    const ndx = this.homeAry.findIndex(f => f.bldg == this); // Panel slot of this Building's current Foundation
     if (ndx < 0) {
-      this.scaleX = this.scaleY = 1;
+      this.scaleX = this.scaleY = 1;  // not coming from Panel, undo mapScale
       return;        // OK to drag
     }
     const fndx = this.homeAry.findIndex(f => f.bldg !== undefined)
