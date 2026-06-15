@@ -1,5 +1,5 @@
-import { C, type Constructor, type XY } from "@thegraid/common-lib";
-import { ParamGUI, type DragInfo, type NamedObject, type ParamItem } from "@thegraid/easeljs-lib";
+import { C, type Constructor, type XY, type XYWH } from "@thegraid/common-lib";
+import { ParamGUI, type DragInfo, type NamedObject, type ParamItem, type RectShape } from "@thegraid/easeljs-lib";
 import { Stage, type Container, type DisplayObject } from "@thegraid/easeljs-module";
 import { Hex2, PlayerPanel, Table, Tile, TileSource, TP, type DragContext, type IHex2, type MapCont, type Player as PlayerLib } from "@thegraid/hexlib";
 import { type ChaosHex2, type HexMap2 } from "./chaos-hex";
@@ -112,6 +112,12 @@ export class ChaosTable extends Table {
     const playerPanel = new Panel(table as ChaosTable, player as Player, high, wide, row - high / 2, col - wide / 2, dir);
     playerPanel.showPlayer(false); // trigger repaint with background and other content
     return playerPanel;
+  }
+
+  override setBackground(parent: Container, bounds: XYWH, bgColor?: string): RectShape & NamedObject {
+    const rect = super.setBackground(parent, bounds, bgColor)
+    rect.x =- 50;
+    return rect
   }
 
   /**

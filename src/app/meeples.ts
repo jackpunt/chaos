@@ -171,6 +171,7 @@ export class ChaosBuilding extends ChaosPresence {
   constructor(Aname: string, player: Player, f: Foundation, homeAry: Foundation[]) {
     super(Aname, player);
     this.homeAry = homeAry;
+    this.nameText.y += this.radius/4;
   }
 
   override makeShape(size = this.radius/2): Paintable {
