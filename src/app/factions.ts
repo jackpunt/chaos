@@ -13,7 +13,7 @@ export type FactionId = 0 | 1 | 2 | 3 | 4 | 5;  // at most 5 Factions in game
 /** bh: HARVEST in base, bf: beginning Foundations */
 export type BaseSpec = {name: FactionName, bh?: BONUS, bf?: [HARVEST, HARVEST] }
 /** rb: RelicBonus, fg: foundation w/gem, serial [0..4], bg: building w/gemlock (index per type), nr: number in recruit */
-export type FacSpec = {name: FactionName, rb: string[], fg: number, bg: number[][], nr?: number[] } & BaseSpec;
+export type FacSpec = {name: FactionName, rb: string[], fg: number, bg: number[][], nr: number[], ft: number, r3: BONUS } & BaseSpec;
 
 export class Faction {
   static factionById = new Map<FactionId, Faction>();
@@ -33,12 +33,12 @@ export class Faction {
   // Jrayek: Combat: +str, +shield
   // Oxytaya: Recruit: placement option
   static facSpecs: FacSpec[] = [
-    { name: 'Circadian', rb: ['G1', 'Up', 'G1', 'Up', 'Up',], fg: 2, bg: [[3, 0, 0, 0], [0, 0, 0], [1, 1, 1]], nr: [6, 2, 0, 2] }, // no base; 10 Fighters
-    { name: 'AI', rb: ['F1', 'F2', 'F2', 'F3', 'F4',], fg: 2, bg: [[2, 0, 1, 1], [0, 0, 1, 1], [0, 1]], nr: [12, 8], }, // +10 on copious
-    { name: 'Zcharo', rb: ['G1', 'G1', 'G1', 'G1', 'G1',], fg: 3, bg: [[3, 0, 0, 0], [1, 1, 1], [0, 1, 1]], nr: [9, 5, 6] },
-    { name: 'Leyrein', rb: ['M0', 'F2', 'F2', 'F3', 'F3',], fg: 1, bg: [[2, 0, 0, 1], [0, 0, 1], [1, 1, 1]], nr: [8, 6, 6], },
-    { name: 'Jrayek', rb: ['E2', 'F1', 'E3', 'F1', 'F1',], fg: 2, bg: [[2, 0, 0, 1], [0, 1, 1], [0, 0, 1]], nr: [10, 4, 6], },
-    { name: 'Oxytaya', rb: ['F1', 'F1', 'F1', 'F2', 'F3',], fg: 1, bg: [[2, 0, 1, 1], [0, 0, 1], [0, 1, 1]], nr: [12, 3, 5], },
+    { name: 'Circadian', rb: ['G1', 'Up', 'G1', 'Up', 'Up',], fg: 2, bg: [[3, 0, 0, 0], [0, 0, 0], [1, 1, 1]], nr: [6, 2, 0, 2], ft: 3, r3: 'G1', }, // no base; 10 Fighters
+    { name: 'AI', rb: ['F1', 'F2', 'F2', 'F3', 'F4',], fg: 2, bg: [[2, 0, 1, 1], [0, 0, 1, 1], [0, 1]], nr: [12, 8],       ft: 0, r3: 'G1',}, // +10 on copious
+    { name: 'Zcharo', rb: ['G1', 'G1', 'G1', 'G1', 'G1',], fg: 3, bg: [[3, 0, 0, 0], [1, 1, 1], [0, 1, 1]], nr: [9, 5, 6], ft: 1, r3: 'C', },
+    { name: 'Leyrein', rb: ['M0', 'F2', 'F2', 'F3', 'F3',], fg: 1, bg: [[2, 0, 0, 1], [0, 0, 1], [1, 1, 1]], nr: [8, 6, 6], ft: 1, r3: 'C',},
+    { name: 'Jrayek', rb: ['E2', 'F1', 'E3', 'F1', 'F1',], fg: 2, bg: [[2, 0, 0, 1], [0, 1, 1], [0, 0, 1]], nr: [10, 4, 6], ft: 1, r3: 'C', },
+    { name: 'Oxytaya', rb: ['F1', 'F1', 'F1', 'F2', 'F3',], fg: 1, bg: [[2, 0, 1, 1], [0, 0, 1], [0, 1, 1]], nr: [12, 3, 5], ft: 1, r3: 'C', },
   ];
 
   // Base harvest= bh?: E1, E2, G1, R1
@@ -69,6 +69,10 @@ export class Faction {
   bh!: BONUS;
   /** tuple: BONUS for the 2 starting Foundations */
   bf!: [BONUS, BONUS];
+  /** ft: cost for Fast Track recruiting */
+  ft!: number;
+  /** r3: trade R3 for BONUS resource. */
+  r3!: BONUS;
 
   constructor(facId: FactionId) {
     this.facId = facId;

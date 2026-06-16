@@ -480,7 +480,8 @@ export class CardPanel extends MapCont {
     return (hex instanceof CardHex)
   }
 
-  readonly cardRack: CardHex[] = [];
+  // readonly cardRack: CardHex[] = [];
+  get cardRack() { return (this.parent as Panel).cardRack; }
 
   /** make this CardPanel dragable. */
   makeDragable(table: Table) {
@@ -508,12 +509,13 @@ export class CardPanel extends MapCont {
 
   }
 
+  /** drag & drop the whole panel: */
   dropFunc(dobj: DisplayObject, ctx?: DragInfo) {
     this.scaleX = this.scaleY = 1.0;  // return to original scale
   }
 
   addCard(card?: TacticsCard) {
-    const hex = this.cardRack.find(hex => !hex.tile)
+    const hex = this.cardRack.find(hex => !hex.card)
     card?.placeTile(hex);
   }
 

@@ -1,5 +1,5 @@
 import { arrayN, C, Constructor, stime, type XY } from "@thegraid/common-lib";
-import { CenterText, CircleShape, NamedContainer, RectShape } from "@thegraid/easeljs-lib";
+import { CenterText, CircleShape, NamedContainer, RectShape, UtilButton } from "@thegraid/easeljs-lib";
 import { HexMap, newPlanner, NumCounter, Player as PlayerLib, PlayerPanel, TP, type IHex2, type MapCont, type Tile, type TileSource } from "@thegraid/hexlib";
 import { ChaosHex2 as Hex2, type ChaosHex2 } from "./chaos-hex";
 import { type ChaosTable, type ChaosTable as Table } from "./chaos-table";
@@ -8,7 +8,7 @@ import { Faction, factionColors, type FactionId, type FactionName } from "./fact
 import { BgFound, Foundation } from "./foundation";
 import { type GamePlay } from "./game-play";
 import { Barracks, ChaosPresence, Factory, Stronghold, type ChaosUnitType, type Fighter, type Leader } from "./meeples";
-import { CardBack, CardPanel } from "./tactics-card";
+import { CardBack, CardPanel, TacticsCard } from "./tactics-card";
 
 /** Canonical Faction colors, aligned with gameSetup.factionNames.
  *
@@ -16,6 +16,8 @@ import { CardBack, CardPanel } from "./tactics-card";
  */
 const playerColors = factionColors;
 export type PlayerColor = typeof playerColors[number];
+
+export const chaosOrange = 'rgb(255, 140, 0)';
 
 // 5 Bonus Foundations, named for the bonus they give; stronghold & one other have gemlock
 const foundationIds = ['research', 'harvest', 'adjacent', 'unlock', 'handlimit'] as const;
@@ -54,7 +56,6 @@ export class Player extends PlayerLib {
 
   declare gamePlay: GamePlay;
   declare panel: Panel;
-  declare table: ChaosTable;
 
   readonly facId: FactionId;
   readonly faction: Faction;
@@ -230,11 +231,12 @@ export class Panel extends PlayerPanel {
    */
   layoutPanel(table: ChaosTable) {
     const faction = this.faction;
-    this.wh = TP.meepleRad;
+    this.wh = TP.meepleRad; // TODO: integrate with panel.metrics (so counters align with wh & gap)
     this.cardPanel = this.addCardPanel(table);
     this.addRelics(faction);
     this.addBuildings(faction);
-    this.addFoundations(faction, table)
+    this.addFoundations(faction, table);
+    this.addRecruits(faction);
     this.setupBase(faction);
     return this.children;
   }
@@ -270,9 +272,9 @@ export class Panel extends PlayerPanel {
   /** 10 Foundations and 9 Buildings */
   addBuildings(spec: Faction) {
     const wh = this.wh, x0 = wh * 2.95, y0 = wh * 1.65, fs = wh * .2;
-    const incomeColor = 'rgb(255, 140, 0)', inx = wh * .54, iny = wh * 1.32;
-    const stripe = new RectShape({ x: inx, y: iny, w: this.getBounds().width - wh, h: wh * .6 }, incomeColor, '')
-    const circ = new CircleShape(incomeColor, wh/2, ''); circ.x = inx; circ.y = iny + wh/4;
+    const inx = wh * .54, iny = wh * 1.32;
+    const stripe = new RectShape({ x: inx, y: iny, w: this.getBounds().width - wh, h: wh * .6 }, chaosOrange, '')
+    const circ = new CircleShape(chaosOrange, wh/2, ''); circ.x = inx; circ.y = iny + wh/4;
     this.addChild(stripe, circ);
     const specBg = spec.bg;
     let x00 = x0;
@@ -351,6 +353,76 @@ export class Panel extends PlayerPanel {
         return { bg, fg };
       }
       this.makePair({ x, y }, maker);
+    })
+  }
+
+  /** a Counters & Buttons to move recruits into Base */
+  addRecruits(spec: Faction, tw = this.wh * 5) {
+    const nr = spec.nr, ft = spec.ft, c = this.pColor, wh = this.wh, fs = wh * .5, bfs = wh * .25;
+    const x0 = wh * 3, y0 = wh * 4, dx = tw / nr.length, base = nr.length - 1;
+    const cont = new NamedContainer(`recruits`, x0, y0);
+    this.addChild(cont);
+    cont.addChild(new RectShape({ x: -wh/2, y: -wh/2, w: tw + wh, h: wh }, 'black', ''))
+    const addButton = (name: string, x: number, y: number) => {
+      const button = new UtilButton(name, { bgColor: chaosOrange, active: true, fontSize: bfs});
+      button.x = x;
+      button.y = y;
+      cont.addChild(button);
+      return button;
+    }
+    // count the available recruit actions
+    const ravail = new NumCounter(`ravail`, 0, C.white, fs)
+    ravail.clickToInc();
+    ravail.x += 0;
+    ravail.y -= wh * .6;
+    cont.addChild(ravail)
+
+    const r3button = addButton(`R3->${spec.r3}`, wh, -wh * .6);
+    r3button.on('click', () => {
+      if (ravail.value >= 3) {
+        ravail.incValue(-3);
+        if (spec.r3 == 'G1') {
+          this.player.gems += 1;
+        } else if (spec.r3 == 'C') {
+          // if (spec.r3 == 'C') draw a card into hand
+          const source = this.player.gamePlay.table.cardSource; // TacticsCard.source;
+          if (source.numAvailable == 0) TacticsCard.reshuffle();
+          source.nextUnit();
+          const card = source.takeUnit(false);
+          this.cardPanel.addCard(card);
+          this.stage.update()
+        }
+      }
+    })
+    if (ft > 0) { // AI does not have a FT button.
+    const ft_button = addButton(`FT:${ft}`, wh * 2, -wh * .6);
+    ft_button.on('click', () => {
+      if (ravail.value > 0 && this.player.coins >= spec.ft) {
+        this.player.coinCounter.incValue(-spec.ft);
+        ravail.incValue(-1);
+        rctrs[0].incValue(-1);
+        rctrs[base].incValue(1); // <-- into base
+      }
+    });
+    }
+    // counters at each stage of recruit; last one represents the Base.
+    const rctrs = [] as NumCounter[];
+    nr.forEach((nr, i, ary) =>  {
+      const rc = new NumCounter(`nr[${i}]`, nr, c, fs, undefined, [C.BLACK, C.WHITE]);
+      rctrs[i] = rc; // rctrs.push(rc);
+      rc.x = i * dx;
+      cont.addChild(rc);
+      if (i == base) {
+        rc.x += dx;
+      } else {
+        const rcb = addButton(`->`, rc.x + dx/2, 0);
+        rcb.on('click', () => {
+          if (ravail.value > 1) {
+            rctrs[i].incValue(-1);
+            rctrs[i+1].incValue(1);
+          }
+        })
+      }
     })
   }
 
