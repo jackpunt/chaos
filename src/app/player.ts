@@ -1,5 +1,5 @@
 import { arrayN, C, Constructor, stime, type XY } from "@thegraid/common-lib";
-import { CenterText, NamedContainer, RectShape } from "@thegraid/easeljs-lib";
+import { CenterText, CircleShape, NamedContainer, RectShape } from "@thegraid/easeljs-lib";
 import { HexMap, newPlanner, NumCounter, Player as PlayerLib, PlayerPanel, TP, type IHex2, type MapCont, type Tile, type TileSource } from "@thegraid/hexlib";
 import { ChaosHex2 as Hex2, type ChaosHex2 } from "./chaos-hex";
 import { type ChaosTable, type ChaosTable as Table } from "./chaos-table";
@@ -242,6 +242,7 @@ export class Panel extends PlayerPanel {
   /** common wh for relics & foundations & buildings */
   wh = TP.meepleRad;
 
+  /** a row of icon pairs: [ % bonus ] */
   addRelics(spec: Faction) {
     const { x, y, width, height } = this.getBounds();
     const h = this.wh, w = h * 2, gap = h * .15;
@@ -269,6 +270,10 @@ export class Panel extends PlayerPanel {
   /** 10 Foundations and 9 Buildings */
   addBuildings(spec: Faction) {
     const wh = this.wh, x0 = wh * 2.95, y0 = wh * 1.65, fs = wh * .2;
+    const incomeColor = 'rgb(255, 140, 0)', inx = wh * .54, iny = wh * 1.32;
+    const stripe = new RectShape({ x: inx, y: iny, w: this.getBounds().width - wh, h: wh * .6 }, incomeColor, '')
+    const circ = new CircleShape(incomeColor, wh/2, ''); circ.x = inx; circ.y = iny + wh/4;
+    this.addChild(stripe, circ);
     const specBg = spec.bg;
     let x00 = x0;
     specBg.forEach((spec, btype) => {  // btype: 0: Factory, 1: Barracks, 2: Stronghold
@@ -305,7 +310,7 @@ export class Panel extends PlayerPanel {
   }
 
   /**
-   *
+   * turned out we do not re-use this...
    * @param fxy Panel location of bg & fg
    * @param produce { bg, fg }
    * @returns
@@ -357,6 +362,7 @@ export class Panel extends PlayerPanel {
     baseTile.paint(this.pColor)
   }
 
+  /** a sub-panel that holds the hand of TacticsCards */
   addCardPanel(table: Table, row = 0, ncols = 6) {
     // ChaosPlayerPanel { this.mapCont = new CardPanel(table); this.addChild(this.mapCont); }
     const dydr = table.hexMap.xywh().dydr;
