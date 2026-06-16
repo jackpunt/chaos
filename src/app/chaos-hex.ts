@@ -1,7 +1,7 @@
 import { C, permute, Random, stime, type Constructor } from "@thegraid/common-lib";
-import { NamedContainer, PathShape, RectShape } from "@thegraid/easeljs-lib";
+import { NamedContainer, PathShape, RectShape, type Paintable } from "@thegraid/easeljs-lib";
 import type { DisplayObject } from "@thegraid/easeljs-module";
-import { H, Hex1 as Hex1Lib, Hex2Mixin, HexMap, HexMark, TileSource, TP, type HexDir, type HexM, type IHex2, type Tile } from "@thegraid/hexlib";
+import { H, Hex1 as Hex1Lib, Hex2Mixin, HexMap, HexMark, HexShape, TileSource, TP, type HexDir, type HexM, type IHex2, type Tile } from "@thegraid/hexlib";
 import { ChaosTile, type BONUS, type HARVEST, type TERRAIN } from "./chaos-tile";
 import { Foundation } from "./foundation";
 import { Fighter } from "./meeples";
@@ -63,6 +63,14 @@ class ChaosHex2Lib extends Hex2Mixin(ChaosHex) {};
 export class ChaosHex2 extends ChaosHex2Lib {
   // declare tile: ChaosTile | undefined; // uses get/set from Hex2Mixin(ChaosHex)
   // declare meep: ChaosCard | undefined;
+
+  // enlarge to remove dead-zone between hexes:
+  override makeHexShape(colorn = C.grey224): Paintable {
+      const hs = new HexShape(Math.ceil(this.radius * 60/59))
+      hs.paint(colorn);
+      return hs;
+    }
+
 }
 
 /////////////////////////////////// HexMap2 ///////////////////////////////////////////////

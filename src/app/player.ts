@@ -1,9 +1,10 @@
 import { arrayN, C, Constructor, stime, type XY } from "@thegraid/common-lib";
 import { CenterText, NamedContainer, RectShape } from "@thegraid/easeljs-lib";
-import { HexMap, newPlanner, NumCounter, Player as PlayerLib, PlayerPanel, TP, type IHex2, type MapCont, type Phase, type Tile, type TileSource } from "@thegraid/hexlib";
+import { HexMap, newPlanner, NumCounter, Player as PlayerLib, PlayerPanel, TP, type IHex2, type MapCont, type Tile, type TileSource } from "@thegraid/hexlib";
 import { ChaosHex2 as Hex2, type ChaosHex2 } from "./chaos-hex";
 import { type ChaosTable, type ChaosTable as Table } from "./chaos-table";
-import { ChaosTile, type BONUS, type FAME_BONUS, type HARVEST } from "./chaos-tile";
+import { ChaosTile, type BONUS } from "./chaos-tile";
+import { Faction, factionColors, type FactionId, type FactionName } from "./factions";
 import { BgFound, Foundation } from "./foundation";
 import { type GamePlay } from "./game-play";
 import { Barracks, ChaosPresence, Factory, Stronghold, type ChaosUnitType, type Fighter, type Leader } from "./meeples";
@@ -13,23 +14,12 @@ import { CardBack, CardPanel } from "./tactics-card";
  *
  * Each canonical color is mapped to an HTML color string for display: Player.colorScheme[cname]
  */
-//                  Circadian   AI   Zcharo   Leyrein   JRayek   Oxytaya
-const playerColors = ['gold', 'grey', 'blue', 'green', 'orange', 'violet', ] as const;
+const playerColors = factionColors;
 export type PlayerColor = typeof playerColors[number];
 
 // 5 Bonus Foundations, named for the bonus they give; stronghold & one other have gemlock
 const foundationIds = ['research', 'harvest', 'adjacent', 'unlock', 'handlimit'] as const;
-type FoundationId = typeof foundationIds[number];
-
-/** presentation name of each Faction */  // TODO: move these to Scenario & parser?
-export const factionNames = ['Circadian', 'AI', 'Zcharo', 'Leyrein', 'Jrayek', 'Oxytaya'] as const;
-export type FactionName = typeof factionNames[number];
-export type FactionId = 0 | 1 | 2 | 3 | 4 | 5;  // at most 5 Factions in game
-
-/** bh: HARVEST in base, bf: beginning Foundations */
-type BaseSpec = {name: FactionName, bh?: BONUS, bf?: [HARVEST, HARVEST] }
-/** rb: RelicBonus, fg: foundation w/gem, serial [0..4], bg: building w/gemlock (index per type), nr: number in recruit */
-type FacSpec = {name: FactionName, rb: string[], fg: number, bg: number[][], nr?: number[] } & BaseSpec;
+export type FoundationId = typeof foundationIds[number];
 
 /** per-Player bits on PlayerPanel */
 class PlayerBits {
@@ -40,57 +30,6 @@ class PlayerBits {
   strongholds!: TileSource<Stronghold>; // Spread TileSource.filterUnits((u)=>!u.hex.isOnMap) across board
   foundations!: Record<FoundationId, ChaosHex2>; // the 5 foundations in their places
   // extend with Morale[], AI_Trap[], RhyzuToken[], Intel Cards
-}
-
-class Faction {
-  static allFactions: Faction[] = [];
-
-  player!: Player;
-
-  facId!: 0|1|2|3|4|5;
-  fColor!: PlayerColor;
-  facName!: FactionName;
-  facSpec!: FacSpec;
-  baseSpec!: BaseSpec;
-
-  _fame = 0;
-  fameTrack = [] as FAME_BONUS[];
-
-  get fame() { return this._fame } // readonly
-  incFame() {
-    this._fame += 1;
-    const bonus = this.fameTrack[this.fame];
-    if (bonus) {
-      // TODO: implement bonus
-      switch (bonus) {
-        case "E1": {
-          this.player.coins += 1;
-          break;
-        }
-        case "E2": {
-          this.player.coins += 2;
-          break;
-        }
-        case "G1": {
-          this.player.gems += 1;
-          break;
-        }
-        // TODO: Player choice/actions and completion:
-        case "C":  // draw, show, (maybe discard/play), wait for ack/continue
-        case "%":  // wait for click on track;
-        case "R1": // wait for choice to fast-track
-        case "R2": // wait for choice to fast-track
-        case "M1": // wait for choice of Redeploy
-        case 'Win': // signal instant win
-      }
-    }
-  }
-
-  /** override for phase specific checks; Faction attributes */
-  checkPhase(phase: Phase) {
-
-  }
-
 }
 
 export class Player extends PlayerLib {
@@ -117,15 +56,18 @@ export class Player extends PlayerLib {
   declare panel: Panel;
   declare table: ChaosTable;
 
-  facId: FactionId;
-  get facName() { return Panel.facSpecs[this.facId].name; }
+  readonly facId: FactionId;
+  readonly faction: Faction;
+  readonly facName: FactionName;
 
   constructor(index: number, gamePlay: GamePlay) {
     super(index, gamePlay); // <-- index is 'table ordinal'
-    // this.facName = gamePlay.gameSetup.facNames[index];
-    this.facId = gamePlay.gameSetup.facIds[index];     // Aname and HTML color should be aligned with facId
+    const facId = gamePlay.gameSetup.facIds[index];     // Aname and HTML color should be aligned with facId
+    this.facId = facId;
+    this.faction = Faction.factionById.get(facId) ?? new Faction(facId);
+    this.facName = this.faction.name;
     const cname = playerColors[this.facId];
-    ;(this as any).Aname = `P${index}:${cname}*`
+    ;(this as any).Aname = `P${index}:${cname}`
     this.color = (this.constructor as typeof Player).playerColor(cname); // canonical name --> html Color
   }
 
@@ -239,49 +181,8 @@ export class Player extends PlayerLib {
  * so ancillary methods can be found (topo, xywh)
  */
 export class Panel extends PlayerPanel {
-  static byName = new Map<string, Panel>(); // by god.name, not className(god): 'Set' not 'SetGod'
 
-  // Relic bonus = rb: G: Gem, F: Fame, E: Energy, M: Morale, Up: Upgrade Attribute(flip),
-  // Bldg gemlock= bg: [[0, 1, 1], [0, 0, 1, 1], [0, 1]] <== Zcharo! always 9 there are
-  // Base income = bi?: 3 | undefined => 2/G
-  // Num recruit = nr: [8, 6, 6] initial number of Fighters in each stage & base
-  // Foundation w/gem = fg: 1-4 (0 is implicit) [gem->res, ubiq harv, ubiq adj, gemlock, handlim]
-  //
-  // Factory: Energy2, Baracks: Card, Stronghold: Gem (--> %)
-  // Stronghold = sf?: () => void;
-  // Circadian: Build:restrict, Income: +region
-  // Zcharo: Combat: strength
-  // AI: Move: trap, Income: reset
-  // Leyrein: Build: restrict, Combat: +strength, Income: +Fame
-  // Jrayek: Combat: +str, +shield
-  // Oxytaya: Recruit: placement option
-
-  static facSpecs: FacSpec[] = [
-    { name: 'Circadian', rb: ['G1', 'Up', 'G1', 'Up', 'Up', ], fg: 2, bg: [[3,0,0,0], [0,0,0], [1,1,1]], nr: [6, 2, 0, 2] }, // no base; 10 Fighters
-    { name: 'AI',        rb: ['F1', 'F2', 'F2', 'F3', 'F4', ], fg: 2, bg: [[2,0,1,1], [0,0,1,1], [0,1]], nr: [12, 8], }, // +10 on copious
-    { name: 'Zcharo',    rb: ['G1', 'G1', 'G1', 'G1', 'G1', ], fg: 3, bg: [[3,0,0,0], [1,1,1], [0,1,1]], nr: [9, 5, 6] },
-    { name: 'Leyrein',   rb: ['M0', 'F2', 'F2', 'F3', 'F3', ], fg: 1, bg: [[2,0,0,1], [0,0,1], [1,1,1]], nr: [8, 6, 6], },
-    { name: 'Jrayek',    rb: ['E2', 'F1', 'E3', 'F1', 'F1', ], fg: 2, bg: [[2,0,0,1], [0,1,1], [0,0,1]], nr: [10, 4, 6], },
-    { name: 'Oxytaya',   rb: ['F1', 'F1', 'F1', 'F2', 'F3', ], fg: 1, bg: [[2,0,1,1], [0,0,1], [0,1,1]], nr: [12, 3, 5], },
-  ]
-
-  // Base harvest= bh?: E1, E2, G1, R1
-  // Base foundations = bf: [string, string]
-  static baseSpecs: BaseSpec[] = [
-    { name: 'Circadian', bh: '-', bf: ['%', 'E2'] }, // no base
-    { name: 'AI',        bh: 'E1', bf: ['G1', 'E2'] },
-    { name: 'Zcharo',    bh: 'E2', bf: ['C', 'G1'] },
-    { name: 'Leyrein',   bh: 'E2', bf: ['C', 'E2'] },
-    { name: 'Jrayek',    bh: 'G1', bf: ['G1', '%'] },
-    { name: 'Oxytaya',   bh: 'R1', bf: ['C', 'C'] },
-  ]
-  static {
-    // append/include baseSpecs in facSpecs:
-    this.baseSpecs.forEach((bs, ndx) => this.facSpecs[ndx] = { ...this.facSpecs[ndx], ... bs })
-  }
-  // facName: FactionName;
-  // baseSpec!: BaseSpec;
-  facSpec!:FacSpec;
+  faction: Faction;
 
   declare mapCont: MapCont;            // player.makeCardRack() will set mapCont = cardPanel
   declare player: Player;
@@ -306,14 +207,11 @@ export class Panel extends PlayerPanel {
     super(table, player, high, wide, row, col, dir); // make a PlayerPanel
     Object.assign(this, hexMap);       // assign hexMap instance variables
     this.Aname = player.Aname;         // reset Aname
-    this.player.color = Player.playerColor(this.player.cname!); // override Player.colorScheme
+    // this.player.color = Player.playerColor(this.player.cname!); // override Player.colorScheme
     this.bg0 = C.grey64; 'rgb(56, 56, 56)';
     this.bg1 = this.bg0;
-    // const facName = this.facName = this.player.facName;
-    // this.facSpec = Panel.facSpecs.find(spec => (spec.name == facName))!;
-    // this.baseSpec = Panel.baseSpecs.find(spec => (spec.name == facName))!;
-    const facSpec = this.facSpec = Panel.facSpecs[this.factionId];
-    console.log(stime(this, `.constructor: factionId=${this.factionId} cname=${this.player.cname} ${facSpec.name}`))
+    const faction = this.faction = this.player.faction;
+    console.log(stime(this, `.constructor: factionId=${this.factionId} cname=${this.player.cname} ${faction.name}`))
     player.panel = this;       // set it so layout can easily find the Player
     this.layoutPanel(table);
   }
@@ -331,20 +229,20 @@ export class Panel extends PlayerPanel {
    * Also: setup Base hex: [Ship, E1, E2, E2, G1, R1]
    */
   layoutPanel(table: ChaosTable) {
+    const faction = this.faction;
     this.wh = TP.meepleRad;
     this.cardPanel = this.addCardPanel(table);
-    this.addRelics(this.facSpec);
-    this.addBuildings(this.facSpec);
-    this.addFoundations(this.facSpec, table)
-    this.setupBase(this.facSpec);
-    this.player.gamePlay.hexMap
+    this.addRelics(faction);
+    this.addBuildings(faction);
+    this.addFoundations(faction, table)
+    this.setupBase(faction);
     return this.children;
   }
 
   /** common wh for relics & foundations & buildings */
   wh = TP.meepleRad;
 
-  addRelics(spec: FacSpec) {
+  addRelics(spec: Faction) {
     const { x, y, width, height } = this.getBounds();
     const h = this.wh, w = h * 2, gap = h * .15;
     const x0 = x + w * 1.76, y0 = y + h * .65;
@@ -369,7 +267,7 @@ export class Panel extends PlayerPanel {
   // add Income & Buildings; set playerColor & Harvest icon on Base.
   // FacSpec.bg: number[][] building w/gemlock (index per type); // indicates number of slots for each type
   /** 10 Foundations and 9 Buildings */
-  addBuildings(spec: FacSpec) {
+  addBuildings(spec: Faction) {
     const wh = this.wh, x0 = wh * 2.95, y0 = wh * 1.65, fs = wh * .2;
     const specBg = spec.bg;
     let x00 = x0;
@@ -424,7 +322,7 @@ export class Panel extends PlayerPanel {
   }
 
   /** the 5 left-side bonus Foundations */
-  addFoundations(spec: FacSpec, table: Table) {
+  addFoundations(spec: Faction, table: Table) {
     const gl = spec.fg, r = [ 1, 2, 3, 2, 3 ], c = [ 1, 1, 1, 0, 0 ];
     const fn: Record<FoundationId, string> = {
       research: 'Gem\n---->\nResearch',
@@ -453,7 +351,7 @@ export class Panel extends PlayerPanel {
 
   baseTile!: ChaosTile;
   // make ChaosTile, set color, set Harvest token
-  setupBase(spec: FacSpec) {
+  setupBase(spec: Faction) {
     const h = spec.bh ?? '-';
     const baseTile = new ChaosTile(`${spec.name}Base`, 'Base', h, this.player);
     baseTile.paint(this.pColor)
@@ -477,13 +375,14 @@ export class Panel extends PlayerPanel {
     return cardPanel;
   }
 
-  // maybe a super-class of CardPanel? *any* mapCont?
+  // maybe a super-class of CardPanel? *any* mapCont? see game-setup where we Panel.mixin(HexMap2, PlayerPanel)
   /**
    * array of colN hexes across the width of mapCont (CardPanel is the mapCont of ChaosPlayerPanel);
    *
    * Uses mapCont.getBounds(), to that must be set.
    *
-   * @param cPanel panel to hold the row of hexes
+   * cPanel: panel to hold the row of hexes (this as HexMap).mapCont
+   *
    * @param row0 y coordinate of the row of hexes
    * @param colN number of hexes in the row
    * @param hexC class of hexes to create
@@ -498,25 +397,14 @@ export class Panel extends PlayerPanel {
     const map = this as any as Panel & HexMap<Hex2>; // put hexes here
     const cPanel = map.mapCont;
     const table = this.player.gamePlay.table;
-    // verify prototype functions and instance variables are installed:
-    // GameSetup.static{} & ChaosPlayerPanel.constructor conspire to do this.
-    // With backup in: table.makePlayerPanel(), and here: ChaosPlayerPanel.hexesOnMapCont
-    // if (!map.topo) {
-    //   console.log(stime(this, `.assign(map=${map.name}, this.hexMap=${table.hexMap.Aname}`));
-    //   Object.assign(map, table.hexMap);
-    //   // assume for now that PlayerPanel has mixinAB(PlayerPanel, HexMap<Hex2>)
-    //   if (typeof map.addToMapCont !== 'function') {
-    //     debugger;
-    //     mixins.mixinHexMap(PlayerPanel, HexMap2)
-    //   }
-    // }
+
     const { width: panelw } = cPanel.getBounds();
     const { x: xn, dydr, dxdc } = this.hexMap.xywh(undefined, 0, colN - 1); // x of last cell
     const gpix = gap < 1 ? gap * dxdc : gap;
     const dx = (panelw - xn - (colN - 1) * gpix) / 2; // allocate any extra space (width-xn) to either side
     const dy = row0 * dydr;   // y for row0
     for (let col = 0; col < colN; col++) {
-        // make hex at row=0, then offset by row0 !? legacy from hextowns half-offset?
+        // make hex at row=0, then offset by dx; constant dy (vs per-column displacement)
         const hex = table.newHex2(0, col, `CardSlot`, hexC, map); // child of map.mapCont.hexCont
         rv.push(hex);
         hex.cont.x += (dx + col * gpix);
@@ -526,5 +414,4 @@ export class Panel extends PlayerPanel {
     }
     return rv;
   }
-
 }

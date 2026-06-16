@@ -53,7 +53,7 @@ export class Foundation extends Tile {
     this.bonus = bonus;
     const ctext = new CenterText(bonus, fs ?? this.radius * .5, 'white');
     ctext.y = (ctext.getMeasuredLineHeight() -ctext.getMeasuredHeight())/2; // raise to center: TODO count the newlines...
-    this.icon = bonusIcon(bonus) ?? ctext;
+    this.icon = bonusIcon(bonus, TP.hexRad * 2) ?? ctext;
     this.addChild(this.icon);
     this.nameText.y -= 6
   }

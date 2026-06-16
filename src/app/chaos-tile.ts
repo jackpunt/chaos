@@ -104,7 +104,7 @@ export function bonusIcon(harv: HARVEST, radius = TP.hexRad) {
     const cHarv = spotmap[h0] ?? C.transparent;
     const w = radius * .25, h = w * 1.4, fs = radius * .15;
     const cardRect = { x: -w / 2, y: -h / 2, w, h };
-    const shape = (h0 == 'C' || h0 == 'U' ) ? new RectShape(cardRect, cHarv, '') : new CircleShape(cHarv, w * .6, '');
+    const shape = (h0 == 'C' || h0 == 'U' ) ? new RectShape(cardRect, cHarv, '') : new CircleShape(cHarv, fs, '');
     const tColor = C.pickTextColor(cHarv, ['black', 'white']);
     const iText = new CenterText(h0 == 'C' ? '+' : harv, fs, tColor);
     if (harv !== '-') icon.addChild(shape, iText);

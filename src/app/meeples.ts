@@ -2,7 +2,7 @@ import { type XY, type XYWH } from "@thegraid/common-lib";
 import { NamedContainer, PathShape, RectShape, type Paintable } from "@thegraid/easeljs-lib";
 import type { Rectangle } from "@thegraid/easeljs-module";
 import { Graphics } from "@thegraid/easeljs-module";
-import { Meeple, MeepleShape, Tile, TP, type DragContext, type IHex2 } from "@thegraid/hexlib";
+import { Meeple, MeepleShape, Tile, TP, type DragContext, type Hex, type HexM, type IHex2 } from "@thegraid/hexlib";
 import type { ChaosHex2 as Hex2 } from "./chaos-hex";
 import type { BONUS } from "./chaos-tile";
 import { Foundation } from "./foundation";
@@ -185,7 +185,7 @@ export class ChaosBuilding extends ChaosPresence {
 
   override isLegalTarget(toHex: Hex2, ctx?: DragContext): boolean {
     const tile = toHex.ctile;
-    return !!tile?.foundations.find(f => f && !f.bldg)
+    return !!tile?.foundations.find(f => f && (!f.bldg || f.bldg == this))
   }
 
   override sendHome(): void {
@@ -211,8 +211,28 @@ export class ChaosBuilding extends ChaosPresence {
     }
   }
 
-  override dragFunc(hex: IHex2 | undefined, ctx: DragContext): void {
-    super.dragFunc(hex, ctx);
+  zoomed = false;
+  zoom(z = true, zf = Foundation.mapScale) {
+    if (this.zoomed == z) return; // nothing to do
+    if (this.zoomed) {
+      this.zoomed = z; // true
+      this.gamePlay.table.zoom(zf);
+    } else {
+      this.zoomed = z; // false
+      this.gamePlay.table.zoom(1/zf);
+    }
+  }
+
+  markMap?: HexM<Hex>;
+  override showTargetMark(hex: IHex2 | undefined, ctx: DragContext) {
+    if (ctx.targetHex) {
+      this.markMap = ctx.targetHex.map;
+      this.markMap.showMark(ctx.targetHex)
+      this.zoom(true);
+    } else {
+      this.markMap?.showMark(undefined);
+      this.zoom(false)
+    }
   }
 
   override dropFunc(targetHex: Hex2, ctx: DragContext): void {
@@ -220,16 +240,9 @@ export class ChaosBuilding extends ChaosPresence {
       this.sendHome();
       return;
     }
-    // if drop on Panel then sendHome
-    // if (this.parent === this.player.panel) {
-    //   this.sendHome();
-    //   return;
-    // }
     // on targetHex (on map), place on Foundation
     if (targetHex) {
       this.scaleX = this.scaleY = Foundation.mapScale
-      // super.dropFunc(targetHex, ctx);
-      const ctile = targetHex.ctile
       const f = this.findFoundation(targetHex)
       f.bldg = this;   // mark Foundation occupied
       this.x = f.x; this.y = f.y;
@@ -242,11 +255,11 @@ export class ChaosBuilding extends ChaosPresence {
   // this.parent = tileCont ie: meepleCont
   // this.hex = hexMap@[r,c]
   findFoundation(hex2: Hex2) {
-    const ctile = hex2.ctile;
-    const x = this.x, y = this.y; // where it dropped
+    const ctile = hex2.ctile!;
+    const p = this.parent.localToLocal(this.x, this.y, ctile.parent);
     // ASSERT: there is an empty Foundation, else not isLegalTarget!
-    const fs = ctile?.foundations.filter(f => f && !f.bldg) as Foundation[];
-    const f = fs.sort((a, b) => Math.abs(Math.abs(a.x - x) - Math.abs(b.x - x)))[0];
+    const fs = ctile?.foundations.filter(f => f && (!f.bldg || f.bldg == this)) as Foundation[];
+    const f = fs.sort((a, b) => Math.abs(a.x - p.x) - Math.abs(b.x - p.x))[0];
     return f;  // the nearest Foundation
   }
 }
