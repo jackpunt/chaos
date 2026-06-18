@@ -1,4 +1,4 @@
-import { Component, HostListener, Inject, Input, OnInit } from '@angular/core';
+import { Component, HostListener, Inject, Input, OnInit, ChangeDetectionStrategy } from '@angular/core';
 import { Title } from '@angular/platform-browser';
 import { ActivatedRoute, Params } from '@angular/router';
 import { stime } from '@thegraid/common-lib';
@@ -13,6 +13,7 @@ import { GameSetup } from '../game-setup';
   selector: 'stage-comp',
   providers: [KeyBinder, Title],
   templateUrl: './stage.component.html',
+  changeDetection: ChangeDetectionStrategy.Eager,
   styleUrls: ['./stage.component.css']
 })
 export class StageComponent implements OnInit {
