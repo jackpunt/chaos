@@ -1,13 +1,14 @@
 import { C } from "@thegraid/common-lib";
 import { CenterText, CircleShape, NamedContainer, PaintableShape, RectShape } from "@thegraid/easeljs-lib";
 import { Container } from "@thegraid/easeljs-module";
-import { type DragContext, HexShape, type IHex2, MapTile, Player as PlayerLib, type Table, type TileSource, TP } from "@thegraid/hexlib";
+import { type DragContext, HexShape, type IHex2, MapTile, Player as PlayerLib, type Table, TP } from "@thegraid/hexlib";
 import { type ChaosHex as Hex1, type ChaosHex2 as Hex2 } from "./chaos-hex";
 import { type ChaosTable } from "./chaos-table";
 import { Foundation } from "./foundation";
 import type { GamePlay } from "./game-play";
-import type { AI_Trap, Barracks, Factory, Fighter, Leader, Morale, Stronghold } from "./meeples";
+import type { AI_Trap, Barracks, Factory, Leader, Morale, Stronghold } from "./meeples";
 import type { Player } from "./player";
+import type { FactionOnTileState } from "./scenario-parser";
 
 declare module '@thegraid/easeljs-module' {
   interface Graphics {
@@ -123,14 +124,31 @@ const colorOfTerrain: Record<TERRAIN, string> = {
 
 /** per-Player bit on map Hex */
 class FactionOnTile extends NamedContainer {
-  constructor(player: Player) {
+  constructor(public player: Player, public tile: ChaosTile) {
     super(`fac-${player.facId}`);
   }
-  leaders: Leader[] = [ ];              // 2 slots (own + Rhyzu), Zcharo: 4, Oxytaya: 4
-  Fighters!: TileSource<Fighter>;       // Fighter in slot, followed by Leader(s)
+  leaders: Leader[] = [ ];              // 2+ slots (own + Rhyzu), Zcharo: 4, Oxytaya: 4
+  fighters = 0;                         // number of fighters in slot, followed by Leader(s)
   strength = 0;                         // Apparent strength of Faction
   pins = 0;
+  buildings: ('F'|'B'|'S')[] = [];      // if this Faction has buildings on tile, ordered by foundation index
   // TODO: methods to add/remove elements
+
+  getState() {
+    const buildings = this.tile.buildings;
+    const rv = {
+      l: this.leaders.map(l => `${l.Aname}${l.upgrade ? '*': ''}`),
+      f: this.fighters,
+    } as FactionOnTileState;
+
+    if (buildings && buildings[0].player == this.player) {
+      rv.b = buildings.map(b => b.Aname[0]) as ('F'|'B'|'S')[];
+    }
+    if (this.tile.special) {
+      rv.s = this.tile.special.status;
+    }
+    return rv
+  }
 }
 
 
@@ -164,7 +182,10 @@ export class ChaosTile extends MapTile {
 
   /** hold all the Faction Units; index by FactionId (or PlayerId?) */
   factions: FactionOnTile[] = [];
-  special: { morale?: Morale, trap?: AI_Trap } = {}
+  special?: Morale| AI_Trap;
+  get buildings() {
+    return this.foundations.map(f => f?.bldg).filter(b => !!b);
+  }
 
   // Tiles: isLegalTarget(hex, ctx) => (hex.foundations.length < 3)
   foundations: [Foundation?, Foundation?, Foundation?] = [undefined, undefined, undefined]; // Factory, Baracks, Stronghold

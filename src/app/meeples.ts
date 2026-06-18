@@ -140,7 +140,7 @@ export class Fighter extends ChaosUnit {
 }
 
 export class Leader extends ChaosUnit {
-
+  upgrade = false;  // set true when upgraded
 }
 
 // methods in common to Buildings
@@ -304,13 +304,13 @@ export class Relic extends ChaosToken {
 // Has a slot on ChaosHex
 // Auto-drop mostly; player selects Strength or Fame when there is a choice.
 export class Morale extends ChaosToken {
-
+  status = 'M1' as "M1" | "M2";
 }
 
 // Drop Stronghold on hex/foundation and game can move the Trap.
 // resetTile() during Income phase
 export class AI_Trap extends ChaosToken {
-
+  status = 'T1' as "T1" | "T0";   // T0 when triggered
 }
 
 // -------- not on a usual hex ---------

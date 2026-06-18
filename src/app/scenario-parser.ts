@@ -1,25 +1,60 @@
 import { stime } from "@thegraid/common-lib";
 import { SetupElt as SetupEltLib, ScenarioParser as SPLib, } from "@thegraid/hexlib";
-import type { GamePlay } from "./game-play";
 import type { HexMap2 } from "./chaos-hex";
+import type { FactionId } from "./factions";
+import type { GamePlay } from "./game-play";
 
+type CardId = string; // from CardSpec.id
+
+type LeaderS = string; // LeaderName | LeaderName* if upgraded; on Card unless appears in FactionOnTile
+interface FactionState {
+  coins: number;
+  gems: number;
+  cards: CardId[];
+  leaders: LeaderS[]; // typeof keyof AllLeaderNames & Rhyzu!
+  recruits: number[];  // fighters in each stage of recruit (& Base) see FactionSpec.nr
+  relics: string[];    // "Rn" for each Relic collected
+  // all from Player.playerBits
+}
+
+export interface FactionOnTileState {
+  l?: LeaderS[];                   // 2 slots (own + Rhyzu), Zcharo: 4, Oxytaya: 4
+  f?: number;                     // Fighters in region
+  b?: ('F'|'B'|'S')[];            // if this Faction has buildings on tile, ordered by foundation index
+  s?: 'M1' | 'M2' | 'T1' | 'T0';  // Morale: 'M1' | 'M2', AI_Trap: 'T1' | 'T0'
+}
+
+interface TileState {
+  foundations?: string[];  // ["F5.1", "R0C"]    Relic Foundations: R1E, R2G, R3C, R4%, R5%, R6, R0E, R0G, R0C
+  // pull foundations from Faction board, placement is monotonic.
+  // install Relic if Round <= n; Assert: Phase < CheckRelic
+
+  presence?: Record<FactionId, FactionOnTileState>;
+}
+
+type RCS = string; // Hex.rcs() Row, Col string: "[r,c]"
+type TileStates = Record<RCS, TileState>;  // { "[1,1]" : { "1" : { leaders: [], fighters: 3, buildings: ["S"], special: "T1" } } }
 
 
 // { name turn coins gameState }
+// tablePlayers [0..nPlayers-1] the factionIndex
+// curPlayer (index into tablePlayers, mod(len))
+// playerStateAry (representing each player board: fighters to recruit, buildings, foundations, leaders upgrade, specials)
+// factionAttribute state (which ones are upgraded)
+// chaosHex: { terrain, harvest, foundation[], playerUnits: { fighters, buildings, leaders }[], ...}
+// mapStateAry: for each Hex: { chaosHex, adjacency-LINKS }
+// foundation: {bonus, building}; building: {type, owner, foundation, trap-status?} include Relic(N)!;
+// layout: each Hex & adjacency (mtns, lakes, tunnels) <== prefer this to be in gameState.map & is invariant
+// derived in initial setup, at top of log file.
+// circadian ship has 2 adjacent hex locs
+
 export interface SetupElt extends SetupEltLib {
-  // tablePlayers [0..nPlayers-1] the factionIndex
-  // curPlayer (index into tablePlayers, mod(len))
-  // playerStateAry (representing each player board: fighters to recruit, buildings, foundations, leaders upgrade, specials)
-  // factionAttribute state (which ones are upgraded)
-  // chaosHex: { terrain, harvest, foundation[], playerUnits: { fighters, buildings, leaders }[], ...}
-  // mapStateAry: for each Hex: { chaosHex, adjacency-LINKS }
-  // foundation: {bonus, building}; building: {type, owner, foundation, trap-status?} include Relic(N)!;
-  // layout: each Hex & adjacency (mtns, lakes, tunnels) <== prefer this to be in gameState.map & is invariant
-  // derived in initial setup, at top of log file.
-  // circadian ship has 2 adjacent hex locs
 
   p6ary?: number[];        // permutations (0..5) of the xtraTiles for 3, 4 and 5 Player games
-  gems?: number[];         // like coins; one for each player
+  Aname?: string;          // from initial setup
+  gameState?: any[];       // from GameState.saveState()
+  plyrStates?: FactionState[];
+  tileStates?: TileStates;
 }
 
 export class ScenarioParser extends SPLib {
@@ -48,14 +83,9 @@ export class ScenarioParser extends SPLib {
   override parseScenario(setup: SetupElt): void {
     console.info(stime(this, `.parseScenario: curState =`), this.saveState()); // log current state for debug...
     console.log(stime(this, `.parseScenario: newState =`), setup);
-    const { p6ary, turn, coins, gems, gameState } = setup;
+    const { p6ary, plyrStates, gameState } = setup;
     const gamePlay = this.gamePlay, table = gamePlay.table;
-    const turnSet = (turn !== undefined); // indicates a Saved Scenario: assign & place everything
-    if (turnSet) {
-        gamePlay.turnNumber = turn;
-        table?.logText(`turn = ${turn}`, `parseScenario`);
-        // this.gamePlay.allTiles.forEach(tile => tile.hex?.isOnMap ? tile.sendHome() : undefined); // clear existing map
-    }
+
     if (p6ary) {
       (gamePlay.hexMap as HexMap2).setupMapTiles( );
     }

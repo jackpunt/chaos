@@ -21,7 +21,8 @@ export class GamePlay extends GamePlayLib {
 
   override get allPlayers() { return super.allPlayers as Player[] }
 
-  declare curPlayer: Player;
+  override get curPlayer() { return super.curPlayer as Player; }
+
   override startTurn() {
   }
 

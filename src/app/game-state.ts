@@ -30,14 +30,8 @@ export class GameState extends GameStateLib {
     if (this.allDone) this.done();
   }
 
-  /**
-   * test if tile is special
-   * @param tile Tile or Card to compare to doneTile or doneCard;
-   * @returns true if given tile is NOT the current tileDone
-   */
-  notDoneTile(tile: Tile) {
-    return ((this.tileDone && tile !== this.tileDone))
-  }
+  yesDone = () => { setTimeout(() => this.done(true), 50); }
+  reStart = () => { setTimeout(() => this.state.start(), 50); }
 
   get allDone() { return this.tileDone }
 
@@ -66,11 +60,7 @@ export class GameState extends GameStateLib {
       },
       done: (ok = false) => {
         if (!ok && !this.allDone) {
-          this.panel.areYouSure('You have an unused action.', () => {
-            setTimeout(() => this.done(true), 50);
-          }, () => {
-            setTimeout(() => this.state.start(), 50);
-          });
+          this.panel.areYouSure('You have an unused action.', this.yesDone, this.reStart);
           return;
         }
         if (this.allDone || ok) this.phase('EndTurn');
