@@ -22,6 +22,7 @@ export class GamePlay extends GamePlayLib {
   override get allPlayers() { return super.allPlayers as Player[] }
 
   override get curPlayer() { return super.curPlayer as Player; }
+  override set curPlayer(plyr: Player) { this._curPlayer = plyr; } // proforma, must reassert the setter!
 
   override startTurn() {
   }
