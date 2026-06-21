@@ -1,5 +1,6 @@
 import type { Phase } from "@thegraid/hexlib";
 import type { BONUS, FAME_BONUS, HARVEST } from "./chaos-tile";
+import type { PricingToken } from "./meeples";
 import { type Player } from "./player";
 
 //                          Circadian   AI   Zcharo   Leyrein   JRayek   Oxytaya
@@ -82,6 +83,8 @@ export class Faction {
   }
 
   player!: Player;
+  // PricingTokens available to play
+  pTokens: PricingToken[] = [];
 
   get coins() { return this.player.coinCounter?.value; }
   set coins(v) { this.player.coinCounter?.updateValue(v); }

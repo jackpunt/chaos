@@ -1,17 +1,20 @@
 import { stime } from "@thegraid/common-lib";
 import { KeyBinder } from "@thegraid/easeljs-lib";
-import { GamePlay as GamePlayLib, Scenario, TP as TPLib } from "@thegraid/hexlib";
+import { GamePlay as GamePlayLib, SetupElt, TP as TPLib } from "@thegraid/hexlib";
 import type { HexMap2 } from "./chaos-hex";
 import type { ChaosTable } from "./chaos-table";
 import type { GameSetup } from "./game-setup";
-import { GameState } from "./game-state";
+import { GameState, pricePhases, type PlayerId } from "./game-state";
 import type { Player } from "./player";
 import { ScenarioParser } from "./scenario-parser";
 import { TP } from "./table-params";
+import type { PricingToken } from "./meeples";
 
 
 export class GamePlay extends GamePlayLib {
-  constructor (gameSetup: GameSetup, scenario: Scenario) {
+  neutralTokes: PricingToken[] = [];
+
+  constructor (gameSetup: GameSetup, scenario: SetupElt) {
     super(gameSetup, scenario);
   }
   override readonly gameState: GameState = new GameState(this);
@@ -19,6 +22,7 @@ export class GamePlay extends GamePlayLib {
   declare hexMap: HexMap2;
   declare table: ChaosTable;
 
+  /** Players in table order; the order they were created. */
   override get allPlayers() { return super.allPlayers as Player[] }
 
   override get curPlayer() { return super.curPlayer as Player; }
@@ -27,22 +31,26 @@ export class GamePlay extends GamePlayLib {
   override startTurn() {
   }
 
+  setPrice(ndx: PlayerId) {
+    const plyr = this.allPlayers[ndx];
+    const token = plyr.priceTokens[1]; // TODO: the real thing.
+
+    this.gameState.phasePrices['Discovery'] = token;
+    token.status = 'inplay';
+    this.gameState.state.done!(ndx);
+  }
+
+  setPriceNeutral() {
+    pricePhases.forEach(p => {
+
+    })
+  }
+
   /** parseScenario() makes a new ScenarioParser for each invocation */
   override makeScenarioParser(hexMap = this.hexMap): ScenarioParser {
     return new ScenarioParser(hexMap, this);
   }
 
-  // Demo from Acquire to draw some tiles:
-  playerDone() {
-    const plyr = this.curPlayer;
-    plyr.gamePlay.hexMap.update(); // TODO: this.playerDone(ev)
-  }
-
-  // during setNextPlayer; if we need to highlight something...
-  override paintForPlayer(): void {
-    // if (!ChaosTile.source?.sourceHexUnit) ChaosTile.source.nextUnit();
-    // ChaosTile.source.sourceHexUnit?.setPlayerAndPaint(this.curPlayer);
-  }
 
   brake = false; // for debugger
   /** for conditional breakpoints while dragging; inject into any object. */

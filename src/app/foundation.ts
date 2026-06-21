@@ -51,11 +51,16 @@ export class Foundation extends Tile {
   constructor(Aname: string, bonus: BONUS = '-', fs?: number) {
     super(Aname)
     this.bonus = bonus;
-    const ctext = new CenterText(bonus, fs ?? this.radius * .5, 'white');
-    ctext.y = (ctext.getMeasuredLineHeight() -ctext.getMeasuredHeight())/2; // raise to center: TODO count the newlines...
-    this.icon = bonusIcon(bonus, TP.hexRad * 2) ?? ctext;
+    this.icon = bonusIcon(bonus, TP.hexRad * 2) ?? this.textBonus(bonus, fs);
     this.addChild(this.icon);
     this.nameText.y -= 6
+  }
+
+  /** for the bonus Foundations: */
+  textBonus(bonus: BONUS, fs = this.radius * .5) {
+    const ctext = new CenterText(bonus, fs, 'white');
+    ctext.y = (ctext.getMeasuredLineHeight() -ctext.getMeasuredHeight())/2; // raise to center: TODO count the newlines...
+    return ctext;
   }
 
   // repaint to suit: this.baseShape.paint(...)

@@ -63,7 +63,7 @@ export class ChaosTable extends Table {
   override layoutTable2() {
     this.initialVis = false;
     super.layoutTable2();
-    const toprow = 7.5, lefcol = 1;
+    const toprow = 7.5, lefcol = 1;  // position Panels near truncated hexMap
 
     const [source, discard] = TacticsCard.makeCardSources(this, { row: toprow + .9, col: lefcol })
     this.cardSource = source;
@@ -88,7 +88,7 @@ export class ChaosTable extends Table {
     const rv = super.addDoneButton(undefined, 0, 0); // table.doneButton('Done')
     this.orig_doneClick = this.orig_doneClick ?? this.doneClicked; // override
     this.doneClicked = (evt) => {
-      this.gamePlay.playerDone();
+      // insert advice to doneClicked here:
       this.orig_doneClick(evt);          // this.gamePlay.phaseDone();
     };
     this.doneButton.activate(true)

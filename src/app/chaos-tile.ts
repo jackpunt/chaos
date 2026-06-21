@@ -6,7 +6,7 @@ import { type ChaosHex as Hex1, type ChaosHex2 as Hex2 } from "./chaos-hex";
 import { type ChaosTable } from "./chaos-table";
 import { Foundation } from "./foundation";
 import type { GamePlay } from "./game-play";
-import type { AI_Trap, Barracks, Factory, Leader, Morale, Stronghold } from "./meeples";
+import type { AI_Trap, Outposts, Factory, Leader, Morale, Stronghold, PriceBonus } from "./meeples";
 import type { Player } from "./player";
 import type { FactionOnTileState } from "./scenario-parser";
 
@@ -97,14 +97,14 @@ const flipBuff: Partial<Record<PROD_TOKEN, string>> = {
 };
 
   /** also use for Income icons */ // TODO: maybe use TextTweaks to place the glyphs?
-export function bonusIcon(harv: HARVEST, radius = TP.hexRad) {
-    if (!bonusIds.includes(harv as BONUS)) return undefined;
+export function bonusIcon(harv?: HARVEST | PriceBonus, radius = TP.hexRad) {
+    if (!harv || !bonusIds.includes(harv as BONUS)) return undefined;
     const spotmap = { E: 'yellow', G: 'red', C: 'white', R: 'orange', U: 'gold' };
     const icon = new Container();
     const h0 = harv[0] as keyof typeof spotmap;
     const cHarv = spotmap[h0] ?? C.transparent;
     const w = radius * .25, h = w * 1.4, fs = radius * .15;
-    const cardRect = { x: -w / 2, y: -h / 2, w, h };
+    const cardRect = { x: -w / 2, y: -h / 2, w, h }; // maybe use TextInRect?
     const shape = (h0 == 'C' || h0 == 'U' ) ? new RectShape(cardRect, cHarv, '') : new CircleShape(cHarv, fs, '');
     const tColor = C.pickTextColor(cHarv, ['black', 'white']);
     const iText = new CenterText(h0 == 'C' ? '+' : harv, fs, tColor);
@@ -131,7 +131,7 @@ class FactionOnTile extends NamedContainer {
   fighters = 0;                         // number of fighters in slot, followed by Leader(s)
   strength = 0;                         // Apparent strength of Faction
   pins = 0;
-  buildings: ('F'|'B'|'S')[] = [];      // if this Faction has buildings on tile, ordered by foundation index
+  buildings: ('F'|'P'|'S')[] = [];      // if this Faction has buildings on tile, ordered by foundation index
   // TODO: methods to add/remove elements
 
   getState() {
@@ -142,7 +142,7 @@ class FactionOnTile extends NamedContainer {
     } as FactionOnTileState;
 
     if (buildings && buildings[0].player == this.player) {
-      rv.b = buildings.map(b => b.Aname[0]) as ('F'|'B'|'S')[];
+      rv.b = buildings.map(b => b.Aname[0]) as ('F'|'P'|'S')[];
     }
     if (this.tile.special) {
       rv.s = this.tile.special.status;
@@ -191,7 +191,7 @@ export class ChaosTile extends MapTile {
   foundations: [Foundation?, Foundation?, Foundation?] = [undefined, undefined, undefined]; // Factory, Baracks, Stronghold
   // Meeples: isLegalTarget(hex, ctx) => !hex[this.type] && foundations.find(f=>!f.bldg)
   Factory!: Factory;        //
-  Barracks!: Barracks;      //
+  Outposts!: Outposts;      //
   Stronghold!: Stronghold;  //
 
   constructor(Aname: string, t: TERRAIN, h: HARVEST, player?: PlayerLib) {

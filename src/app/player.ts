@@ -7,7 +7,7 @@ import { ChaosTile, type BONUS } from "./chaos-tile";
 import { Faction, factionColors, type FactionId, type FactionName } from "./factions";
 import { BgFound, Foundation } from "./foundation";
 import { type GamePlay } from "./game-play";
-import { Barracks, ChaosPresence, Factory, Stronghold, type ChaosUnitType, type Fighter, type Leader } from "./meeples";
+import { Outposts, ChaosPresence, Factory, PricingToken, Stronghold, type ChaosUnitType, type Fighter, type Leader, type PriceId } from "./meeples";
 import { CardBack, CardPanel, TacticsCard } from "./tactics-card";
 
 /** Canonical Faction colors, aligned with gameSetup.factionNames.
@@ -28,7 +28,7 @@ class PlayerBits {
   leaders: Leader[] = [ ];              // LeaderCard is a Tile, leader.homeHex is tile.hex (tile: card, meep: leader)
   fighters!: TileSource<Fighter>[];     // TileSource[n] for each stage of Recruit (Base is ChaosTile, sans foundations)
   factorys!: TileSource<Factory>;       // Spread TileSource.filterUnits((u)=>!u.hex.isOnMap) across board
-  barracks!: TileSource<Barracks>;      // Spread TileSource.filterUnits((u)=>!u.hex.isOnMap) across board
+  outposts!: TileSource<Outposts>;      // Spread TileSource.filterUnits((u)=>!u.hex.isOnMap) across board
   strongholds!: TileSource<Stronghold>; // Spread TileSource.filterUnits((u)=>!u.hex.isOnMap) across board
   foundations!: Record<FoundationId, ChaosHex2>; // the 5 foundations in their places
   // extend with Morale[], AI_Trap[], RhyzuToken[], Intel Cards
@@ -60,6 +60,8 @@ export class Player extends PlayerLib {
   readonly facId: FactionId;
   readonly faction: Faction;
   readonly facName: FactionName;
+
+  priceTokens: PricingToken[] = [];
 
   constructor(index: number, gamePlay: GamePlay) {
     super(index, gamePlay); // <-- index is 'table ordinal'
@@ -104,9 +106,6 @@ export class Player extends PlayerLib {
   // Test/demo EditNumber
   override makePlayerBits(): void {
     super.makePlayerBits();  // this.coinCounter = new NumCounter('coins', 0)
-    // TODO: make racks for: factory, barracks, stronghold, foundations, relics
-    this.makeUnitRack(this.gamePlay.table, .75, 3);
-    // this.makeCardRack(this.gamePlay.table, undefined, 6); // Player's cards on playerPanel
     // display coin counter:
     const { wide, gap } = this.panel.metrics;
     const fs = TP.hexRad * .5;
@@ -145,14 +144,9 @@ export class Player extends PlayerLib {
   get control() { return [] as Hex2[] }  // presence.filter( ... )
 
   /** Hex2[] on which to place Tiles */
-  readonly unitRack: Hex2[] = [];
-  makeUnitRack(table: Table, row = 0, ncols = 4) {
-    const hexes = table.hexesOnPanel(this.panel, row, ncols) as Hex2[];
-    hexes.forEach((hex, n) => hex.Aname = `${this.index}R${n}`)
-    this.unitRack.splice(0, this.unitRack.length, ...hexes); // replace all elements
-  }
-  /** all Buildings on panel? make racks for each Building type? use simple array/stack? */
-  get units() { return this.unitRack.map(hex => hex.tile) }
+
+  // /** all Buildings on panel? make racks for each Building type? use simple array/stack? */
+  get units() { return /*this.unitRack.map(hex => hex.tile) */ [] }
   get buildings() { return this.panel.buildingHomes}
 
   /** shortcut to panel.cardRack */
@@ -237,6 +231,7 @@ export class Panel extends PlayerPanel {
     this.addBuildings(faction);
     this.addFoundations(faction, table);
     this.addRecruits(faction);
+    this.addPriceTokens(table, 4);
     this.setupBase(faction);
     return this.children;
   }
@@ -278,14 +273,14 @@ export class Panel extends PlayerPanel {
     this.addChild(stripe, circ);
     const specBg = spec.bg;
     let x00 = x0;
-    specBg.forEach((spec, btype) => {  // btype: 0: Factory, 1: Barracks, 2: Stronghold
+    specBg.forEach((spec, btype) => {  // btype: 0: Factory, 1: Outposts, 2: Stronghold
       const nbldgs = spec.length;
       const homeAry = new Array<Foundation>(nbldgs); // each Factory instance shares the same homeAry
       const [BC, bText, bid] = [
-        [Factory, 'E2', 'F'],
-        [Barracks, 'C', 'B'],
-        [Stronghold, 'G1', 'S'],
-      ][btype] as [typeof Factory|typeof Barracks|typeof Stronghold, BONUS, number]
+        [Factory, 'E2', 'F'],    // Foundry
+        [Outposts, 'C', 'P'],    // outPost
+        [Stronghold, 'G1', 'S'], // Stronghold
+      ][btype] as [typeof Factory|typeof Outposts|typeof Stronghold, BONUS, number]
 
       spec.toReversed().forEach((gl, rndx) => {
         const ndx = nbldgs - 1 - rndx; // actual ndx in homeAry
@@ -435,22 +430,52 @@ export class Panel extends PlayerPanel {
   }
 
   /** a sub-panel that holds the hand of TacticsCards */
+  /**
+   *
+   * @param table for hexMap & dydr, dxdc
+   * @param row [0 = align to bottom of Panel] else row * dydr
+   * @param ncols [6] number of card spaces to allocate
+   * @returns
+   */
   addCardPanel(table: Table, row = 0, ncols = 6) {
     // ChaosPlayerPanel { this.mapCont = new CardPanel(table); this.addChild(this.mapCont); }
-    const dydr = table.hexMap.xywh().dydr;
+    const { dydr, dxdc } = table.hexMap.xywh();
     const cardH = CardBack.bounds.height;
+    const { width, height } = this.getBounds();
     const high = cardH * 1.05 / dydr;  // units of hex.dydr
     const wide = table.panelWidth;
     const cardPanel = new CardPanel(table, high, wide, row, 0); // directly on table.mapCont! (so localToLocal works?)
-    const pHeight = this.getBounds().height;
     row = (row !== 0) ? row : - high * 1.045;   // up by high, align CardPanel bottom to Panel bottom
-    cardPanel.y = (row < 0 ? row + pHeight/dydr : row) * dydr;
+    cardPanel.y = (row < 0 ? row + height/dydr : row) * dydr;
     cardPanel.makeDragable(table);
     this.mapCont = cardPanel;
     this.addChild(cardPanel);
     cardPanel.fillAryWithCardHex(this, this.cardRack, high/2, ncols)
-    cardPanel.visible = true;
+    cardPanel.visible = false;
+    // a Button to toggle visibility:
+    const cButton = new UtilButton('CCCC', { active: true, corner: .1, fontSize: dxdc * .2 });
+    cButton.x = dxdc * .5;
+    cButton.y = height - 1.7 * dydr;
+    this.addChild(cButton);
+    cButton.on('click', () => { cardPanel.visible = !cardPanel.visible; this.stage.update() })
     return cardPanel;
+  }
+
+  /**
+   * A row of 6 PricingToken with a home on this Panel
+   */
+  addPriceTokens(table: Table, row = 0) {
+    const np = this.player.gamePlay.allPlayers.length;
+    const { x, y, width, height } = this.getBounds();
+    const h = this.wh, w = h * 2, gap = h * .25;
+    const x0 = x + w * 0.76 - gap;
+    const y0 = y + height - h * .75;
+
+    for (let i = 1; i <= 6; i++) {
+      const xy = { x: x0 + i * (w/2 + gap), y: y0 };
+      const pt = new PricingToken(np, i as PriceId, xy, this.player);
+      pt.sendHome()
+    }
   }
 
   // maybe a super-class of CardPanel? *any* mapCont? see game-setup where we Panel.mixin(HexMap2, PlayerPanel)

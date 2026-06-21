@@ -1,11 +1,13 @@
-import { type XY, type XYWH } from "@thegraid/common-lib";
-import { NamedContainer, PathShape, RectShape, type Paintable } from "@thegraid/easeljs-lib";
+import { C, type XY, type XYWH } from "@thegraid/common-lib";
+import { NamedContainer, PathShape, RectShape, TextInRect, type Paintable } from "@thegraid/easeljs-lib";
 import type { Rectangle } from "@thegraid/easeljs-module";
 import { Graphics } from "@thegraid/easeljs-module";
 import { Meeple, MeepleShape, Tile, TP, type DragContext, type Hex, type HexM, type IHex2 } from "@thegraid/hexlib";
 import type { ChaosHex2 as Hex2 } from "./chaos-hex";
-import type { BONUS } from "./chaos-tile";
+import { type BONUS } from "./chaos-tile";
+import type { FactionId } from "./factions";
 import { Foundation } from "./foundation";
+import type { PhaseName } from "./game-state";
 import type { Player } from "./player";
 
 
@@ -14,7 +16,7 @@ type XYp = [x: number, y: number];
 const chaosUnitType = ['Fighter', 'Leader'] as const;
 export type ChaosUnitType = typeof chaosUnitType[number];
 
-const chaosBuildingType = ['Factory', 'Barracks', 'Stronghold'] as const;
+const chaosBuildingType = ['Factory', 'Outposts', 'Stronghold'] as const;
 export type ChaosBuildingType = typeof chaosBuildingType[number];
 
 
@@ -86,7 +88,7 @@ class FactoryShape extends PathShapeMeeple {
   /** flatish pentagon */
   static override pointAry = [[-1,0], [-1, -1], [0, -1.25], [1,-1], [1, 0]] as XYp[];
 }
-class BarrackShape extends PathShapeMeeple {
+class OutpostShape extends PathShapeMeeple {
   static makePointAry() {
     // enforce symmetry:
     const leftPts = [[-1, 0], [-1, -1.4], [-.8, -1.4], [-.8, -1], [0, -1.5]] as XYp[];
@@ -94,7 +96,7 @@ class BarrackShape extends PathShapeMeeple {
     return leftPts.concat(rightPts);
   }
   /** larger, w/walls */
-  static override pointAry = BarrackShape.makePointAry();
+  static override pointAry = OutpostShape.makePointAry();
 }
 class StrongholdShape extends PathShapeMeeple {
   /** larget, w/tower */
@@ -116,7 +118,7 @@ class StrongholdShape extends PathShapeMeeple {
 
 /** ChaosMeeple comprises:
  * - ChaosUnit(Leader, Fighter) &
- * - Building(Factory, Barracks, Stronghold) &
+ * - Building(Factory, Outposts, Stronghold) &
  * - ChaosToken(Trap, Morale, Foundation, PricingToken, 'Relic', )
  */
 export class ChaosMeeple extends Meeple {
@@ -155,7 +157,6 @@ export class ChaosBuilding extends ChaosPresence {
   override get radius() { return TP.meepleRad; }
   readonly bText!: BONUS;           // 'E2' 'C' 'G1'
   homeAry!: Foundation[];  // buildings in residence (take/put from left)
-  homeXY!: XY;                // loc of leftmost slot
 
   _found!: Foundation;
   /** Assert Building is always assigned to *some* Foundation: panel or map */
@@ -272,10 +273,10 @@ export class Factory extends ChaosBuilding {
   }
 }
 
-export class Barracks extends ChaosBuilding {
+export class Outposts extends ChaosBuilding {
   override bText = 'C' as BONUS;
   override makeShape0(size = TP.meepleRad): Paintable {
-    return new BarrackShape(undefined, size)
+    return new OutpostShape(undefined, size)
   }
   override addStrength = 2;
 }
@@ -292,6 +293,7 @@ export class Stronghold extends ChaosBuilding {
 // These are more Tile-like: See also: Foundation (TODO: merge)
 /** each subclass has a slot on ChaosHex, but does not confer faction 'presence' */
 class ChaosToken extends Tile {
+  homeXY!: XY;                // sendHome location, if needed
 
 }
 
@@ -326,9 +328,151 @@ export class DiscoveryMark extends ChaosToken {
 
 }
 
+export type PriceId = 1 | 2 | 3 | 4 | 5 | 6;
+export type PriceBonus = '^'|'C'|'>'|'%';
+type VDIST = [ toFac: number, toBank: number, toLeft?: number, toRight?: number, expire?: number ];
+type PT_Status = 'avail' | 'inplay' | 'invault';
 // Auto-move during SetPrices phase (just click on track, place token)
 export class PricingToken extends ChaosToken {
+  bColor = 'rgb(150, 70, 0)';
+  nColor = 'rgb(255, 140, 0)'; // neutral color
 
+  static bonus35 = [ ['^', 'C'], ['>', '%']] as PriceBonus[][];
+  static bonus_2 = [ ['^'], ['^']] as PriceBonus[][];
+
+  static dist35 = [
+    // ^C   [> %]    3      4      5     [6]
+    [1, 0], [1,1], [1,2], [2,2], [2,3], [3,3],
+  ]
+  static dist2 = [
+    // ^     [^]     3      4      5     [6]
+    [1, 0], [2,0], [1,2], [2,2], [2,3], [3,3],
+  ]
+  static neutral35 = [
+      [0,0,1,1,2], [0,3, 0, 0, 4], [0,2,1,1], [0,5],
+  ]
+  static neutral2 = [
+      [0, 3, 0, 0, 4], [0, 5],
+  ]
+
+  faction?: FactionId;    // undefined for Neutral Tokens
+
+  readonly vdist: VDIST;
+  readonly bTexts?: PriceBonus[];
+
+  // extra things that happen when used to price a phase; for ex: gain ('%' or 'C'), place Rhyzu or retrieve from vault
+  effect() { }
+
+  // when played to price: move to 'inplay'
+  // at end of SetPrices phase: if vid==1 is 'inplay', move Tokens from 'invault' to 'avail'
+  // at end of 'Move' (or 'Income' ?) phase: move from 'inplay' to 'invault'
+  _status: PT_Status = 'avail';
+  get status() { return this._status }
+  set status(state: PT_Status) {
+    this._status = state;
+    // TODO: move to right place? remove from Panel?
+  }
+  // when 'inplay' onPhase is set:
+  onPhase?: PhaseName; // subset of GameState.state.Aname
+
+  wh: number;
+
+  /**
+   *
+   * @param vid  1 .. 6 (or: 2, 3, 4, 5) (or: 3, 5)
+   * @param facId [-1] is Neutral;
+   */
+  constructor(np: number, public vid: PriceId, xy: XY = { x: 0, y: 0 }, player?: Player) {
+    const facId = player?.facId ?? -1;
+    super(`F${facId}:PT${vid}`, player);        // construct baseShape
+    this.wh = this.gamePlay.hexMap.xywh().dxdc;
+    this.homeXY = xy;
+    if (facId < 0) {
+      this.vdist = (np == 2 ? PricingToken.neutral2 : PricingToken.neutral35)[vid-1] as VDIST;
+    } else {
+      this.vdist = (np == 2 ? PricingToken.dist2 : PricingToken.dist35)[vid-1] as VDIST;
+    }
+    this.bTexts = ((np == 2) ? PricingToken.bonus_2 : PricingToken.bonus35)[this.vid-1];
+    this.fillCont(this);
+    this.status = ['avail', 'invault', 'avail', 'avail', 'avail', 'invault'][vid-1] as PT_Status;
+    // TODO: implement expiration, and (%) and retrieve(^) and card(C)
+    this.effect = () => {};
+  }
+
+  // Supply color for neutral Tokens:
+  override get pColor() { return this.player?.color ?? PTokenShape.nColor }
+
+  // add content above the baseShape:
+  fillCont(cont: NamedContainer, size = (this.baseShape as RectShape).getBounds().width) {
+    const setTR = (tr: TextInRect, w = 10, x = 0, y = 0) => {
+      tr.rectShape.setRectRad({ w, x: tr.rectShape.x - w/2 }) ;
+      tr.x = x; tr.y = y;
+      cont.addChild(tr);
+      tr.paint(tr.bgColor, true)
+    }
+    const [ toFac, toBank, left, right ] = this.vdist;
+    const s = size*.92, x1 = -s/4, x2 = +s/4, y1 = +s/4, y2 = -s/4;
+    const fontSize = s * .2;
+    if (left !== undefined) {
+      const lt = new TextInRect(`${left}`, { bgColor: 'black', fontSize })
+      const rt = new TextInRect(`${right}`, { bgColor: 'white', fontSize })
+      lt.x = y1; lt.y = y1;
+      rt.x = +s/3; rt.y = y1;
+      cont.addChild(lt, rt);
+    }
+    if (toFac > 0 && toBank > 0) {
+      const tf = new TextInRect(`${toFac}`, { bgColor: this.pColor, fontSize })
+      setTR(tf, s*.45, x1, y1);
+      const tb = new TextInRect(`${toBank}`, { bgColor: PTokenShape.nColor, fontSize })
+      setTR(tb, s*.45, x2, y1);
+    } else if (toFac > 0) {  // single payment to Faction:
+      const tf = new TextInRect(`${toFac}`, { bgColor: this.pColor, fontSize })
+      setTR(tf, s, 0, y1)
+    } else if (toBank > 0) { // single payment to Bank
+      const tb = new TextInRect(`${toBank}`, { bgColor: PTokenShape.nColor, fontSize })
+      setTR(tb, s, 0, y2)
+    }
+    if (this.bTexts) {
+      const text = this.bTexts.join('  ')
+      const tir = new TextInRect(text, { bgColor: C.rgba(this.pColor, .6), fontSize })
+      setTR(tir, s*.7, 0, y2);
+    }
+    // TODO: use bonusIcon(^, C, >, %)
+    this.paint();
+    return cont;
+  }
+  override makeShape(size = TP.meepleRad * 1.2): Paintable {
+    return new PTokenShape(size)
+  }
+
+  override sendHome(): void {
+    this.x = this.homeXY.x;
+    this.y = this.homeXY.y;
+    const parent = this.player?.panel ?? this.parent; // neutral tokens stay on table
+    parent.addChild(this);
+  }
+
+  override dropFunc(targetHex: IHex2, ctx: DragContext): void {
+    if (!targetHex) {
+      this.sendHome();
+    } else {
+      this.x = 0; this.y = 0;
+      this.moveTo(targetHex);
+    }
+  }
 }
-// Also: factory, barracks, stronghold, foundation, relic, discovery-marker?, fame-marker?
+
+class PTokenShape extends RectShape {
+  static bColor = 'rgb(150, 70, 0)';
+  static nColor = 'rgb(255, 140, 0)'; // neutral color
+
+  constructor(public size = 10, g0 = new Graphics) {
+    super({ x: -size/2, y: -size/2,  w: size, h: size }, PTokenShape.bColor, 'black', g0);
+  }
+  override paint(colorn?: string, force?: boolean): Graphics {
+    return super.paint(this.colorn, force)
+  }
+}
+
+// Also: factory, outposts, stronghold, foundation, relic, discovery-marker?, fame-marker?
 // and cardboard: rhy-zu-token, morale {fame, strength}, ai-trap,

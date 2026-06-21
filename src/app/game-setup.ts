@@ -1,7 +1,7 @@
 import { selectN, stime, uniq, type Constructor } from '@thegraid/common-lib';
 import { AliasLoader, TileExporter } from '@thegraid/easeljs-lib';
 import type { Container } from '@thegraid/easeljs-module';
-import { GameSetup as GameSetupLib, H, HexMap, MapCont, PlayerPanel, Scenario as Scenario0, Tile, TP, type Hex, type SetupElt, type StartElt as StartEltLib } from '@thegraid/hexlib';
+import { GameSetup as GameSetupLib, H, HexMap, MapCont, PlayerPanel, Tile, TP, type Hex, type SetupElt, type StartElt as StartEltLib } from '@thegraid/hexlib';
 import { ChaosHex2, HexMap2 } from './chaos-hex';
 import { ChaosTable as Table } from './chaos-table';
 import { FactionId, FactionName, factionNames } from './factions';
@@ -26,7 +26,7 @@ export interface StartElt extends StartEltLib {
 
 
 type Params = Record<string, any>; // until common-lib supplies
-export interface Scenario extends Scenario0 {
+export interface Scenario extends StartEltLib {
   nFacs?: FactionId;
   facNames: FactionName[];
 };
@@ -207,7 +207,7 @@ class NullGameSetup extends GameSetupLib {
     return gp;
   }
 
-  // invoked by makeAllPlayers
+  // invoked by makeAllPlayers; faction = this.facId[ndx]
   override makePlayer(ndx: number, gamePlay: GamePlay): Player {
     const p = new Player(ndx, gamePlay);
     console.log(stime(p, `.new: ${p.Aname}`), p.index, p.facId, p.facName, p.color)

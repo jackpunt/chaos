@@ -20,7 +20,7 @@ interface FactionState {
 export interface FactionOnTileState {
   l?: LeaderS[];                   // 2 slots (own + Rhyzu), Zcharo: 4, Oxytaya: 4
   f?: number;                     // Fighters in region
-  b?: ('F'|'B'|'S')[];            // if this Faction has buildings on tile, ordered by foundation index
+  b?: ('F'|'P'|'S')[];            // if this Faction has buildings on tile, ordered by foundation index
   s?: 'M1' | 'M2' | 'T1' | 'T0';  // Morale: 'M1' | 'M2', AI_Trap: 'T1' | 'T0'
 }
 
