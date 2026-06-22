@@ -453,7 +453,8 @@ export class PricingToken extends ChaosToken {
   }
 
   override showTargetMark(hex: IHex2 | undefined, ctx: DragContext): void {
-    (ctx.targetHex?.map as HexMap2).showMark(ctx.targetHex, PricingToken.mark)
+    const map = (ctx.targetHex ? ctx.targetHex.map : this.gamePlay.hexMap) as HexMap2;
+    map?.showMark(ctx.targetHex, PricingToken.mark);
   }
 
   override sendHome(): void {

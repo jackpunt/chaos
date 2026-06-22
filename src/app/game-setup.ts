@@ -207,13 +207,16 @@ class NullGameSetup extends GameSetupLib {
     return gp;
   }
 
+  /** hack a neutral 'Player' so we can build the neutral Panel (the Research tracks)  */
   makeNeutralPlayer(gamePlay: GamePlay) {
     const np = TP.numPlayers;
-    const nid = (np + 1) as FactionId;
-    this.facIds.push(nid as FactionId);
-    this.facNames.push('neutral' as FactionName);
-    gamePlay.neutralPlayer = new Player(nid, gamePlay)
-    this.facIds.pop();
+    const nid = (6) as FactionId;
+    this.facIds.push(nid);
+    this.facNames[nid] = ('neutral' as FactionName);
+    const plyr = gamePlay.neutralPlayer = new Player(np, gamePlay)
+    ;(plyr as any).Aname = 'P:neutral';
+    plyr.color = 'brown';
+    delete this.facIds[nid];
     TP.numPlayers = np;
   }
 
@@ -222,7 +225,7 @@ class NullGameSetup extends GameSetupLib {
     super.makeAllPlayers(gamePlay);
   }
 
-  // invoked by makeAllPlayers; faction = this.facId[ndx]
+  // invoked by makeAllPlayers; faction = this.facIds[ndx]
   override makePlayer(ndx: number, gamePlay: GamePlay): Player {
     const p = new Player(ndx, gamePlay);
     // console.log(stime(p, `.new: ${p.Aname}`), p.index, p.facId, p.facName, p.color)

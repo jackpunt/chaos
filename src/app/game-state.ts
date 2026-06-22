@@ -1,16 +1,14 @@
-import { GameState as GameStateLib, Phase, type Tile } from "@thegraid/hexlib";
-import type { GamePlay } from "./game-play";
-import type { TacticsCard } from "./tactics-card";
-import { ChaosTable as Table } from "./chaos-table";
-import type { ChaosTile } from "./chaos-tile";
-import { Player } from "./player";
+import { GameState as GameStateLib, type Phase } from "@thegraid/hexlib";
+import type { ChaosTable as Table } from "./chaos-table";
 import type { FactionId } from "./factions";
+import type { GamePlay } from "./game-play";
 import type { PricingToken } from "./meeples";
+import type { Player } from "./player";
 
 export const phaseNames = ['SetPrices', 'Discovery', 'Build', 'Harvest', 'Recruit', 'Move', 'Combat', 'Income', 'Relics'] as const;
 export type PhaseName = typeof phaseNames[number];
 export const priceNames = ['Discovery', 'Build', 'Harvest', 'Recruit', 'MoveFirst', 'MoveLast'] as const;
-export type PriceNames = typeof priceNames[number];
+export type PriceName = typeof priceNames[number];
 export const pricePhases = ['Discovery', 'Build', 'Harvest', 'Recruit', 'Move'] as const;
 export type PricePhases = typeof pricePhases[number];
 
@@ -35,15 +33,23 @@ export class GameState extends GameStateLib {
   phaseNdx: PlayerId = 0;
 
   /** (ndx+1) mod nPlayers */
-  nextNdx(ndx = 0) { return (ndx + 1) % this.nPlayers }
+  nextNdx(ndx = 0) {
+    return (ndx + 1) % this.nPlayers
+  }
 
-  phasePrices: Partial<Record<PriceNames, PricingToken>> = {};
+  phasePrices: Partial<Record<PriceName, PricingToken>> = {};
 
   constructor(gamePlay: GamePlay) {
     super(gamePlay)
-    this.nPlayers = this.gamePlay.allPlayers.length
     this.defineStates(this.states, false);
   }
+
+  override start(startPhase?: string, startArgs?: any[]): void {
+    this.nPlayers = this.gamePlay.allPlayers.length;
+    super.start(startPhase, startArgs);
+  }
+
+  override startPhase = 'BeginRound';
 
   // this.gamePlay.curPlayer
   override get curPlayer() { return super.curPlayer as Player }
@@ -67,59 +73,76 @@ export class GameState extends GameStateLib {
 
   /** define this.states */
   override readonly states: { [index: string]: Phase } = {
-    BeginTurn: {
+    BeginRound: {
       start: () => {
         this.gamePlay.saveGame();
-        this.table.doneButton.activate()
-        this.phase('ChooseAction');
+        this.doneButton('Begin Round');
+        // this.table.doneButton.activate()
+        // this.phase('SetPrices');
       },
       done: () => {
-        this.phase('ChooseAction');
+        this.phase('SetPrices', 0);
       }
     },
 
     SetPrices: {
-      start: (ndx: PlayerId, n: number) => {
+      start: (ndx: PlayerId) => {
         this.gamePlay.setPrice(ndx);
       },
       done: (ndx: number) => {
-        ndx = this.nextNdx(ndx);
-        if (ndx !== this.phaseNdx) this.state.start(ndx); // loop for each player
+        const next = this.nextNdx(ndx);
+        if (next !== this.phaseNdx) this.state.start(next); // loop for each player
         if (this.nPlayers < pricePhases.length) this.gamePlay.setPriceNeutral();
         this.phase('Discovery');
       }
     },
     Discovery: {
-      start: () => { },
+      start: () => {
+        this.doneButton('Discover');
+       },
       done: () => { this.phase('Build'); }
     },
     Build: {
-      start: () => { },
+      start: () => {
+        this.doneButton('Build');
+       },
       done: () => { this.phase('Harvest'); }
     },
     Harvest: {
-      start: () => { },
+      start: () => {
+        this.doneButton('Harvest');
+      },
       done: () => { this.phase('Recruit'); }
     },
     Recruit: {
-      start: () => { },
+      start: () => {
+        this.doneButton('Recruit');
+       },
       done: () => { this.phase('Move'); }
     },
     Move: {
-      start: () => { },
+      start: () => {
+        this.doneButton('Move');
+       },
       done: () => { this.phase('Combat'); }
     },
     Combat: {
-      start: () => { },
+      start: () => {
+        this.doneButton('Battle');
+       },
       done: () => { this.phase('Income'); }
     },
     Income: {
-      start: () => { },
+      start: () => {
+        this.doneButton('Income');
+      },
       done: () => { this.phase('Relics'); }
     },
     Relics: {
-      start: () => { },
-      done: () => { this.phase('SetPrices'); }
+      start: () => {
+        this.doneButton('Relics');
+      },
+      done: () => { this.phase('BeginRound'); }
     },
 
 
@@ -140,7 +163,7 @@ export class GameState extends GameStateLib {
     EndTurn: {
       start: () => {
         this.gamePlay.endTurn();
-        this.phase('BeginTurn');
+        this.phase('BeginRound');
       },
     },
   }

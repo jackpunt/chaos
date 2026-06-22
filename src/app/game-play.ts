@@ -4,11 +4,11 @@ import { GamePlay as GamePlayLib, SetupElt, TP as TPLib } from "@thegraid/hexlib
 import type { HexMap2 } from "./chaos-hex";
 import type { ChaosTable } from "./chaos-table";
 import type { GameSetup } from "./game-setup";
-import { GameState, pricePhases, type PlayerId } from "./game-state";
+import { GameState, priceNames, pricePhases, type PlayerId } from "./game-state";
+import type { PricingToken } from "./meeples";
 import type { Player } from "./player";
 import { ScenarioParser } from "./scenario-parser";
 import { TP } from "./table-params";
-import type { PricingToken } from "./meeples";
 
 
 export class GamePlay extends GamePlayLib {
@@ -34,9 +34,13 @@ export class GamePlay extends GamePlayLib {
 
   setPrice(ndx: PlayerId) {
     const plyr = this.allPlayers[ndx];
-    const token = plyr.priceTokens[1]; // TODO: the real thing.
-
-    this.gameState.phasePrices['Discovery'] = token;
+    const token = plyr.panel.priceTokens[4]; // TODO: the real thing.
+    const priceIndex = priceNames.findIndex(pn => !this.gameState.phasePrices[pn])
+    const phaseName = priceNames[priceIndex];
+    console.log(stime(this, `.setPrice: ${plyr.Aname} w/${token.Aname} ->`), phaseName )
+    token.moveTo(this.table.priceHex[priceIndex]);
+    this.gameState.phasePrices[phaseName] = token;
+    token.stage.update();
     token.status = 'inplay';
     this.gameState.state.done!(ndx);
   }

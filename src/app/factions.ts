@@ -77,7 +77,7 @@ export class Faction {
 
   constructor(facId: FactionId) {
     this.facId = facId;
-    const facSpec = Faction.facSpecs[facId];
+    const facSpec = Faction.facSpecs[facId] ?? { name: 'neutral' };
     Object.assign(this, facSpec);
     Faction.factionById.set(facId, this);
   }

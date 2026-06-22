@@ -2,7 +2,7 @@ import { C, type Constructor, type XY, type XYWH } from "@thegraid/common-lib";
 import { ParamGUI, type DragInfo, type NamedObject, type ParamItem, type RectShape } from "@thegraid/easeljs-lib";
 import { Stage, type Container, type DisplayObject } from "@thegraid/easeljs-module";
 import { Hex2, PlayerPanel, Table, Tile, TileSource, TP, type DragContext, type IHex2, type MapCont, type Player as PlayerLib } from "@thegraid/hexlib";
-import { type ChaosHex2, type HexMap2 } from "./chaos-hex";
+import { type ChaosHex2, type HexMap2, type TokenHex } from "./chaos-hex";
 import { ChaosTile } from "./chaos-tile";
 import type { GamePlay } from "./game-play";
 import { Panel, type Player } from "./player";
@@ -64,7 +64,7 @@ export class ChaosTable extends Table {
     this.initialVis = false;
     super.layoutTable2();            // toggleText
 
-    const doneRow = 7.1, lefcol = 1; // position Panels near truncated hexMap
+    const doneRow = 7.2, lefcol = 1.5; // position Panels near truncated hexMap
 
     const [source, discard] = TacticsCard.makeCardSources(this, { row: doneRow + 1.2, col: lefcol })
     this.cardSource = source;
@@ -115,6 +115,8 @@ export class ChaosTable extends Table {
     const [row, col, dir] = this.neutralPanelLoc();
     const nPanel = this.makePlayerPanel(this, this.gamePlay.neutralPlayer, this.panelHeight, this.panelWidth-.6, row, col+.5, dir)
   }
+  // established by Panel.addResearchLines()
+  priceHex = [] as TokenHex[];
 
   declare playerPanel: Panel;
 

@@ -18,8 +18,11 @@ import { CardBack, CardPanel, TacticsCard } from "./tactics-card";
 const playerColors = factionColors;
 export type PlayerColor = typeof playerColors[number];
 
-export const chaosOrange = 'rgb(255, 140, 0)';
-
+/** colors for ChaosOrder */
+namespace CO {
+  export const mauve = 'rgb(166, 78, 129)';
+  export const orange = 'rgb(255, 140, 0)';
+}
 // 5 Bonus Foundations, named for the bonus they give; stronghold & one other have gemlock
 const foundationIds = ['research', 'harvest', 'adjacent', 'unlock', 'handlimit'] as const;
 export type FoundationId = typeof foundationIds[number];
@@ -81,8 +84,6 @@ export class Player extends PlayerLib {
   readonly facId: FactionId;
   readonly faction: Faction;
   readonly facName: FactionName;
-
-  priceTokens: PricingToken[] = [];
 
   constructor(index: number, gamePlay: GamePlay) {
     super(index, gamePlay); // <-- index is 'table ordinal'
@@ -228,7 +229,7 @@ export class Panel extends PlayerPanel {
     const faction = this.faction = this.player.faction;
     console.log(stime(this, `.constructor: factionId=${this.factionId} cname=${this.player.cname} ${faction.name}`))
     player.panel = this;       // set it so layout can easily find the Player
-    if (faction.name) {
+    if (faction.name !== 'neutral' as FactionName) {
       this.bg0 = C.grey64; 'rgb(56, 56, 56)';
       this.bg1 = this.bg0;
       this.layoutPanel(table);
@@ -268,9 +269,10 @@ export class Panel extends PlayerPanel {
           mtext.y = cy + wh * .2;
           cont.addChild(mtext)
         }
-        const thex = this.table.newHex2(i + (isLast ? 1 : 0), 1, `${label ?? pName}`, TokenHex)
-        cont.localToLocal(cx, cy, this.table.hexMap.mapCont.tileCont, thex.cont)
+        const thex = this.table.newHex2(i + (isLast ? 1 : 0), 1, `${label ?? pName}`, TokenHex) as TokenHex;
+        cont.localToLocal(cx, cy, this.table.hexMap.mapCont.hexCont, thex.cont)
         thex.legalMark.setOnHex(thex)
+        this.table.priceHex[i] = thex;
       }
       const cont = new NamedContainer(`p:${pName}`)
       cont.x = wh0 * .2;
@@ -280,7 +282,7 @@ export class Panel extends PlayerPanel {
       const label = new CenterText(pName, fs, C.white )
       label.textAlign = 'left';
       label.textBaseline = 'top'
-      const name = new TextInRect(label, { bgColor: 'rgb(166, 78, 129)', fontSize: fs})
+      const name = new TextInRect(label, { bgColor: CO.mauve, fontSize: fs})
       name.rectShape.setRectRad({ w: wh0, h: wh0,  r: 2 })
       tokenShape();
       if (i == 4) {
@@ -346,8 +348,8 @@ export class Panel extends PlayerPanel {
   addBuildings(spec: Faction) {
     const wh = this.wh, x0 = wh * 2.95, y0 = wh * 1.65, fs = wh * .2;
     const inx = wh * .54, iny = wh * 1.32;
-    const stripe = new RectShape({ x: inx, y: iny, w: this.getBounds().width - wh, h: wh * .6 }, chaosOrange, '')
-    const circ = new CircleShape(chaosOrange, wh/2, ''); circ.x = inx; circ.y = iny + wh/4;
+    const stripe = new RectShape({ x: inx, y: iny, w: this.getBounds().width - wh, h: wh * .6 }, CO.orange, '')
+    const circ = new CircleShape(CO.orange, wh/2, ''); circ.x = inx; circ.y = iny + wh/4;
     this.addChild(stripe, circ);
     const specBg = spec.bg;
     let x00 = x0;
@@ -437,7 +439,7 @@ export class Panel extends PlayerPanel {
     this.addChild(cont);
     cont.addChild(new RectShape({ x: -wh/2, y: -wh/2, w: tw + wh, h: wh }, 'black', ''))
     const addButton = (name: string, x: number, y: number) => {
-      const button = new UtilButton(name, { bgColor: chaosOrange, active: true, fontSize: bfs});
+      const button = new UtilButton(name, { bgColor: CO.orange, active: true, fontSize: bfs});
       button.x = x;
       button.y = y;
       cont.addChild(button);
