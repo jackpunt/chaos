@@ -40,10 +40,12 @@ export class Player extends PlayerLib {
 
   // {gold: 'gold', lightblue: 'lightblue', violet: 'Violet', blue: 'blue', orange: 'orange' };
   static override colorScheme = {
+    // start with 6 basic FactionColors:
       ... playerColors.reduce((pv, cv) => (pv[cv] = cv, pv), {} as typeof PlayerLib.colorScheme),
       'yellow': 'tan',// 'rgb(255, 213, 0)',
       'blue': 'rgb(1, 161, 230)',
-      'orange': 'rgb(255, 98, 0)'
+      'orange': 'rgb(255, 98, 0)',
+      'brown' : 'brown',
   } as typeof PlayerLib.colorScheme;
 
   // QQQ: Player.color -> PlayerPanel, or PlayerPanel.color -> Player
@@ -203,14 +205,23 @@ export class Panel extends PlayerPanel {
     Object.assign(this, hexMap);       // assign hexMap instance variables
     this.Aname = player.Aname;         // reset Aname
     // this.player.color = Player.playerColor(this.player.cname!); // override Player.colorScheme
-    this.bg0 = C.grey64; 'rgb(56, 56, 56)';
-    this.bg1 = this.bg0;
     const faction = this.faction = this.player.faction;
     console.log(stime(this, `.constructor: factionId=${this.factionId} cname=${this.player.cname} ${faction.name}`))
     player.panel = this;       // set it so layout can easily find the Player
-    this.layoutPanel(table);
+    if (faction.name) {
+      this.bg0 = C.grey64; 'rgb(56, 56, 56)';
+      this.bg1 = this.bg0;
+      this.layoutPanel(table);
+    } else {
+      this.layoutNeutralPanel(table)
+    }
   }
-
+  layoutNeutralPanel(table: ChaosTable) {
+    const np = table.gamePlay.allPlayers.length;
+    const pids = [[],[], [3, 5], [2, 3, 4, 5], [3, 5], [], []][np];
+    this.addPriceTokens(table, -.25, pids)
+    return;
+  }
   /**
    * add components:
    * - place for Relics [bonus: Fame, Gem, Flip]
@@ -231,7 +242,7 @@ export class Panel extends PlayerPanel {
     this.addBuildings(faction);
     this.addFoundations(faction, table);
     this.addRecruits(faction);
-    this.addPriceTokens(table, 4);
+    this.addPriceTokens(table, 3.5);
     this.setupBase(faction);
     return this.children;
   }
@@ -247,7 +258,7 @@ export class Panel extends PlayerPanel {
     const sp = spec.rb;
     arrayN(5).forEach(n => {
       const cont = new NamedContainer(`Relic${n}`)
-      const foreColor = C.nameToRgbaString(this.player.color, .7);
+      const foreColor = C.nameToRgbaString(this.player.color, .2);
       const bgrect = new RectShape({ x: -w/2, y: -h/2, w, h, s: 0 }, foreColor, '');
       const fs = h / 2, dx = w * .23;
       const resIcon = new CenterText('%', fs, C.white);
@@ -461,21 +472,25 @@ export class Panel extends PlayerPanel {
     return cardPanel;
   }
 
+  priceTokens = [] as PricingToken[];
   /**
    * A row of 6 PricingToken with a home on this Panel
    */
-  addPriceTokens(table: Table, row = 0) {
+  addPriceTokens(table: Table, row = 0, pids = arrayN(6, (i)=>i+1)) {
     const np = this.player.gamePlay.allPlayers.length;
-    const { x, y, width, height } = this.getBounds();
+    const { x: x0, y: y0 } = this.getBounds();
+    const { dydr } = this.metrics
     const h = this.wh, w = h * 2, gap = h * .25;
-    const x0 = x + w * 0.76 - gap;
-    const y0 = y + height - h * .75;
+    const x = x0 + w * 0.76 - gap;
+    const y = y0 + row * dydr;
 
-    for (let i = 1; i <= 6; i++) {
-      const xy = { x: x0 + i * (w/2 + gap), y: y0 };
+    this.priceTokens.length = 0;
+    pids.forEach(i => {
+      const xy = { x: x + i * (w/2 + gap), y };
       const pt = new PricingToken(np, i as PriceId, xy, this.player);
       pt.sendHome()
-    }
+      this.priceTokens[i] = pt;
+    })
   }
 
   // maybe a super-class of CardPanel? *any* mapCont? see game-setup where we Panel.mixin(HexMap2, PlayerPanel)

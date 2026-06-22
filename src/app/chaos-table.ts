@@ -62,17 +62,20 @@ export class ChaosTable extends Table {
 
   override layoutTable2() {
     this.initialVis = false;
-    super.layoutTable2();
-    const toprow = 7.5, lefcol = 1;  // position Panels near truncated hexMap
+    super.layoutTable2();            // toggleText
 
-    const [source, discard] = TacticsCard.makeCardSources(this, { row: toprow + .9, col: lefcol })
+    const doneRow = 7.1, lefcol = 1; // position Panels near truncated hexMap
+
+    const [source, discard] = TacticsCard.makeCardSources(this, { row: doneRow + 1.2, col: lefcol })
     this.cardSource = source;
     this.cardDiscard = discard;
 
     TacticsCard.makeAllCards(); // populate PathCard.cardByName
 
     this.addDoneButton();
-    this.setToRowCol(this.doneButton, toprow - .4, lefcol); // between cardDeck & discards
+    this.setToRowCol(this.doneButton, doneRow, lefcol); // between cardDeck & discards
+
+    this.makeNeutralPanel();    // See also: Panel.layoutNeutralPanel()
     return;
   }
 
@@ -101,6 +104,16 @@ export class ChaosTable extends Table {
 
   override panelLocsForNp(np: number): number[] {
     return [[], [0], [0, 2], [0, 3, 2], [0, 3, 5, 2], [0, 3, 4, 5, 2], [0, 3, 4, 5, 2, 1]][np];
+  }
+  neutralPanelLoc(): [row: number, col: number, dir: 1 | -1] {
+    const locs = super.getPanelLocs()
+    // on top row, between left & right columns:
+    return [locs[0][0], (locs[0][1] + locs[3][1])/2, +1];
+  }
+
+  makeNeutralPanel() {
+    const [row, col, dir] = this.neutralPanelLoc();
+    const nPanel = this.makePlayerPanel(this, this.gamePlay.neutralPlayer, this.panelHeight, this.panelWidth-.6, row, col+.5, dir)
   }
 
   declare playerPanel: Panel;

@@ -207,10 +207,25 @@ class NullGameSetup extends GameSetupLib {
     return gp;
   }
 
+  makeNeutralPlayer(gamePlay: GamePlay) {
+    const np = TP.numPlayers;
+    const nid = (np + 1) as FactionId;
+    this.facIds.push(nid as FactionId);
+    this.facNames.push('neutral' as FactionName);
+    gamePlay.neutralPlayer = new Player(nid, gamePlay)
+    this.facIds.pop();
+    TP.numPlayers = np;
+  }
+
+  override makeAllPlayers(gamePlay: GamePlay): void {
+    this.makeNeutralPlayer(gamePlay);
+    super.makeAllPlayers(gamePlay);
+  }
+
   // invoked by makeAllPlayers; faction = this.facId[ndx]
   override makePlayer(ndx: number, gamePlay: GamePlay): Player {
     const p = new Player(ndx, gamePlay);
-    console.log(stime(p, `.new: ${p.Aname}`), p.index, p.facId, p.facName, p.color)
+    // console.log(stime(p, `.new: ${p.Aname}`), p.index, p.facId, p.facName, p.color)
     return p;
   }
 }

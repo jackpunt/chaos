@@ -243,7 +243,7 @@ export class HexMap2 extends HexMap<ChaosHex2> {
     this.placeMtn(map.getHex({row: 4, col: 4}), map.getHex({row: 4, col: 5}) );
     this.placeMtn(map.getHex({row: 4, col: 2}), map.getHex({row: 5, col: 2}) );
     placeTunnel(H.N, map.getHex({row: 3, col: 6}), map.getHex({row: 6, col: 2}), C.BLUE)
-    placeTunnel(H.WN, map.getHex({row: 3, col: 1}), map.getHex({row: 6, col: 6}), C.RED)
+    placeTunnel(H.N, map.getHex({row: 3, col: 1}), map.getHex({row: 6, col: 6}), C.RED)
 
     // set all Mtn & Base Tiles unreachable: (will re-link when actual Base is placed)
     map.forEachHex(hex => {

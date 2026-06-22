@@ -12,6 +12,7 @@ import type { PricingToken } from "./meeples";
 
 
 export class GamePlay extends GamePlayLib {
+  neutralPlayer!: Player;
   neutralTokes: PricingToken[] = [];
 
   constructor (gameSetup: GameSetup, scenario: SetupElt) {

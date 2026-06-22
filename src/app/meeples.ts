@@ -348,11 +348,8 @@ export class PricingToken extends ChaosToken {
     // ^     [^]     3      4      5     [6]
     [1, 0], [2,0], [1,2], [2,2], [2,3], [3,3],
   ]
-  static neutral35 = [
-      [0,0,1,1,2], [0,3, 0, 0, 4], [0,2,1,1], [0,5],
-  ]
-  static neutral2 = [
-      [0, 3, 0, 0, 4], [0, 5],
+  static neutral = [
+      [], [0, 0, 1, 1, 2], [0, 3, 0, 0, 4], [0, 2, 1 ,1], [0, 5, 0, 0], [],
   ]
 
   faction?: FactionId;    // undefined for Neutral Tokens
@@ -388,7 +385,7 @@ export class PricingToken extends ChaosToken {
     this.wh = this.gamePlay.hexMap.xywh().dxdc;
     this.homeXY = xy;
     if (facId < 0) {
-      this.vdist = (np == 2 ? PricingToken.neutral2 : PricingToken.neutral35)[vid-1] as VDIST;
+      this.vdist = (PricingToken.neutral)[vid-1] as VDIST;
     } else {
       this.vdist = (np == 2 ? PricingToken.dist2 : PricingToken.dist35)[vid-1] as VDIST;
     }
@@ -410,15 +407,15 @@ export class PricingToken extends ChaosToken {
       cont.addChild(tr);
       tr.paint(tr.bgColor, true)
     }
-    const [ toFac, toBank, left, right ] = this.vdist;
+    const [ toFac, toBank, left, right, eject ] = this.vdist ?? [];
     const s = size*.92, x1 = -s/4, x2 = +s/4, y1 = +s/4, y2 = -s/4;
     const fontSize = s * .2;
-    if (left !== undefined) {
+    const neutral = (left !== undefined);
+    if (neutral && left > 0) {
       const lt = new TextInRect(`${left}`, { bgColor: 'black', fontSize })
+      setTR(lt, s*.45, x1, y2)
       const rt = new TextInRect(`${right}`, { bgColor: 'white', fontSize })
-      lt.x = y1; lt.y = y1;
-      rt.x = +s/3; rt.y = y1;
-      cont.addChild(lt, rt);
+      setTR(rt, s*.45, x2, y2)
     }
     if (toFac > 0 && toBank > 0) {
       const tf = new TextInRect(`${toFac}`, { bgColor: this.pColor, fontSize })
@@ -430,9 +427,13 @@ export class PricingToken extends ChaosToken {
       setTR(tf, s, 0, y1)
     } else if (toBank > 0) { // single payment to Bank
       const tb = new TextInRect(`${toBank}`, { bgColor: PTokenShape.nColor, fontSize })
-      setTR(tb, s, 0, y2)
+      setTR(tb, s, 0, y1)
     }
-    if (this.bTexts) {
+    if (neutral && eject !== undefined) {
+      const tir = new TextInRect(`X  ${eject}`, { bgColor: C.transparent, fontSize })
+      setTR(tir, s*.7, 0, toBank > 0 ? y2 : y1)
+    }
+    if (!neutral && this.bTexts) {
       const text = this.bTexts.join('  ')
       const tir = new TextInRect(text, { bgColor: C.rgba(this.pColor, .6), fontSize })
       setTR(tir, s*.7, 0, y2);
@@ -448,8 +449,7 @@ export class PricingToken extends ChaosToken {
   override sendHome(): void {
     this.x = this.homeXY.x;
     this.y = this.homeXY.y;
-    const parent = this.player?.panel ?? this.parent; // neutral tokens stay on table
-    parent.addChild(this);
+    this.player!.panel.addChild(this);
   }
 
   override dropFunc(targetHex: IHex2, ctx: DragContext): void {
