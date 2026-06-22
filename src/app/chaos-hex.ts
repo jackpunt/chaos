@@ -70,7 +70,14 @@ export class ChaosHex2 extends ChaosHex2Lib {
       hs.paint(colorn);
       return hs;
     }
+}
 
+export class TokenHex extends ChaosHex2 {
+  override makeHexShape(colorn?: string): Paintable {
+    const wh = TP.meepleRad;
+    const hs = new RectShape({ x: -wh/2, y: -wh/2, w: wh, h: wh}, 'rgba(192, 192, 192, 0.2)')
+    return hs;
+  }
 }
 
 /////////////////////////////////// HexMap2 ///////////////////////////////////////////////

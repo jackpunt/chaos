@@ -1,13 +1,14 @@
 import { arrayN, C, Constructor, stime, type XY } from "@thegraid/common-lib";
-import { CenterText, CircleShape, NamedContainer, RectShape, UtilButton } from "@thegraid/easeljs-lib";
+import { CenterText, CircleShape, NamedContainer, RectShape, TextInRect, UtilButton } from "@thegraid/easeljs-lib";
 import { HexMap, newPlanner, NumCounter, Player as PlayerLib, PlayerPanel, TP, type IHex2, type MapCont, type Tile, type TileSource } from "@thegraid/hexlib";
-import { ChaosHex2 as Hex2, type ChaosHex2 } from "./chaos-hex";
+import { ChaosHex2 as Hex2, TokenHex, type ChaosHex2 } from "./chaos-hex";
 import { type ChaosTable, type ChaosTable as Table } from "./chaos-table";
-import { ChaosTile, type BONUS } from "./chaos-tile";
+import { bonusIcon, ChaosTile, type BONUS, type HARVEST } from "./chaos-tile";
 import { Faction, factionColors, type FactionId, type FactionName } from "./factions";
 import { BgFound, Foundation } from "./foundation";
 import { type GamePlay } from "./game-play";
-import { Outposts, ChaosPresence, Factory, PricingToken, Stronghold, type ChaosUnitType, type Fighter, type Leader, type PriceId } from "./meeples";
+import { pricePhases, type PricePhases } from "./game-state";
+import { ChaosPresence, Factory, Outposts, PricingToken, Stronghold, type ChaosUnitType, type Fighter, type Leader, type PriceId } from "./meeples";
 import { CardBack, CardPanel, TacticsCard } from "./tactics-card";
 
 /** Canonical Faction colors, aligned with gameSetup.factionNames.
@@ -22,6 +23,24 @@ export const chaosOrange = 'rgb(255, 140, 0)';
 // 5 Bonus Foundations, named for the bonus they give; stronghold & one other have gemlock
 const foundationIds = ['research', 'harvest', 'adjacent', 'unlock', 'handlimit'] as const;
 export type FoundationId = typeof foundationIds[number];
+
+// %, Energy, Gem, Card, Build, Recruit, Leader, Harvest, Move,
+// Upgrade(leader), Attribute(upgrade), Token(place), Flip(token)
+// Primary:  %    B     E+H   R    M+C
+// Auxilly: E:G, E:B/C, E:G, E:L, E:U,
+// Immedia: E2/G1, E3/C, E4/G2; F/C, T, F, G1/C, E3, R2/C
+type ResSpec = [ P: string, A: string, I?: string ];  // tuple; Default: ResSpecs[4].I = -G;
+type ResSpecs = ResSpec[];
+type ResGrid = Record<PricePhases, ResSpecs>;
+const ResGrid: ResGrid = {
+  Discovery: [['%', 'E2:G1'], ['%', 'G2:%', 'E2/G1' ], ['%', 'G2:%', 'E3/C' ], ['%', 'G1:%', 'E4/G2' ], ['%2', 'G1:C', 'C' ]],
+  Build: [['B', 'E4:B'], ['B', 'E3:B', 'F/C'], ['B2', 'E4:B'], ['B2', 'E3:B', 'F/C'], ['B3', 'E2:C']],
+  Harvest: [['E4+H1', 'E2:G1'], ['E5+H2', 'E2:G1'], ['E6+H2', 'E2:G1', 'T'], ['E7+H3', 'E2:G1'], ['E9+H3', 'E4:G2', 'F']],
+  Recruit: [['R2', 'E4:L'], ['R4', 'E5:L'], ['R5', 'E4:L', 'G1/C'], ['R7', 'E4:L'], ['R9', 'E4:L', 'E3']],
+  Move: [['M2', 'E5:U'], ['M3', 'E5:U'], ['M4', 'E4:U','-G'], ['M5', 'E4:U', 'R2/C'], ['M6', 'E4:U']],
+}
+const PriceBonus = ['', 'G1', '', 'E2', 'C'];
+
 
 /** per-Player bits on PlayerPanel */
 class PlayerBits {
@@ -183,6 +202,7 @@ export class Panel extends PlayerPanel {
 
   declare mapCont: MapCont;            // player.makeCardRack() will set mapCont = cardPanel
   declare player: Player;
+  declare table: ChaosTable;
 
   /** faction id (0..5) */
   get factionId() { return this.player.facId }
@@ -220,7 +240,54 @@ export class Panel extends PlayerPanel {
     const np = table.gamePlay.allPlayers.length;
     const pids = [[],[], [3, 5], [2, 3, 4, 5], [3, 5], [], []][np];
     this.addPriceTokens(table, -.25, pids)
+    this.addResearchLines()
     return;
+  }
+
+  addResearchLines() {
+    const { high, dydr } = this.metrics;
+    const height = high
+    const wh = height/6 *.8, fs = wh * .15, x0 = wh * .1, y0 = wh * .2, wh0 = wh*1.3;
+    pricePhases.forEach((pName, i) => {
+      const tokenShape = (dy=0, label = (i == 4) ? 'FIRST' : '') => {
+        const isLast = label == 'LAST';
+        const tShape = new RectShape({ x: x0, y: y0 + dy, w: wh, h: wh }, C.grey224, C.white)
+        cont.addChild(tShape);
+        const cx = x0 + wh/2;
+        const cy = y0 + wh/2 + dy;
+        const bonusTxt = PriceBonus[i];
+        if (bonusTxt && !isLast) {
+          const bonus = bonusIcon(bonusTxt as HARVEST, fs)!;
+          bonus.x = cx;
+          bonus.y = cy - wh * .2;
+          cont.addChild(bonus)
+        }
+        if (label) {
+          const mtext = new CenterText(label, fs);
+          mtext.x = cx;
+          mtext.y = cy + wh * .2;
+          cont.addChild(mtext)
+        }
+        const thex = this.table.newHex2(i + (isLast ? 1 : 0), 1, `${label ?? pName}`, TokenHex)
+        cont.localToLocal(cx, cy, this.table.hexMap.mapCont.tileCont, thex.cont)
+        thex.legalMark.setOnHex(thex)
+      }
+      const cont = new NamedContainer(`p:${pName}`)
+      cont.x = wh0 * .2;
+      cont.y = wh0 * i;
+      this.addChild(cont)
+
+      const label = new CenterText(pName, fs, C.white )
+      label.textAlign = 'left';
+      label.textBaseline = 'top'
+      const name = new TextInRect(label, { bgColor: 'rgb(166, 78, 129)', fontSize: fs})
+      name.rectShape.setRectRad({ w: wh0, h: wh0,  r: 2 })
+      tokenShape();
+      if (i == 4) {
+        tokenShape(wh * 1.1, 'LAST');
+      }
+      cont.addChild(name);
+    })
   }
   /**
    * add components:

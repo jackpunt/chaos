@@ -71,6 +71,7 @@ const terrainIds = ['Mtn', 'Hills', 'Swamp', 'Plains', 'Lake', 'Base'] as const;
 /** basic Bonus for Foundation and Harvest */
 const bonusIds = ['-', 'E3', 'E2', 'E1', 'C', 'G1', 'R1', '%'] as const; //
 
+// %, Energy, Gem, Card, Build, Recruit, Leader, Harvest, Move, Upgrade(leader), Attribute(upgrade)
 /** upgrade tokens which can be flipped; Lm2: Leader deploy/upgrade for -2E; Bm1: Build for -1E */
 const baseProdTokenIds = ['%', 'R3', 'G2', 'E4', 'E1C', 'R1C', 'Lm2', 'Bm1'] as const; // 8 basic
 const upgradeProdTokenIds = ['%E2', 'R4', 'G2R1', 'E6', 'E3C', 'R2C', 'LE0', 'BG0'] as const;
@@ -97,13 +98,13 @@ const flipBuff: Partial<Record<PROD_TOKEN, string>> = {
 };
 
   /** also use for Income icons */ // TODO: maybe use TextTweaks to place the glyphs?
-export function bonusIcon(harv?: HARVEST | PriceBonus, radius = TP.hexRad) {
-    if (!harv || !bonusIds.includes(harv as BONUS)) return undefined;
+export function bonusIcon(harv?: HARVEST | PriceBonus, fs = TP.hexRad * .15) {
+    if (!harv || harv.length > 3) return undefined;
     const spotmap = { E: 'yellow', G: 'red', C: 'white', R: 'orange', U: 'gold' };
     const icon = new Container();
     const h0 = harv[0] as keyof typeof spotmap;
     const cHarv = spotmap[h0] ?? C.transparent;
-    const w = radius * .25, h = w * 1.4, fs = radius * .15;
+    const w = fs * .25/.15, h = w * 1.4;
     const cardRect = { x: -w / 2, y: -h / 2, w, h }; // maybe use TextInRect?
     const shape = (h0 == 'C' || h0 == 'U' ) ? new RectShape(cardRect, cHarv, '') : new CircleShape(cHarv, fs, '');
     const tColor = C.pickTextColor(cHarv, ['black', 'white']);

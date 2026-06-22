@@ -1,9 +1,9 @@
 import { C, type XY, type XYWH } from "@thegraid/common-lib";
 import { NamedContainer, PathShape, RectShape, TextInRect, type Paintable } from "@thegraid/easeljs-lib";
-import type { Rectangle } from "@thegraid/easeljs-module";
+import type { DisplayObject, Rectangle } from "@thegraid/easeljs-module";
 import { Graphics } from "@thegraid/easeljs-module";
 import { Meeple, MeepleShape, Tile, TP, type DragContext, type Hex, type HexM, type IHex2 } from "@thegraid/hexlib";
-import type { ChaosHex2 as Hex2 } from "./chaos-hex";
+import type { ChaosHex2 as Hex2, HexMap2 } from "./chaos-hex";
 import { type BONUS } from "./chaos-tile";
 import type { FactionId } from "./factions";
 import { Foundation } from "./foundation";
@@ -444,6 +444,16 @@ export class PricingToken extends ChaosToken {
   }
   override makeShape(size = TP.meepleRad * 1.2): Paintable {
     return new PTokenShape(size)
+  }
+
+  static mark: DisplayObject;
+  static {
+    const wh = TP.meepleRad * 1.9;
+    PricingToken.mark = new RectShape({x: -wh/2, y: -wh/2, w: wh, h: wh}, 'rgba(130, 130, 130, 0.4)', '')
+  }
+
+  override showTargetMark(hex: IHex2 | undefined, ctx: DragContext): void {
+    (ctx.targetHex?.map as HexMap2).showMark(ctx.targetHex, PricingToken.mark)
   }
 
   override sendHome(): void {

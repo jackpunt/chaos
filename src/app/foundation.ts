@@ -51,7 +51,7 @@ export class Foundation extends Tile {
   constructor(Aname: string, bonus: BONUS = '-', fs?: number) {
     super(Aname)
     this.bonus = bonus;
-    this.icon = bonusIcon(bonus, TP.hexRad * 2) ?? this.textBonus(bonus, fs);
+    this.icon = bonusIcon(bonus, TP.hexRad * .3) ?? this.textBonus(bonus, fs);
     this.addChild(this.icon);
     this.nameText.y -= 6
   }
