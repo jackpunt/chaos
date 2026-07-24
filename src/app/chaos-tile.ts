@@ -222,7 +222,7 @@ export class ChaosTile extends MapTile {
     this.addChild(icon);
   }
 
-  // invoked by ParamGUI:
+  // invoked by ParamGUI: (peculiar to hexpath)
   paintBase(colorn = C.black, tColor = C.pickTextColor(colorn)) {
     this.nameText.color = tColor;
     this.baseShape.paint(colorn)
@@ -293,21 +293,5 @@ export class ChaosTile extends MapTile {
       targetHex.tile.sendHome();
     }
     super.dropFunc(targetHex, ctx);
-  }
-}
-
-/** resize/repaint Tiles for TileExporter */
-export class PrintTile extends ChaosTile {
-  static rotateBack = 0;
-  static colorBack = C.WHITE;
-  constructor(Aname: string, t: TERRAIN, h: HARVEST, color = C.WHITE) {
-    const TP_hexRad = TP.hexRad, printRad = 200;
-    TP.hexRad = printRad;
-    super(Aname, t, h, undefined)
-    TP.hexRad = TP_hexRad;
-    this.paintBase(color);
-  }
-  override paint(colorn = C.BLACK, force?: boolean): void {
-    this.paintBase(colorn)
   }
 }

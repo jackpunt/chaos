@@ -7,7 +7,7 @@ import { bonusIcon, ChaosTile, type BONUS, type HARVEST } from "./chaos-tile";
 import { Faction, factionColors, type FactionId, type FactionName } from "./factions";
 import { BgFound, Foundation } from "./foundation";
 import { type GamePlay } from "./game-play";
-import { pricePhases, type PricePhases } from "./game-state";
+import { pricePhases, type PlayerId, type PricePhase } from "./game-state";
 import { ChaosPresence, Factory, Outposts, PricingToken, Stronghold, type ChaosUnitType, type Fighter, type Leader, type PriceId } from "./meeples";
 import { CardBack, CardPanel, TacticsCard } from "./tactics-card";
 
@@ -34,7 +34,7 @@ export type FoundationId = typeof foundationIds[number];
 // Immedia: E2/G1, E3/C, E4/G2; F/C, T, F, G1/C, E3, R2/C
 type ResSpec = [ P: string, A: string, I?: string ];  // tuple; Default: ResSpecs[4].I = -G;
 type ResSpecs = ResSpec[];
-type ResGrid = Record<PricePhases, ResSpecs>;
+type ResGrid = Record<PricePhase, ResSpecs>;
 const ResGrid: ResGrid = {
   Discovery: [['%', 'E2:G1'], ['%', 'G2:%', 'E2/G1' ], ['%', 'G2:%', 'E3/C' ], ['%', 'G1:%', 'E4/G2' ], ['%2', 'G1:C', 'C' ]],
   Build: [['B', 'E4:B'], ['B', 'E3:B', 'F/C'], ['B2', 'E4:B'], ['B2', 'E3:B', 'F/C'], ['B3', 'E2:C']],
@@ -61,12 +61,14 @@ export class Player extends PlayerLib {
   static initialGems = 1;
 
   // {gold: 'gold', lightblue: 'lightblue', violet: 'Violet', blue: 'blue', orange: 'orange' };
+  /** Record<FactionColors: HTML_Color\> */
   static override colorScheme = {
-    // start with 6 basic FactionColors:
+      // start with 6 key factionColors:
       ... playerColors.reduce((pv, cv) => (pv[cv] = cv, pv), {} as typeof PlayerLib.colorScheme),
+      // overwrite a few to get a better color
       'yellow': 'tan',// 'rgb(255, 213, 0)',
       'blue': 'rgb(1, 161, 230)',
-      'orange': 'rgb(255, 98, 0)',
+      'orange': 'rgb(255, 60, 0)',
       'brown' : 'brown',
   } as typeof PlayerLib.colorScheme;
 
@@ -81,6 +83,7 @@ export class Player extends PlayerLib {
   declare gamePlay: GamePlay;
   declare panel: Panel;
 
+  declare index: PlayerId;
   readonly facId: FactionId;
   readonly faction: Faction;
   readonly facName: FactionName;
@@ -229,18 +232,25 @@ export class Panel extends PlayerPanel {
     const faction = this.faction = this.player.faction;
     console.log(stime(this, `.constructor: factionId=${this.factionId} cname=${this.player.cname} ${faction.name}`))
     player.panel = this;       // set it so layout can easily find the Player
-    if (faction.name !== 'neutral' as FactionName) {
-      this.bg0 = C.grey64; 'rgb(56, 56, 56)';
-      this.bg1 = this.bg0;
+    if (faction.name !== 'Neutral' as FactionName) {
       this.layoutPanel(table);
     } else {
       this.layoutNeutralPanel(table)
     }
   }
+
+  // TODO: table.vault
   layoutNeutralPanel(table: ChaosTable) {
     const np = table.gamePlay.allPlayers.length;
-    const pids = [[],[], [3, 5], [2, 3, 4, 5], [3, 5], [], []][np];
-    this.addPriceTokens(table, -.25, pids)
+    const ptIds = [[],[], [5, 3], [5, 4, 3, 2], [5, 3], [], []][np];
+    this.addPriceTokens(table, -.25, ptIds)
+    const x = 1.2 * this.priceTokens[3].getBounds().width/2;  // stack the Neutral tiles above phase pricing spots
+    // stack in order (TODO: two stacks for 3-player)
+    ptIds.forEach(pid => {
+      const pt = this.priceTokens[pid];
+      pt.homeXY = { ...pt.homeXY, x };
+      pt.sendHome()
+    });
     this.addResearchLines()
     return;
   }
@@ -269,10 +279,11 @@ export class Panel extends PlayerPanel {
           mtext.y = cy + wh * .2;
           cont.addChild(mtext)
         }
-        const thex = this.table.newHex2(i + (isLast ? 1 : 0), 1, `${label ?? pName}`, TokenHex) as TokenHex;
+        const di = (isLast ? i + 1 : i);
+        const thex = this.table.newHex2(di, 1, `${label ?? pName}`, TokenHex) as TokenHex;
         cont.localToLocal(cx, cy, this.table.hexMap.mapCont.hexCont, thex.cont)
         thex.legalMark.setOnHex(thex)
-        this.table.priceHex[i] = thex;
+        this.table.priceHex[di] = thex;
       }
       const cont = new NamedContainer(`p:${pName}`)
       cont.x = wh0 * .2;
@@ -304,6 +315,8 @@ export class Panel extends PlayerPanel {
    * Also: setup Base hex: [Ship, E1, E2, E2, G1, R1]
    */
   layoutPanel(table: ChaosTable) {
+    this.bg0 = C.grey64; 'rgb(56, 56, 56)';
+    this.bg1 = this.bg0;
     const faction = this.faction;
     this.wh = TP.meepleRad; // TODO: integrate with panel.metrics (so counters align with wh & gap)
     this.cardPanel = this.addCardPanel(table);

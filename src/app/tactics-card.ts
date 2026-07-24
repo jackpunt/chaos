@@ -1,5 +1,5 @@
 import { C, permute, S, stime } from "@thegraid/common-lib";
-import { CenterText, NamedContainer, RectShape, type DragInfo, type Paintable } from "@thegraid/easeljs-lib";
+import { CenterText, NamedContainer, RectShape, type CountClaz, type DragInfo, type Paintable } from "@thegraid/easeljs-lib";
 import type { Text } from "@thegraid/easeljs-module";
 import { DisplayObject, Graphics, MouseEvent } from "@thegraid/easeljs-module";
 import { H, LegalMark, MapCont, NumCounter, Tile, TileSource, TP, type DragContext, type IHex2 } from "@thegraid/hexlib";
@@ -9,7 +9,6 @@ import type { ChaosTable as Table } from "./chaos-table";
 import type { GamePlay } from "./game-play";
 import type { GameState } from "./game-state";
 import type { Panel, Player } from "./player";
-import type { CountClaz } from "./tile-exporter";
 
 // Temporary, should be in GamePlay
 const phaseNames = ['SetPrices', 'Discovery', 'Build', 'Harvest', 'Recruit', 'Move', 'Combat', 'Income', 'Relic',] as const;

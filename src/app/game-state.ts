@@ -10,12 +10,12 @@ export type PhaseName = typeof phaseNames[number];
 export const priceNames = ['Discovery', 'Build', 'Harvest', 'Recruit', 'MoveFirst', 'MoveLast'] as const;
 export type PriceName = typeof priceNames[number];
 export const pricePhases = ['Discovery', 'Build', 'Harvest', 'Recruit', 'Move'] as const;
-export type PricePhases = typeof pricePhases[number];
+export type PricePhase = typeof pricePhases[number];
 
 // Never stop/state a END of a phase, always proceed to next Phase, so curPlayer is the next to take Action.
 type SaveState = [ phase: Phase, cpndx: FactionId, prices: PricingToken[] ];
 
-/** same cardinality as FactionId, but is index into allPlayers[pid] */
+/** same cardinality as FactionId, but is index into allPlayers[pid]; represents Table Order! */
 export type PlayerId = FactionId;
 
 
@@ -28,6 +28,14 @@ export class GameState extends GameStateLib {
   /** Player currently with the FlareGun. */
   get gunPlayer() { return this._gunPlayer }
   set gunPlayer(plyr: Player) { this._gunPlayer = plyr }
+
+  _round = 1;
+  get roundNum() {
+    return this._round;
+  }
+  nextRound() {
+    this._round += 1;  // TODO -- other things.
+  }
 
   /** initiator for this Phase */
   phaseNdx: PlayerId = 0;
@@ -46,6 +54,7 @@ export class GameState extends GameStateLib {
 
   override start(startPhase?: string, startArgs?: any[]): void {
     this.nPlayers = this.gamePlay.allPlayers.length;
+    this.gunPlayer = this.gamePlay.initialGunPlayer;
     super.start(startPhase, startArgs);
   }
 
@@ -55,10 +64,14 @@ export class GameState extends GameStateLib {
   override get curPlayer() { return super.curPlayer as Player }
   override get table() { return super.table as Table }
 
+  // Oops: integrate with type SaveState above
   override saveState() {
-    return []; // hexlib expects any tuple or array
+    return [this.roundNum, this.state?.Aname, ]; // hexlib expects any tuple or array; TODO: include _round
   }
   override parseState(gameState: any[]): void {
+    const [roundNum, stateName, args] = gameState;
+    this._round = roundNum ?? 0;
+    this.phase(stateName ?? this.startPhase, args ?? this.startArgs);
     return;
   }
 
@@ -76,12 +89,13 @@ export class GameState extends GameStateLib {
     BeginRound: {
       start: () => {
         this.gamePlay.saveGame();
-        this.doneButton('Begin Round');
+        this.doneButton(`Begin Round: ${this.roundNum}`);
         // this.table.doneButton.activate()
         // this.phase('SetPrices');
       },
       done: () => {
-        this.phase('SetPrices', 0);
+        this.phaseNdx = this.gunPlayer.index;     // SetPrices will change the gunPlayer!
+        this.phase('SetPrices', this.gunPlayer.index);
       }
     },
 
@@ -91,7 +105,10 @@ export class GameState extends GameStateLib {
       },
       done: (ndx: number) => {
         const next = this.nextNdx(ndx);
-        if (next !== this.phaseNdx) this.state.start(next); // loop for each player
+        if (next !== this.phaseNdx) {
+          this.state.start(next); // loop for each player
+          return;
+        }
         if (this.nPlayers < pricePhases.length) this.gamePlay.setPriceNeutral();
         this.phase('Discovery');
       }

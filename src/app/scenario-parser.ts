@@ -86,6 +86,9 @@ export class ScenarioParser extends SPLib {
     const { p6ary, plyrStates, gameState } = setup;
     const gamePlay = this.gamePlay, table = gamePlay.table;
 
+    if (gameState) {
+      this.gamePlay.gameState.parseState(gameState);
+    }
     if (p6ary) {
       (gamePlay.hexMap as HexMap2).setupMapTiles( );
     }

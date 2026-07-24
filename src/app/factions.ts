@@ -3,8 +3,9 @@ import type { BONUS, FAME_BONUS, HARVEST } from "./chaos-tile";
 import type { PricingToken } from "./meeples";
 import { type Player } from "./player";
 
-//                          Circadian   AI   Zcharo   Leyrein   JRayek   Oxytaya
+/**                          Circadian   AI   Zcharo   Leyrein   JRayek   Oxytaya   (& Neutral: brown) */
 export const factionColors = ['gold', 'grey', 'blue', 'green', 'orange', 'violet', ] as const;
+type FactionColor = typeof factionColors[number];
 
 /** presentation name of each Faction */  // TODO: move these to Scenario & parser?
 export const factionNames = ['Circadian', 'AI', 'Zcharo', 'Leyrein', 'Jrayek', 'Oxytaya'] as const;
@@ -77,7 +78,7 @@ export class Faction {
 
   constructor(facId: FactionId) {
     this.facId = facId;
-    const facSpec = Faction.facSpecs[facId] ?? { name: 'neutral' };
+    const facSpec = Faction.facSpecs[facId] ?? { name: 'Neutral' };
     Object.assign(this, facSpec);
     Faction.factionById.set(facId, this);
   }

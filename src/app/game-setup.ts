@@ -212,9 +212,9 @@ class NullGameSetup extends GameSetupLib {
     const np = TP.numPlayers;
     const nid = (6) as FactionId;
     this.facIds.push(nid);
-    this.facNames[nid] = ('neutral' as FactionName);
+    this.facNames[nid] = ('Neutral' as FactionName);
     const plyr = gamePlay.neutralPlayer = new Player(np, gamePlay)
-    ;(plyr as any).Aname = 'P:neutral';
+    ;(plyr as any).Aname = 'P:Neutral';
     plyr.color = 'brown';
     delete this.facIds[nid];
     TP.numPlayers = np;

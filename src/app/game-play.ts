@@ -3,8 +3,9 @@ import { KeyBinder } from "@thegraid/easeljs-lib";
 import { GamePlay as GamePlayLib, SetupElt, TP as TPLib } from "@thegraid/hexlib";
 import type { HexMap2 } from "./chaos-hex";
 import type { ChaosTable } from "./chaos-table";
+import { factionNames } from "./factions";
 import type { GameSetup } from "./game-setup";
-import { GameState, priceNames, pricePhases, type PlayerId } from "./game-state";
+import { GameState, priceNames, type PlayerId, type PriceName } from "./game-state";
 import type { PricingToken } from "./meeples";
 import type { Player } from "./player";
 import { ScenarioParser } from "./scenario-parser";
@@ -13,7 +14,8 @@ import { TP } from "./table-params";
 
 export class GamePlay extends GamePlayLib {
   neutralPlayer!: Player;
-  neutralTokes: PricingToken[] = [];
+
+  declare _allPlayers: Player[]
 
   constructor (gameSetup: GameSetup, scenario: SetupElt) {
     super(gameSetup, scenario);
@@ -29,25 +31,54 @@ export class GamePlay extends GamePlayLib {
   override get curPlayer() { return super.curPlayer as Player; }
   override set curPlayer(plyr: Player) { this._curPlayer = plyr; } // proforma, must reassert the setter!
 
+  get initialGunPlayer() {
+    const gunPlayer = this._allPlayers.slice().sort((a, b) => a.panel.factionId - b.panel.factionId)[0];
+    return gunPlayer;
+  }
+
   override startTurn() {
+  }
+  /** which faction priced the given Phase.
+   * @param priceName includes MoveFirst & MoveLast
+   */
+  phasePricer(priceName: PriceName) {
+   return this.gameState.phasePrices[priceName]?.facId;
+  }
+
+  setTokenOnPhase(token: PricingToken, priceIndex: number) {
+    const priceName = priceNames[priceIndex];
+    const facName = factionNames[token.facId] ?? 'Neutral';
+    console.log(stime(this, `.setPrice: ${facName} w/${token.Aname} ->`), priceName )
+    token.moveTo(this.table.priceHex[priceIndex]);
+    this.gameState.phasePrices[priceName] = token;
   }
 
   setPrice(ndx: PlayerId) {
     const plyr = this.allPlayers[ndx];
     const token = plyr.panel.priceTokens[4]; // TODO: the real thing.
-    const priceIndex = priceNames.findIndex(pn => !this.gameState.phasePrices[pn])
-    const phaseName = priceNames[priceIndex];
-    console.log(stime(this, `.setPrice: ${plyr.Aname} w/${token.Aname} ->`), phaseName )
-    token.moveTo(this.table.priceHex[priceIndex]);
-    this.gameState.phasePrices[phaseName] = token;
+    const prices = this.gameState.phasePrices;
+    const priceIndex = (!prices.MoveLast) ? 5 : priceNames.findIndex(pn => !prices[pn])
+    this.setTokenOnPhase(token, priceIndex);
     token.stage.update();
     token.status = 'inplay';
     this.gameState.state.done!(ndx);
   }
 
   setPriceNeutral() {
-    pricePhases.forEach(p => {
-
+    const plyr = this.neutralPlayer;
+    plyr.panel.priceTokens; // [5,3] or [5,4,3,2]
+    const p2a = [2], p2b = [5], p3a = [2, 4], p3b = [3, 4], p3c = [4, 5], p4a = [3], p4b = [5];
+    // vs looking for a special attribute on the token:
+    const plan = [[p2a, p2a, p2a, p2a, p2b, p2b], [p3a, p3a, p3b, p3b, p3c, p3c], [p4a, p4a, p4a, p4a, p4b, p4b]];
+    const np2 = TP.numPlayers - 2, rn = this.gameState.roundNum;
+    const tokens = plan[np2][rn];   // use 2 tokens when np == 3
+    let tndx = 0;
+    priceNames.forEach((priceName, ndx) => {
+      if (!this.phasePricer(priceName) && tndx < tokens.length) {
+        const tid = tokens[tndx++];   // assert: will never get to MoveLast
+        const token = this.neutralPlayer.panel.priceTokens[tid];
+        this.setTokenOnPhase(token, ndx);
+      }
     })
   }
 

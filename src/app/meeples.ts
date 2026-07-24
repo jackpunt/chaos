@@ -352,7 +352,7 @@ export class PricingToken extends ChaosToken {
       [], [0, 0, 1, 1, 2], [0, 3, 0, 0, 4], [0, 2, 1 ,1], [0, 5, 0, 0], [],
   ]
 
-  faction?: FactionId;    // undefined for Neutral Tokens
+  facId: FactionId;    // undefined for Neutral Tokens
 
   readonly vdist: VDIST;
   readonly bTexts?: PriceBonus[];
@@ -379,11 +379,12 @@ export class PricingToken extends ChaosToken {
    * @param vid  1 .. 6 (or: 2, 3, 4, 5) (or: 3, 5)
    * @param facId [-1] is Neutral;
    */
-  constructor(np: number, public vid: PriceId, xy: XY = { x: 0, y: 0 }, player?: Player) {
-    const facId = player?.facId ?? -1;
+  constructor(np: number, public vid: PriceId, xy: XY = { x: 0, y: 0 }, player: Player) {
+    const facId = player.facId ?? -1;           // -1 was fallback for Neutral Player
     super(`F${facId}:PT${vid}`, player);        // construct baseShape
     this.wh = this.gamePlay.hexMap.xywh().dxdc;
     this.homeXY = xy;
+    this.facId = facId;
     if (facId < 0) {
       this.vdist = (PricingToken.neutral)[vid-1] as VDIST;
     } else {
@@ -401,6 +402,13 @@ export class PricingToken extends ChaosToken {
 
   // add content above the baseShape:
   fillCont(cont: NamedContainer, size = (this.baseShape as RectShape).getBounds().width) {
+    const bgcolor = C.nameToRgbaString(this.player!.color, .5)
+    const base = this.baseShape as PTokenShape;
+    const over = new RectShape(base._rect)
+    over.paint(bgcolor, true);
+    cont.addChild(over)
+
+    // make TextRect for number/icon:
     const setTR = (tr: TextInRect, w = 10, x = 0, y = 0) => {
       tr.rectShape.setRectRad({ w, x: tr.rectShape.x - w/2 }) ;
       tr.x = x; tr.y = y;
@@ -439,7 +447,6 @@ export class PricingToken extends ChaosToken {
       setTR(tir, s*.7, 0, y2);
     }
     // TODO: use bonusIcon(^, C, >, %)
-    this.paint();
     return cont;
   }
   override makeShape(size = TP.meepleRad * 1.2): Paintable {
@@ -481,7 +488,7 @@ class PTokenShape extends RectShape {
     super({ x: -size/2, y: -size/2,  w: size, h: size }, PTokenShape.bColor, 'black', g0);
   }
   override paint(colorn?: string, force?: boolean): Graphics {
-    return super.paint(this.colorn, force)
+    return super.paint(colorn ?? this.colorn, force)
   }
 }
 
