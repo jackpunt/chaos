@@ -235,10 +235,10 @@ export class Panel extends PlayerPanel {
     player.panel = this;       // set it so layout can easily find the Player
     this.vault = table.tokenVault[faction.facId];
     if (this.vault) this.vault.visible = true;
-    if (faction.name !== 'Neutral' as FactionName) {
-      this.layoutPanel(table);
-    } else {
+    if (faction.name == 'Neutral' as FactionName) {
       this.layoutNeutralPanel(table)
+    } else {
+      this.layoutPanel(table);
     }
   }
 
@@ -246,8 +246,8 @@ export class Panel extends PlayerPanel {
   layoutNeutralPanel(table: ChaosTable) {
     const np = table.gamePlay.allPlayers.length;
     const ptIds = [[],[], [5, 3], [5, 4, 3, 2], [5, 3], [], []][np];
-    this.addPriceTokens(table, -.25, ptIds)
-    const x = 1.2 * this.priceTokens[3].getBounds().width/2;  // stack the Neutral tiles above phase pricing spots
+    this.addPriceTokens(table, -.25, ptIds); // make the row, then stack them on the edge:
+    const x = this.wh * 1.1;  // stack the Neutral tiles above phase pricing slots
     // stack in order (TODO: two stacks for 3-player)
     ptIds.forEach(pid => {
       const pt = this.priceTokens[pid];
@@ -260,9 +260,7 @@ export class Panel extends PlayerPanel {
   }
 
   addPriceSlots() {
-    const { high, dydr } = this.metrics;
-    const height = high
-    const wh = height/8, fs = wh * .15, x0 = wh * .1, y0 = wh * .2, wh0 = wh*1.35;
+    const wh = this.wh, fs = wh * .15, x0 = wh * .5, y0 = wh * .5;
     pricePhases.forEach((pName, i) => {
       // place a tokenShape suitable for PricingToken
       const tokenShape = (dy = 0, label = (i == 4) ? 'FIRST' : '') => {
@@ -270,8 +268,8 @@ export class Panel extends PlayerPanel {
         const tShape = new PTokenShape(wh, C.white);
         tShape.paint(C.grey224);
         slot.addChild(tShape);
-        const cx = tShape.x = x0 + wh/2;
-        const cy = tShape.y = y0 + wh/2 + dy; // 'LAST' is moved down on slot
+        const cx = tShape.x = x0;
+        const cy = tShape.y = y0 + dy; // 'LAST' is moved down on slot
         const bonusTxt = PriceBonus[i];
         if (bonusTxt && !isLast) {
           const bonus = bonusIcon(bonusTxt as HARVEST, fs)!;
@@ -290,8 +288,8 @@ export class Panel extends PlayerPanel {
         this.table.priceHex[di] = thex;
       }
       const slot = new NamedContainer(`p_${pName}`)
-      slot.x = wh0 * 0.2;
-      slot.y = wh0 * (.1 + i);
+      slot.x = wh * .6;
+      slot.y = wh * .3 + wh * 1.35 * i
       this.addChild(slot)
       tokenShape();
       if (i == 4) {
@@ -299,9 +297,11 @@ export class Panel extends PlayerPanel {
       }
       const label = new CenterText(pName, fs, C.white )
       label.textAlign = 'left';
-      label.textBaseline = 'top'
+      label.textBaseline = 'bottom'
       const name = new TextInRect(label, { bgColor: CO.mauve })
-      slot.addChild(name);
+      name.x = -wh * .1;
+      name.y = -wh * .07;     // ~fs/2;
+      slot.addChild(name);    // TODO: show Phase Icons!
     })
   }
   addResearchLines() {
