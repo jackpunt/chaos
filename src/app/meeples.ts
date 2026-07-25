@@ -295,6 +295,7 @@ export class Stronghold extends ChaosBuilding {
 /** each subclass has a slot on ChaosHex, but does not confer faction 'presence' */
 class ChaosToken extends Tile {
   declare gamePlay: GamePlay;
+  declare player: Player;
   homeXY!: XY;                // sendHome location, if needed
 
 }
@@ -471,28 +472,51 @@ export class PricingToken extends ChaosToken {
     this.player!.panel.addChild(this);
   }
 
+  override dragStart(ctx: DragContext): void {
+    if (this.status !== 'avail') this.gamePlay.table.dragger.stopDrag();
+  }
+
   override dropFunc(targetHex: IHex2, ctx: DragContext): void {
     if (!targetHex) {
       this.sendHome();
     } else {
       this.x = 0; this.y = 0;
-      this.moveTo(targetHex);
+      const priceIndex = this.gamePlay.table.priceHex.findIndex(ph => ph == targetHex)
+      this.setTokenOnPhase(priceIndex);
+      this.gamePlay.gameState.state.done!(this.player.index);
     }
   }
 
   // TODO: add code for moveTokenToVault, gainTokenFromVault
   setTokenOnPhase(priceIndex: number) {
-    const token = this;
     const priceName = priceNames[priceIndex];
-    token.moveTo(this.gamePlay.table.priceHex[priceIndex]);
-    token.onPhase = priceName;
-    token.status = 'inplay';
-    this.gamePlay.gameState.phasePrices[priceName] = token;
+    this.moveTo(this.gamePlay.table.priceHex[priceIndex]);
+    this.onPhase = priceName;
+    this.status = 'inplay';
+    this.gamePlay.gameState.phasePrices[priceName] = this;
 
-    const facName = factionNeutral[token.facId];
-    console.log(stime(this, `.setTokenOnPhase: ${facName} w/${token.Aname} ->`), priceName )
+    const facName = factionNeutral[this.facId];
+    console.log(stime(this, `.setTokenOnPhase: ${facName} w/${this.Aname} ->`), priceName, this )
   }
 
+  /** remove from pricing, place in vault */
+  moveToVault() {
+    this.moveTo(undefined);   // release priceHex
+    this.x = this.y = 0;
+    this.player.panel.vault.addChild(this);
+    this.status = 'invault';
+    this.stage.update();
+  }
+
+  /** put on panel, but stats = 'pending' */
+  retrieveFromVault() {
+    this.sendHome();
+    this.status = 'pending';  // flipped down...
+  }
+  /** mark token available for use */
+  setAvailable() {
+    this.status = 'avail';
+  }
 }
 
 export class PTokenShape extends RectShape {

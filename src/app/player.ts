@@ -1,7 +1,7 @@
 import { arrayN, C, Constructor, stime, type XY } from "@thegraid/common-lib";
 import { CenterText, CircleShape, NamedContainer, RectShape, TextInRect, UtilButton } from "@thegraid/easeljs-lib";
 import { HexMap, newPlanner, NumCounter, Player as PlayerLib, PlayerPanel, TP, type IHex2, type MapCont, type Tile, type TileSource } from "@thegraid/hexlib";
-import { ChaosHex2 as Hex2, TokenHex, type ChaosHex2 } from "./chaos-hex";
+import { ChaosHex2 as Hex2, type ChaosHex2 } from "./chaos-hex";
 import { type ChaosTable, type ChaosTable as Table } from "./chaos-table";
 import { bonusIcon, ChaosTile, type BONUS, type HARVEST } from "./chaos-tile";
 import { Faction, factionColors, type FactionId, type FactionName } from "./factions";
@@ -222,6 +222,7 @@ export class Panel extends PlayerPanel {
   /** the 'hand' of TacticsCards */
   readonly cardRack: Hex2[] = [];
   cardPanel!: CardPanel;
+  vault!: NamedContainer;
 
   constructor(table: Table, player: Player, high: number, wide: number, row: number, col: number, dir?: number) {
     const hexMap = table.hexMap;
@@ -232,6 +233,8 @@ export class Panel extends PlayerPanel {
     const faction = this.faction = this.player.faction;
     console.log(stime(this, `.constructor: factionId=${this.factionId} cname=${this.player.cname} ${faction.name}`))
     player.panel = this;       // set it so layout can easily find the Player
+    this.vault = table.tokenVault[faction.facId];
+    if (this.vault) this.vault.visible = true;
     if (faction.name !== 'Neutral' as FactionName) {
       this.layoutPanel(table);
     } else {

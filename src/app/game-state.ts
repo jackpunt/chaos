@@ -15,8 +15,8 @@ export type PricePhase = typeof pricePhases[number];
 // Never stop/state a END of a phase, always proceed to next Phase, so curPlayer is the next to take Action.
 type SaveState = [ phase: Phase, cpndx: FactionId, prices: PricingToken[] ];
 
-/** same cardinality as FactionId, but is index into allPlayers[pid]; represents Table Order! */
-export type PlayerId = FactionId;
+/** 0 -- maxPlayers; is index into allPlayers[pid]; represents Table Order! */
+export type PlayerId = 0 | 1 | 2 | 3 | 4; // index into allPlayers
 
 
 export class GameState extends GameStateLib {
@@ -28,6 +28,10 @@ export class GameState extends GameStateLib {
   /** Player currently with the FlareGun. */
   get gunPlayer() { return this._gunPlayer }
   set gunPlayer(plyr: Player) { this._gunPlayer = plyr }
+
+  setCurPlayerNdx(ndx = this.gunPlayer.index) {
+    this.gamePlay.setCurPlayer(this.gamePlay.allPlayers[ndx]);
+  }
 
   _round = 1;
   get roundNum() {
@@ -42,7 +46,7 @@ export class GameState extends GameStateLib {
 
   /** (ndx+1) mod nPlayers */
   nextNdx(ndx = 0) {
-    return (ndx + 1) % this.nPlayers
+    return (ndx + 1) % this.nPlayers as PlayerId;
   }
 
   phasePrices: Partial<Record<PriceName, PricingToken>> = {};
@@ -90,19 +94,19 @@ export class GameState extends GameStateLib {
     BeginRound: {
       start: () => {
         this.gamePlay.saveGame();
-        this.doneButton(`Begin Round: ${this.roundNum}`);
-        // this.table.doneButton.activate()
-        // this.phase('SetPrices');
+        this.doneButton(`Begin Round: ${this.roundNum}`); // activate
       },
       done: () => {
-        this.phaseNdx = this.gunPlayer.index;     // SetPrices will change the gunPlayer!
-        this.phase('SetPrices', this.gunPlayer.index);
+        this.setCurPlayerNdx();      // setCurrentPlayer(gunPlayer)
+        this.phaseNdx = this.curPlayer.index;     //  & phaseNdx
+        this.phase('SetPrices', this.phaseNdx);   // SetPrices will change the gunPlayer!
       }
     },
 
     SetPrices: {
       start: (ndx: PlayerId) => {
-        this.gamePlay.setPrice(ndx);
+        this.setCurPlayerNdx(ndx);
+        this.doneButton(`SetPrices: ${ndx}`);
       },
       done: (ndx: number) => {
         const next = this.nextNdx(ndx);
@@ -112,9 +116,10 @@ export class GameState extends GameStateLib {
         }
         const openSlots = priceNames.filter(pn => !this.phasePrices[pn]).length; // HACK! Move has 2 slots...
         if (openSlots > this.nPlayers) {
-          this.state.start(this.gunPlayer.index);     // restart with original gunPlayer when nPlayers == 2
+          this.state.start(this.phaseNdx);     // restart with original gunPlayer when nPlayers == 2
           return;
         }
+
         if (this.nPlayers < pricePhases.length) this.gamePlay.setPriceNeutral();
         this.phase('Discovery');
       }

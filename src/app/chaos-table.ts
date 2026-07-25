@@ -124,8 +124,6 @@ export class ChaosTable extends Table {
   // established by Panel.addPriceSlots()
   priceHex = [] as TokenHex[];
 
-  declare playerPanel: Panel;
-
   // constructor does: { mapCont.backCont.addChild(playerPanel); setToRowCol(this, row, col); ... }
   override makePlayerPanel(table: Table, player: PlayerLib, high: number, wide: number, row: number, col: number, dir = -1): PlayerPanel {
     if (player.index === undefined) debugger;
@@ -231,6 +229,7 @@ export class ChaosTable extends Table {
       const tShape = new PTokenShape(wh, 'white');
       tShape.paint(Player.colorScheme[factionColors[i]]);
       fcont.addChild(tShape);
+      fcont.visible = false;   // until a PlayerPanel picks it up
     })
   }
 

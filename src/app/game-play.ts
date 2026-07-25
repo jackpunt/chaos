@@ -43,13 +43,18 @@ export class GamePlay extends GamePlayLib {
    return this.gameState.phasePrices[priceName]?.facId;
   }
 
-  setPrice(ndx: PlayerId) {
-    const plyr = this.allPlayers[ndx]; // TODO: notify player & wait for callback
-    const token = plyr.panel.priceTokens.filter(pt => !pt.onPhase).sort((a, b) => b.vid - a.vid)[0];
-    const prices = this.gameState.phasePrices;
-    const priceIndex = (!prices.MoveLast) ? 5 : priceNames.findIndex(pn => !prices[pn])
-    token.setTokenOnPhase(priceIndex);
-    token.stage.update();
+  // used during initial bringup
+  autoSetPrices(ndx: PlayerId) {
+    const plyr = this.allPlayers[ndx];
+    const tokens = plyr.panel.priceTokens;
+    const tokensInPlay = tokens.filter(pt => pt.status == 'inplay');
+    if (tokensInPlay.length <= (TP.numPlayers == 2 ? 1 : 0)) {
+      const token = tokens.filter(pt => pt.status == 'avail').sort((a, b) => b.vid - a.vid)[0];
+      const prices = this.gameState.phasePrices;
+      const priceIndex = (!prices.MoveLast) ? 5 : priceNames.findIndex(pn => !prices[pn])
+      token.setTokenOnPhase(priceIndex);
+      token.stage.update();
+    }
     this.gameState.state.done!(ndx);
   }
 
