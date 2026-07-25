@@ -109,6 +109,11 @@ export class GameState extends GameStateLib {
           this.state.start(next); // loop for each player
           return;
         }
+        const openSlots = priceNames.filter(pn => !this.phasePrices[pn]).length; // HACK! Move has 2 slots...
+        if (openSlots > this.nPlayers) {
+          this.state.start(this.gunPlayer.index);     // restart with original gunPlayer when nPlayers == 2
+          return;
+        }
         if (this.nPlayers < pricePhases.length) this.gamePlay.setPriceNeutral();
         this.phase('Discovery');
       }

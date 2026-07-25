@@ -3,10 +3,8 @@ import { KeyBinder } from "@thegraid/easeljs-lib";
 import { GamePlay as GamePlayLib, SetupElt, TP as TPLib } from "@thegraid/hexlib";
 import type { HexMap2 } from "./chaos-hex";
 import type { ChaosTable } from "./chaos-table";
-import { factionNames } from "./factions";
 import type { GameSetup } from "./game-setup";
 import { GameState, priceNames, type PlayerId, type PriceName } from "./game-state";
-import type { PricingToken } from "./meeples";
 import type { Player } from "./player";
 import { ScenarioParser } from "./scenario-parser";
 import { TP } from "./table-params";
@@ -45,29 +43,20 @@ export class GamePlay extends GamePlayLib {
    return this.gameState.phasePrices[priceName]?.facId;
   }
 
-  setTokenOnPhase(token: PricingToken, priceIndex: number) {
-    const priceName = priceNames[priceIndex];
-    const facName = factionNames[token.facId] ?? 'Neutral';
-    console.log(stime(this, `.setPrice: ${facName} w/${token.Aname} ->`), priceName )
-    token.moveTo(this.table.priceHex[priceIndex]);
-    this.gameState.phasePrices[priceName] = token;
-  }
-
   setPrice(ndx: PlayerId) {
-    const plyr = this.allPlayers[ndx];
-    const token = plyr.panel.priceTokens[4]; // TODO: the real thing.
+    const plyr = this.allPlayers[ndx]; // TODO: notify player & wait for callback
+    const token = plyr.panel.priceTokens.filter(pt => !pt.onPhase).sort((a, b) => b.vid - a.vid)[0];
     const prices = this.gameState.phasePrices;
     const priceIndex = (!prices.MoveLast) ? 5 : priceNames.findIndex(pn => !prices[pn])
-    this.setTokenOnPhase(token, priceIndex);
+    token.setTokenOnPhase(priceIndex);
     token.stage.update();
-    token.status = 'inplay';
     this.gameState.state.done!(ndx);
   }
 
   setPriceNeutral() {
     const plyr = this.neutralPlayer;
     plyr.panel.priceTokens; // [5,3] or [5,4,3,2]
-    const p2a = [2], p2b = [5], p3a = [2, 4], p3b = [3, 4], p3c = [4, 5], p4a = [3], p4b = [5];
+    const p2a = [3], p2b = [5], p3a = [2, 4], p3b = [3, 4], p3c = [4, 5], p4a = [3], p4b = [5];
     // vs looking for a special attribute on the token:
     const plan = [[p2a, p2a, p2a, p2a, p2b, p2b], [p3a, p3a, p3b, p3b, p3c, p3c], [p4a, p4a, p4a, p4a, p4b, p4b]];
     const np2 = TP.numPlayers - 2, rn = this.gameState.roundNum;
@@ -76,8 +65,8 @@ export class GamePlay extends GamePlayLib {
     priceNames.forEach((priceName, ndx) => {
       if (!this.phasePricer(priceName) && tndx < tokens.length) {
         const tid = tokens[tndx++];   // assert: will never get to MoveLast
-        const token = this.neutralPlayer.panel.priceTokens[tid];
-        this.setTokenOnPhase(token, ndx);
+        const token = this.neutralPlayer.panel.priceTokens.find(pt => pt && pt.vid == tid)!;
+        token.setTokenOnPhase(ndx);
       }
     })
   }

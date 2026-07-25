@@ -85,7 +85,7 @@ export class ChaosTable extends Table {
   cardBack!: CardBack;    // created & set from tactics-card.makeCardSources
 
   /**
-   * last action of curPlayer is to draw their next tile.
+   * Do whatever when DoneButton is clicked; --> phaseDone()
    */
   override addDoneButton() {
     const rv = super.addDoneButton(undefined, 0, 0); // table.doneButton('Done')
@@ -113,9 +113,11 @@ export class ChaosTable extends Table {
 
   makeNeutralPanel() {
     const [row, col, dir] = this.neutralPanelLoc();
-    const nPanel = this.makePlayerPanel(this, this.gamePlay.neutralPlayer, this.panelHeight, this.panelWidth-.6, row, col+.5, dir)
+    const nPlayer = this.gamePlay.neutralPlayer;
+    const nPanel = this.makePlayerPanel(this, nPlayer, this.panelHeight, this.panelWidth-.6, row, col+.5, dir)
   }
-  // established by Panel.addResearchLines()
+
+  // established by Panel.addPriceSlots()
   priceHex = [] as TokenHex[];
 
   declare playerPanel: Panel;

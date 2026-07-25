@@ -1,13 +1,14 @@
-import { C, type XY, type XYWH } from "@thegraid/common-lib";
+import { C, stime, type XY, type XYWH } from "@thegraid/common-lib";
 import { NamedContainer, PathShape, RectShape, TextInRect, type Paintable } from "@thegraid/easeljs-lib";
 import type { DisplayObject, Rectangle } from "@thegraid/easeljs-module";
 import { Graphics } from "@thegraid/easeljs-module";
 import { Meeple, MeepleShape, Tile, TP, type DragContext, type Hex, type HexM, type IHex2 } from "@thegraid/hexlib";
 import type { ChaosHex2 as Hex2, HexMap2 } from "./chaos-hex";
 import { type BONUS } from "./chaos-tile";
-import type { FactionId } from "./factions";
+import { factionNames, type FactionId } from "./factions";
 import { Foundation } from "./foundation";
-import type { PhaseName } from "./game-state";
+import type { GamePlay } from "./game-play";
+import { priceNames, type PriceName } from "./game-state";
 import type { Player } from "./player";
 
 
@@ -293,6 +294,7 @@ export class Stronghold extends ChaosBuilding {
 // These are more Tile-like: See also: Foundation (TODO: merge)
 /** each subclass has a slot on ChaosHex, but does not confer faction 'presence' */
 class ChaosToken extends Tile {
+  declare gamePlay: GamePlay;
   homeXY!: XY;                // sendHome location, if needed
 
 }
@@ -331,7 +333,7 @@ export class DiscoveryMark extends ChaosToken {
 export type PriceId = 1 | 2 | 3 | 4 | 5 | 6;
 export type PriceBonus = '^'|'C'|'>'|'%';
 type VDIST = [ toFac: number, toBank: number, toLeft?: number, toRight?: number, expire?: number ];
-type PT_Status = 'avail' | 'inplay' | 'invault';
+type PT_Status = 'avail' | 'inplay' | 'invault' | 'pending'; // pending-->avail at end of round (or: after SetPrices phase)
 // Auto-move during SetPrices phase (just click on track, place token)
 export class PricingToken extends ChaosToken {
   bColor = 'rgb(150, 70, 0)';
@@ -370,21 +372,23 @@ export class PricingToken extends ChaosToken {
     // TODO: move to right place? remove from Panel?
   }
   // when 'inplay' onPhase is set:
-  onPhase?: PhaseName; // subset of GameState.state.Aname
+  onPhase?: PriceName; // subset of GameState.state.Aname
 
   wh: number;
 
   /**
    *
-   * @param vid  1 .. 6 (or: 2, 3, 4, 5) (or: 3, 5)
-   * @param facId [-1] is Neutral;
+   * @param vid  ValueId: 1 .. 6 (or: 2, 3, 4, 5) (or: 3, 5)
+   * @param xy homeXY for sendHome()
+   * @param player for super; (& to get facId)
    */
-  constructor(np: number, public vid: PriceId, xy: XY = { x: 0, y: 0 }, player: Player) {
-    const facId = player.facId ?? -1;           // -1 was fallback for Neutral Player
+  constructor(public vid: PriceId, xy: XY = { x: 0, y: 0 }, player: Player) {
+    const facId = player.facId ?? -1;           // -1 was fallback for Neutral Player (vs facId = 6?)
     super(`F${facId}:PT${vid}`, player);        // construct baseShape
     this.wh = this.gamePlay.hexMap.xywh().dxdc;
     this.homeXY = xy;
     this.facId = facId;
+    const np = TP.numPlayers
     if (facId < 0) {
       this.vdist = (PricingToken.neutral)[vid-1] as VDIST;
     } else {
@@ -396,9 +400,6 @@ export class PricingToken extends ChaosToken {
     // TODO: implement expiration, and (%) and retrieve(^) and card(C)
     this.effect = () => {};
   }
-
-  // Supply color for neutral Tokens:
-  override get pColor() { return this.player?.color ?? PTokenShape.nColor }
 
   // add content above the baseShape:
   fillCont(cont: NamedContainer, size = (this.baseShape as RectShape).getBounds().width) {
@@ -443,13 +444,13 @@ export class PricingToken extends ChaosToken {
     }
     if (!neutral && this.bTexts) {
       const text = this.bTexts.join('  ')
-      const tir = new TextInRect(text, { bgColor: C.rgba(this.pColor, .6), fontSize })
+      const tir = new TextInRect(text, { bgColor: C.rgba(this.pColor!, .6), fontSize })
       setTR(tir, s*.7, 0, y2);
     }
     // TODO: use bonusIcon(^, C, >, %)
     return cont;
   }
-  override makeShape(size = TP.meepleRad * 1.2): Paintable {
+  override makeShape(size = TP.meepleRad * 1.0): Paintable {
     return new PTokenShape(size)
   }
 
@@ -478,14 +479,28 @@ export class PricingToken extends ChaosToken {
       this.moveTo(targetHex);
     }
   }
+
+  // TODO: add code for moveTokenToVault, gainTokenFromVault
+  setTokenOnPhase(priceIndex: number) {
+    const token = this;
+    const priceName = priceNames[priceIndex];
+    token.moveTo(this.gamePlay.table.priceHex[priceIndex]);
+    token.onPhase = priceName;
+    token.status = 'inplay';
+    this.gamePlay.gameState.phasePrices[priceName] = token;
+
+    const facName = factionNames[token.facId]// ?? 'Neutral';
+    console.log(stime(this, `.setTokenOnPhase: ${facName} w/${token.Aname} ->`), priceName )
+  }
+
 }
 
-class PTokenShape extends RectShape {
+export class PTokenShape extends RectShape {
   static bColor = 'rgb(150, 70, 0)';
   static nColor = 'rgb(255, 140, 0)'; // neutral color
 
-  constructor(public size = 10, g0 = new Graphics) {
-    super({ x: -size/2, y: -size/2,  w: size, h: size }, PTokenShape.bColor, 'black', g0);
+  constructor(public size = 10, strokec = 'black', g0 = new Graphics) {
+    super({ x: -size/2, y: -size/2,  w: size, h: size }, PTokenShape.bColor, strokec, g0);
   }
   override paint(colorn?: string, force?: boolean): Graphics {
     return super.paint(colorn ?? this.colorn, force)

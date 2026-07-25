@@ -8,7 +8,7 @@ import { Faction, factionColors, type FactionId, type FactionName } from "./fact
 import { BgFound, Foundation } from "./foundation";
 import { type GamePlay } from "./game-play";
 import { pricePhases, type PlayerId, type PricePhase } from "./game-state";
-import { ChaosPresence, Factory, Outposts, PricingToken, Stronghold, type ChaosUnitType, type Fighter, type Leader, type PriceId } from "./meeples";
+import { ChaosPresence, Factory, Outposts, PricingToken, PTokenShape, Stronghold, type ChaosUnitType, type Fighter, type Leader, type PriceId } from "./meeples";
 import { CardBack, CardPanel, TacticsCard } from "./tactics-card";
 
 /** Canonical Faction colors, aligned with gameSetup.factionNames.
@@ -251,57 +251,63 @@ export class Panel extends PlayerPanel {
       pt.homeXY = { ...pt.homeXY, x };
       pt.sendHome()
     });
+    this.addPricingSlots()
     this.addResearchLines()
     return;
   }
 
-  addResearchLines() {
+  addPricingSlots() {
     const { high, dydr } = this.metrics;
     const height = high
-    const wh = height/6 *.8, fs = wh * .15, x0 = wh * .1, y0 = wh * .2, wh0 = wh*1.3;
+    const wh = height/8, fs = wh * .15, x0 = wh * .1, y0 = wh * .2, wh0 = wh*1.35;
     pricePhases.forEach((pName, i) => {
-      const tokenShape = (dy=0, label = (i == 4) ? 'FIRST' : '') => {
+      // place a tokenShape suitable for PricingToken
+      const tokenShape = (dy = 0, label = (i == 4) ? 'FIRST' : '') => {
         const isLast = label == 'LAST';
-        const tShape = new RectShape({ x: x0, y: y0 + dy, w: wh, h: wh }, C.grey224, C.white)
-        cont.addChild(tShape);
-        const cx = x0 + wh/2;
-        const cy = y0 + wh/2 + dy;
+        const tShape = new PTokenShape(wh, C.white);
+        tShape.paint(C.grey224);
+        slot.addChild(tShape);
+        const cx = tShape.x = x0 + wh/2;
+        const cy = tShape.y = y0 + wh/2 + dy; // 'LAST' is moved down on slot
         const bonusTxt = PriceBonus[i];
         if (bonusTxt && !isLast) {
           const bonus = bonusIcon(bonusTxt as HARVEST, fs)!;
           bonus.x = cx;
           bonus.y = cy - wh * .2;
-          cont.addChild(bonus)
+          slot.addChild(bonus)
         }
         if (label) {
           const mtext = new CenterText(label, fs);
           mtext.x = cx;
           mtext.y = cy + wh * .2;
-          cont.addChild(mtext)
+          slot.addChild(mtext)
         }
         const di = (isLast ? i + 1 : i);
         const thex = this.table.newHex2(di, 1, `${label ?? pName}`, TokenHex) as TokenHex;
-        cont.localToLocal(cx, cy, this.table.hexMap.mapCont.hexCont, thex.cont)
+        slot.localToLocal(cx, cy, this.table.hexMap.mapCont.hexCont, thex.cont)
         thex.legalMark.setOnHex(thex)
         this.table.priceHex[di] = thex;
       }
-      const cont = new NamedContainer(`p:${pName}`)
-      cont.x = wh0 * .2;
-      cont.y = wh0 * i;
-      this.addChild(cont)
-
-      const label = new CenterText(pName, fs, C.white )
-      label.textAlign = 'left';
-      label.textBaseline = 'top'
-      const name = new TextInRect(label, { bgColor: CO.mauve, fontSize: fs})
-      name.rectShape.setRectRad({ w: wh0, h: wh0,  r: 2 })
+      const slot = new NamedContainer(`p_${pName}`)
+      slot.x = wh0 * 0.2;
+      slot.y = wh0 * (.1 + i);
+      this.addChild(slot)
       tokenShape();
       if (i == 4) {
         tokenShape(wh * 1.1, 'LAST');
       }
-      cont.addChild(name);
+      const label = new CenterText(pName, fs, C.white )
+      label.textAlign = 'left';
+      label.textBaseline = 'top'
+      const name = new TextInRect(label, { bgColor: CO.mauve })
+      slot.addChild(name);
     })
   }
+  addResearchLines() {
+  }
+
+
+
   /**
    * add components:
    * - place for Relics [bonus: Fame, Gem, Flip]
@@ -569,7 +575,7 @@ export class Panel extends PlayerPanel {
     this.priceTokens.length = 0;
     pids.forEach(i => {
       const xy = { x: x + i * (w/2 + gap), y };
-      const pt = new PricingToken(np, i as PriceId, xy, this.player);
+      const pt = new PricingToken(i as PriceId, xy, this.player);
       pt.sendHome()
       this.priceTokens[i] = pt;
     })

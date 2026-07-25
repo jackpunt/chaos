@@ -8,7 +8,7 @@ export const factionColors = ['gold', 'grey', 'blue', 'green', 'orange', 'violet
 type FactionColor = typeof factionColors[number];
 
 /** presentation name of each Faction */  // TODO: move these to Scenario & parser?
-export const factionNames = ['Circadian', 'AI', 'Zcharo', 'Leyrein', 'Jrayek', 'Oxytaya'] as const;
+export const factionNames = ['Circadian', 'AI', 'Zcharo', 'Leyrein', 'Jrayek', 'Oxytaya', 'Neutral'] as const;
 export type FactionName = typeof factionNames[number];
 export type FactionId = 0 | 1 | 2 | 3 | 4 | 5;  // at most 5 Factions in game
 

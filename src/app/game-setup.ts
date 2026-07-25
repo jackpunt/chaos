@@ -161,8 +161,9 @@ class NullGameSetup extends GameSetupLib {
     const fillFacNames = (nfacs: number, facNames: string[]) => {
       const uniqFacs = uniq(facNames);
       const nToFind = (nfacs - facNames.length);
+      const fNames = factionNames.slice(0, 6); // do not use 'Neutral'
       const fullNames = (nToFind > 0)
-        ? [...uniqFacs].concat(selectN(factionNames.filter(gn => !uniqFacs.includes(gn)), nfacs - uniqFacs.length))
+        ? [...uniqFacs].concat(selectN(fNames.filter(gn => !uniqFacs.includes(gn)), nfacs - uniqFacs.length))
         : (nToFind < 0) ? selectN(uniqFacs, nfacs) : uniqFacs;
       fullNames.length = Math.min(fullNames.length, TP.maxPlayers);
       return fullNames as FactionName[];
@@ -209,11 +210,11 @@ class NullGameSetup extends GameSetupLib {
 
   /** hack a neutral 'Player' so we can build the neutral Panel (the Research tracks)  */
   makeNeutralPlayer(gamePlay: GamePlay) {
-    const np = TP.numPlayers;
-    const nid = (6) as FactionId;
-    this.facIds.push(nid);
-    this.facNames[nid] = ('Neutral' as FactionName);
-    const plyr = gamePlay.neutralPlayer = new Player(np, gamePlay)
+    const np = TP.numPlayers;      // this.facIds.length
+    const nid = (6) as FactionId;  // 'neutral' FactionId, pretend it exists...
+    this.facIds.push(nid);         // this.facIds[np] = 6;
+    this.facNames[nid] = 'Neutral';
+    const plyr = gamePlay.neutralPlayer = new Player(np, gamePlay); // plyr.index = numPlayers
     ;(plyr as any).Aname = 'P:Neutral';
     plyr.color = 'brown';
     delete this.facIds[nid];
