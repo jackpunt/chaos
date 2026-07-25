@@ -5,7 +5,7 @@ import { Graphics } from "@thegraid/easeljs-module";
 import { Meeple, MeepleShape, Tile, TP, type DragContext, type Hex, type HexM, type IHex2 } from "@thegraid/hexlib";
 import type { ChaosHex2 as Hex2, HexMap2 } from "./chaos-hex";
 import { type BONUS } from "./chaos-tile";
-import { factionNames, type FactionId } from "./factions";
+import { factionNeutral, type FactionId } from "./factions";
 import { Foundation } from "./foundation";
 import type { GamePlay } from "./game-play";
 import { priceNames, type PriceName } from "./game-state";
@@ -489,7 +489,7 @@ export class PricingToken extends ChaosToken {
     token.status = 'inplay';
     this.gamePlay.gameState.phasePrices[priceName] = token;
 
-    const facName = factionNames[token.facId]// ?? 'Neutral';
+    const facName = factionNeutral[token.facId];
     console.log(stime(this, `.setTokenOnPhase: ${facName} w/${token.Aname} ->`), priceName )
   }
 

@@ -161,9 +161,8 @@ class NullGameSetup extends GameSetupLib {
     const fillFacNames = (nfacs: number, facNames: string[]) => {
       const uniqFacs = uniq(facNames);
       const nToFind = (nfacs - facNames.length);
-      const fNames = factionNames.slice(0, 6); // do not use 'Neutral'
       const fullNames = (nToFind > 0)
-        ? [...uniqFacs].concat(selectN(fNames.filter(gn => !uniqFacs.includes(gn)), nfacs - uniqFacs.length))
+        ? [...uniqFacs].concat(selectN(factionNames.filter(gn => !uniqFacs.includes(gn)), nfacs - uniqFacs.length))
         : (nToFind < 0) ? selectN(uniqFacs, nfacs) : uniqFacs;
       fullNames.length = Math.min(fullNames.length, TP.maxPlayers);
       return fullNames as FactionName[];

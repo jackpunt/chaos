@@ -251,12 +251,12 @@ export class Panel extends PlayerPanel {
       pt.homeXY = { ...pt.homeXY, x };
       pt.sendHome()
     });
-    this.addPricingSlots()
+    this.addPriceSlots()
     this.addResearchLines()
     return;
   }
 
-  addPricingSlots() {
+  addPriceSlots() {
     const { high, dydr } = this.metrics;
     const height = high
     const wh = height/8, fs = wh * .15, x0 = wh * .1, y0 = wh * .2, wh0 = wh*1.35;
@@ -282,10 +282,8 @@ export class Panel extends PlayerPanel {
           mtext.y = cy + wh * .2;
           slot.addChild(mtext)
         }
+        const thex = this.table.makeHexForObj(tShape, `${label ?? pName}`);
         const di = (isLast ? i + 1 : i);
-        const thex = this.table.newHex2(di, 1, `${label ?? pName}`, TokenHex) as TokenHex;
-        slot.localToLocal(cx, cy, this.table.hexMap.mapCont.hexCont, thex.cont)
-        thex.legalMark.setOnHex(thex)
         this.table.priceHex[di] = thex;
       }
       const slot = new NamedContainer(`p_${pName}`)

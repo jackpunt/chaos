@@ -1,11 +1,13 @@
 import { C, type Constructor, type XY, type XYWH } from "@thegraid/common-lib";
-import { ParamGUI, type DragInfo, type NamedObject, type ParamItem, type RectShape } from "@thegraid/easeljs-lib";
+import { NamedContainer, ParamGUI, type DragInfo, type NamedObject, type ParamItem, type RectShape } from "@thegraid/easeljs-lib";
 import { Stage, type Container, type DisplayObject } from "@thegraid/easeljs-module";
 import { Hex2, PlayerPanel, Table, Tile, TileSource, TP, type DragContext, type IHex2, type MapCont, type Player as PlayerLib } from "@thegraid/hexlib";
-import { type ChaosHex2, type HexMap2, type TokenHex } from "./chaos-hex";
+import { TokenHex, type ChaosHex2, type HexMap2 } from "./chaos-hex";
 import { ChaosTile } from "./chaos-tile";
+import { factionColors, factionNames } from "./factions";
 import type { GamePlay } from "./game-play";
-import { Panel, type Player } from "./player";
+import { PTokenShape } from "./meeples";
+import { Panel, Player } from "./player";
 import { TacticsCard, type CardBack } from "./tactics-card";
 
 export class ChaosTable extends Table {
@@ -76,6 +78,7 @@ export class ChaosTable extends Table {
     this.setToRowCol(this.doneButton, doneRow, lefcol); // between cardDeck & discards
 
     this.makeNeutralPanel();    // See also: Panel.layoutNeutralPanel()
+    this.makeTokenVault();
     return;
   }
 
@@ -111,10 +114,11 @@ export class ChaosTable extends Table {
     return [locs[0][0], (locs[0][1] + locs[3][1])/2, +1];
   }
 
+  neutralPanel!: PlayerPanel;
   makeNeutralPanel() {
     const [row, col, dir] = this.neutralPanelLoc();
     const nPlayer = this.gamePlay.neutralPlayer;
-    const nPanel = this.makePlayerPanel(this, nPlayer, this.panelHeight, this.panelWidth-.6, row, col+.5, dir)
+    this.neutralPanel = this.makePlayerPanel(this, nPlayer, this.panelHeight, this.panelWidth-.6, row, col+.5, dir)
   }
 
   // established by Panel.addPriceSlots()
@@ -200,4 +204,34 @@ export class ChaosTable extends Table {
     if (!this.stage.canvas) return;
     super.makeGUIs(scale, cx, cy);
   }
+
+  tokenVault: NamedContainer[] = [];
+  makeHexForObj(dObj: DisplayObject, label: string) {
+    const thex = this.newHex2(0, 0, `${label}`, TokenHex) as TokenHex; // hex on mapCont
+    dObj.parent.localToLocal(dObj.x, dObj.y, this.hexMap.mapCont.hexCont, thex.cont)
+    thex.legalMark.setOnHex(thex)
+    return thex;
+  }
+
+  makeTokenVault() {
+    // much like addPriceSlots()
+    const wh = TP.hexRad * .8, fs = wh * .15, x0 = wh * .1, y0 = wh * .2, wh0 = wh*1.1;
+
+    const vault = new NamedContainer('Vault'); // will only contain PTokens, 'invault'
+    this.hexMap.mapCont.backCont.addChild(vault);
+    vault.x = this.neutralPanel.x + wh * 3.80;
+    vault.y = this.neutralPanel.y - wh * 0.82;
+
+    factionNames.forEach((fn, i) => {
+      const fcont = new NamedContainer(`vault:${fn}`); // container for PriceTokens of Faction
+      fcont.x = x0 + i * wh0;
+      fcont.y = y0;     // no real need to displace, will move 'vault' container
+      vault.addChild(fcont);
+      this.tokenVault[i] = fcont; // roughly the same as vault.children
+      const tShape = new PTokenShape(wh, 'white');
+      tShape.paint(Player.colorScheme[factionColors[i]]);
+      fcont.addChild(tShape);
+    })
+  }
+
 }

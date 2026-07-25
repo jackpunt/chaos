@@ -59,6 +59,7 @@ export class GameState extends GameStateLib {
   }
 
   override startPhase = 'BeginRound';
+  override startArgs: any[] = [1];
 
   // this.gamePlay.curPlayer
   override get curPlayer() { return super.curPlayer as Player }
@@ -164,7 +165,7 @@ export class GameState extends GameStateLib {
       start: () => {
         this.doneButton('Relics');
       },
-      done: () => { this.phase('BeginRound'); }
+      done: () => { this.phase('BeginRound', this.roundNum); }
     },
 
 
