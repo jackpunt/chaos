@@ -1,8 +1,8 @@
 import { C, stime, type XY, type XYWH } from "@thegraid/common-lib";
 import { NamedContainer, PathShape, RectShape, TextInRect, type Paintable } from "@thegraid/easeljs-lib";
-import type { DisplayObject, Rectangle } from "@thegraid/easeljs-module";
+import type { Rectangle } from "@thegraid/easeljs-module";
 import { Graphics } from "@thegraid/easeljs-module";
-import { Meeple, MeepleShape, Tile, TP, type DragContext, type Hex, type HexM, type IHex2 } from "@thegraid/hexlib";
+import { LegalMark, Meeple, MeepleShape, Tile, TP, type DragContext, type Hex, type HexM, type IHex2 } from "@thegraid/hexlib";
 import type { ChaosHex2 as Hex2, HexMap2 } from "./chaos-hex";
 import { type BONUS } from "./chaos-tile";
 import { factionNeutral, type FactionId } from "./factions";
@@ -336,6 +336,17 @@ export type PriceBonus = '^'|'C'|'>'|'%';
 type VDIST = [ toFac: number, toBank: number, toLeft?: number, toRight?: number, expire?: number ];
 type PT_Status = 'avail' | 'inplay' | 'invault' | 'pending'; // pending-->avail at end of round (or: after SetPrices phase)
 // Auto-move during SetPrices phase (just click on track, place token)
+
+class PTMark extends RectShape {
+  constructor(wh = TP.meepleRad * 1.9) {
+    super({x: -wh/2, y: -wh/2, w: wh, h: wh}, 'rgba(130, 130, 130, 0.4)', '');
+    this.name = 'TargetMark';
+  }
+
+  get inUse() { return this.visible && this.parent }
+}
+
+
 export class PricingToken extends ChaosToken {
   bColor = 'rgb(150, 70, 0)';
   nColor = 'rgb(255, 140, 0)'; // neutral color
@@ -357,7 +368,7 @@ export class PricingToken extends ChaosToken {
 
   facId: FactionId;    // undefined for Neutral Tokens
 
-  readonly vdist: VDIST;
+  readonly vdist: VDIST; // distribution of funds
   readonly bTexts?: PriceBonus[];
 
   // extra things that happen when used to price a phase; for ex: gain ('%' or 'C'), place Rhyzu or retrieve from vault
@@ -375,6 +386,7 @@ export class PricingToken extends ChaosToken {
   // when 'inplay' onPhase is set:
   onPhase?: PriceName; // subset of GameState.state.Aname
 
+  /** some would have called it 'rad' or 'size' */
   wh: number;
 
   /**
@@ -455,15 +467,13 @@ export class PricingToken extends ChaosToken {
     return new PTokenShape(size)
   }
 
-  static mark: DisplayObject;
-  static {
-    const wh = TP.meepleRad * 1.9;
-    PricingToken.mark = new RectShape({x: -wh/2, y: -wh/2, w: wh, h: wh}, 'rgba(130, 130, 130, 0.4)', '')
-  }
+  /** the TargetMark for PricingToken  */
+  static mark = new PTMark();
 
   override showTargetMark(hex: IHex2 | undefined, ctx: DragContext): void {
     const map = (ctx.targetHex ? ctx.targetHex.map : this.gamePlay.hexMap) as HexMap2;
     map?.showMark(ctx.targetHex, PricingToken.mark);
+    map?.mapCont.overCont?.addChild(PricingToken.mark); // move to overcont
   }
 
   override sendHome(): void {
@@ -473,7 +483,28 @@ export class PricingToken extends ChaosToken {
   }
 
   override dragStart(ctx: DragContext): void {
-    if (this.status !== 'avail') this.gamePlay.table.dragger.stopDrag();
+    if (this.status !== 'avail' && !ctx.lastShift) this.gamePlay.table.dragger.stopDrag();
+  }
+
+  // For unknown reason, the PricingToken.mark interferes with normal hexUnderObj()
+  // Here we look specifically beneath the PT.mark to find the LegalMark and its hex2
+  getHexUnderMark(elseHex?: IHex2) {
+    const mark = PricingToken.mark;
+    if (mark.inUse) {
+      mark.visible = false;
+      const dObj = mark.parent.getObjectUnderPoint(mark.x, mark.y, 1);
+      mark.visible = true;
+      const hex = (dObj instanceof LegalMark) ? dObj.hex2 : elseHex;
+      return hex;
+    }
+    return elseHex;
+  }
+
+  override dragFunc0(hex: IHex2 | undefined, ctx: DragContext): void {
+    // hex = hex ?? this.getHexUnderMark(this.fromHex)
+    ctx.targetHex = hex?.isLegal ? hex : this.fromHex;
+    this.showTargetMark(hex, ctx);      // move mark to target = this.fromHex
+    this.dragFunc(hex, ctx);
   }
 
   override dropFunc(targetHex: IHex2, ctx: DragContext): void {
@@ -483,7 +514,10 @@ export class PricingToken extends ChaosToken {
       this.x = 0; this.y = 0;
       const priceIndex = this.gamePlay.table.priceHex.findIndex(ph => ph == targetHex)
       this.setTokenOnPhase(priceIndex);
-      this.gamePlay.gameState.state.done!(this.player.index);
+      // do not advance state when Shift used by alternate player...
+      if (this.player == this.gamePlay.curPlayer) {
+        this.gamePlay.gameState.state.done!(this.player.index);
+      }
     }
   }
 
