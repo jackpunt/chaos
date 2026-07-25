@@ -473,7 +473,7 @@ export class PricingToken extends ChaosToken {
   override showTargetMark(hex: IHex2 | undefined, ctx: DragContext): void {
     const map = (ctx.targetHex ? ctx.targetHex.map : this.gamePlay.hexMap) as HexMap2;
     map?.showMark(ctx.targetHex, PricingToken.mark);
-    map?.mapCont.overCont?.addChild(PricingToken.mark); // move to overcont
+    map?.mapCont.overCont?.addChild(PricingToken.mark); // move to overCont
   }
 
   override sendHome(): void {
@@ -487,21 +487,9 @@ export class PricingToken extends ChaosToken {
   }
 
   // For unknown reason, the PricingToken.mark interferes with normal hexUnderObj()
-  // Here we look specifically beneath the PT.mark to find the LegalMark and its hex2
-  getHexUnderMark(elseHex?: IHex2) {
-    const mark = PricingToken.mark;
-    if (mark.inUse) {
-      mark.visible = false;
-      const dObj = mark.parent.getObjectUnderPoint(mark.x, mark.y, 1);
-      mark.visible = true;
-      const hex = (dObj instanceof LegalMark) ? dObj.hex2 : elseHex;
-      return hex;
-    }
-    return elseHex;
-  }
+  // workaround: showTargetMark puts PTMark on hexMap.overCont (instead of .markCont)
 
   override dragFunc0(hex: IHex2 | undefined, ctx: DragContext): void {
-    // hex = hex ?? this.getHexUnderMark(this.fromHex)
     ctx.targetHex = hex?.isLegal ? hex : this.fromHex;
     this.showTargetMark(hex, ctx);      // move mark to target = this.fromHex
     this.dragFunc(hex, ctx);
