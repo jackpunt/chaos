@@ -7,8 +7,9 @@ import { bonusIcon, ChaosTile, type BONUS, type HARVEST } from "./chaos-tile";
 import { Faction, factionColors, type FactionId, type FactionName } from "./factions";
 import { BgFound, Foundation } from "./foundation";
 import { type GamePlay } from "./game-play";
-import { pricePhases, type PlayerId, type PricePhase } from "./game-state";
+import { pricePhases, type PlayerId } from "./game-state";
 import { ChaosPresence, Factory, Outposts, PricingToken, PTokenShape, Stronghold, type ChaosUnitType, type Fighter, type Leader, type PriceId } from "./meeples";
+import { CO, ResearchCell, ResGrid } from "./research-cell";
 import { CardBack, CardPanel, TacticsCard } from "./tactics-card";
 
 /** Canonical Faction colors, aligned with gameSetup.factionNames.
@@ -18,32 +19,12 @@ import { CardBack, CardPanel, TacticsCard } from "./tactics-card";
 const playerColors = factionColors;
 export type PlayerColor = typeof playerColors[number];
 
-/** colors for ChaosOrder */
-namespace CO {
-  export const mauve = 'rgb(166, 78, 129)';
-  export const orange = 'rgb(255, 140, 0)';
-}
 // 5 Bonus Foundations, named for the bonus they give; stronghold & one other have gemlock
 const foundationIds = ['research', 'harvest', 'adjacent', 'unlock', 'handlimit'] as const;
 export type FoundationId = typeof foundationIds[number];
 
-// %, Energy, Gem, Card, Build, Recruit, Leader, Harvest, Move,
-// Upgrade(leader), Attribute(upgrade), Token(place), Flip(token)
-// Primary:  %    B     E+H   R    M+C
-// Auxilly: E:G, E:B/C, E:G, E:L, E:U,
-// Immedia: E2/G1, E3/C, E4/G2; F/C, T, F, G1/C, E3, R2/C
-type ResSpec = [ P: string, A: string, I?: string ];  // tuple; Default: ResSpecs[4].I = -G;
-type ResSpecs = ResSpec[];
-type ResGrid = Record<PricePhase, ResSpecs>;
-const ResGrid: ResGrid = {
-  Discovery: [['%', 'E2:G1'], ['%', 'G2:%', 'E2/G1' ], ['%', 'G2:%', 'E3/C' ], ['%', 'G1:%', 'E4/G2' ], ['%2', 'G1:C', 'C' ]],
-  Build: [['B', 'E4:B'], ['B', 'E3:B', 'F/C'], ['B2', 'E4:B'], ['B2', 'E3:B', 'F/C'], ['B3', 'E2:C']],
-  Harvest: [['E4+H1', 'E2:G1'], ['E5+H2', 'E2:G1'], ['E6+H2', 'E2:G1', 'T'], ['E7+H3', 'E2:G1'], ['E9+H3', 'E4:G2', 'F']],
-  Recruit: [['R2', 'E4:L'], ['R4', 'E5:L'], ['R5', 'E4:L', 'G1/C'], ['R7', 'E4:L'], ['R9', 'E4:L', 'E3']],
-  Move: [['M2', 'E5:U'], ['M3', 'E5:U'], ['M4', 'E4:U','-G'], ['M5', 'E4:U', 'R2/C'], ['M6', 'E4:U']],
-}
-const PriceBonus = ['', 'G1', '', 'E2', 'C'];
-
+/** strings to annotate PricingSlot */
+export const PriceBonus = ['', 'G1', '', 'E2', 'C'];
 
 /** per-Player bits on PlayerPanel */
 class PlayerBits {
@@ -259,8 +240,9 @@ export class Panel extends PlayerPanel {
     return;
   }
 
+  rowh = 1.35;
   addPriceSlots() {
-    const wh = this.wh, fs = wh * .15, x0 = wh * .5, y0 = wh * .5;
+    const wh = this.wh, fs = wh * .15, x0 = wh * .5, y0 = wh * .5, rowh = this.rowh * wh;
     pricePhases.forEach((pName, i) => {
       // place a tokenShape suitable for PricingToken
       const tokenShape = (dy = 0, label = (i == 4) ? 'FIRST' : '') => {
@@ -289,7 +271,7 @@ export class Panel extends PlayerPanel {
       }
       const slot = new NamedContainer(`p_${pName}`)
       slot.x = wh * .6;
-      slot.y = wh * .3 + wh * 1.35 * i
+      slot.y = wh * .3 + i * rowh;
       this.addChild(slot)
       tokenShape();
       if (i == 4) {
@@ -304,7 +286,29 @@ export class Panel extends PlayerPanel {
       slot.addChild(name);    // TODO: show Phase Icons!
     })
   }
+
+
   addResearchLines() {
+    const rls = new NamedContainer('ResLines');
+    const wh = this.wh;
+    const dy = wh * this.rowh;
+    const dx = wh * 1.35;
+    pricePhases.forEach((pName, i) => {
+      const resSpecs = ResGrid[pName];
+      resSpecs.forEach((rs, j) => {
+        rs[3] ||=  (j == 4);
+        // const gl =
+        const cell = new ResearchCell(`RC${pName}_${j}`, rs, { width: wh * 1.2, height: wh * 1.2 })
+        cell.x = j * dx;
+        cell.y = i * dy;
+        rls.addChild(cell);
+      })
+    })
+    this.addChild(rls);
+    rls.x = wh * 3;
+    rls.y = wh * .9;
+
+    return rls;
   }
 
 

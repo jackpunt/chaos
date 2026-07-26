@@ -6,7 +6,7 @@ import { type ChaosHex as Hex1, type ChaosHex2 as Hex2 } from "./chaos-hex";
 import { type ChaosTable } from "./chaos-table";
 import { Foundation } from "./foundation";
 import type { GamePlay } from "./game-play";
-import type { AI_Trap, Outposts, Factory, Leader, Morale, Stronghold, PriceBonus } from "./meeples";
+import type { AI_Trap, Factory, Leader, Morale, Outposts, PriceBonus, Stronghold } from "./meeples";
 import type { Player } from "./player";
 import type { FactionOnTileState } from "./scenario-parser";
 
@@ -97,17 +97,25 @@ const flipBuff: Partial<Record<PROD_TOKEN, string>> = {
   Bm1: 'BG0',
 };
 
-  /** also use for Income icons */ // TODO: maybe use TextTweaks to place the glyphs?
-export function bonusIcon(harv?: HARVEST | PriceBonus, fs = TP.hexRad * .15) {
+
+// TODO: maybe use TextTweaks to place the glyphs?
+/** Foundation bonus; also use for Income icons */
+/** E: energy, G: gem, C: card, R: recruit, U: upgrade(gold), *: gemlock */
+export function bonusIcon(harv?: HARVEST | PriceBonus, fs = TP.hexRad * .15, tc?: string ) {
     if (!harv || harv.length > 3) return undefined;
-    const spotmap = { E: 'yellow', G: 'red', C: 'white', R: 'orange', U: 'gold' };
+    const spotmap = { E: 'yellow', G: 'red', C: 'white', R: 'orange', U: 'gold', '.': 'grey' };
+    const miniCard = () => {
+      const cardRect = { x: -w / 2, y: -h / 2, w, h }; // maybe use TextInRect?
+      const card = new RectShape(cardRect, cHarv, '');
+      card.rotation = 15;
+      return card;
+    }
     const icon = new Container();
     const h0 = harv[0] as keyof typeof spotmap;
     const cHarv = spotmap[h0] ?? C.transparent;
     const w = fs * .25/.15, h = w * 1.4;
-    const cardRect = { x: -w / 2, y: -h / 2, w, h }; // maybe use TextInRect?
-    const shape = (h0 == 'C' || h0 == 'U' ) ? new RectShape(cardRect, cHarv, '') : new CircleShape(cHarv, fs, '');
-    const tColor = C.pickTextColor(cHarv, ['black', 'white']);
+    const shape = (h0 == 'C' || h0 == 'U' ) ? miniCard() : new CircleShape(cHarv, fs, '');
+    const tColor = tc ?? C.pickTextColor(cHarv, ['black', 'white']);
     const iText = new CenterText(h0 == 'C' ? '+' : harv, fs, tColor);
     if (harv !== '-') icon.addChild(shape, iText);
     return icon
