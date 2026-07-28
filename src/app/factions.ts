@@ -2,14 +2,26 @@ import type { Phase } from "@thegraid/hexlib";
 import type { BONUS, FAME_BONUS, HARVEST } from "./chaos-tile";
 import type { PricingToken } from "./meeples";
 import { type Player } from "./player";
+//
+function expandArray<T>(rec: Record<number, T>): (T | undefined)[] {
+  const length = Math.max(-1, ...Object.keys(rec).map(Number)) + 1; // .filter(k ->!isNan(k))
+  return Array.from({ length }, (_, index) => rec[index]);
+}
+function expandArray0<T>(rec: Record<number, T>): (T | undefined)[] {
+  const keys = Object.keys(rec).map(Number);
+  const max = Math.max(-1, ...keys); // .filter(k ->!isNan(k))
+  const rv: T[] = new Array(max + 1);
+  keys.forEach(key => rv[key] = rec[key]);
+  return rv;
+}
 
-/**                          Circadian   AI   Zcharo   Leyrein   JRayek   Oxytaya   (& Neutral: brown) */
+/**                          Circadian   AI   Zcharo   Leyrien   JRayek   Oxytaya   (& Neutral: brown) */
 export const factionColors = ['gold', 'grey', 'blue', 'green', 'orange', 'violet', ] as const;
 type FactionColor = typeof factionColors[number];
 
 /** presentation name of each Faction */  // TODO: move these to Scenario & parser?
-export const factionNames = ['Circadian', 'AI', 'Zcharo', 'Leyrein', 'Jrayek', 'Oxytaya'] as const;
-export const factionNeutral = ['Circadian', 'AI', 'Zcharo', 'Leyrein', 'Jrayek', 'Oxytaya', 'Neutral'] as const;
+export const factionNames = ['Circadian', 'AI', 'Zcharo', 'Leyrien', 'Jrayek', 'Oxytaya'] as const;
+export const factionNeutral = ['Circadian', 'AI', 'Zcharo', 'Leyrien', 'Jrayek', 'Oxytaya', 'Neutral'] as const;
 export type FactionName = typeof factionNeutral[number];
 export type FactionId = 0 | 1 | 2 | 3 | 4 | 5;  // at most 5 Factions in game
 
@@ -32,14 +44,14 @@ export class Faction {
   // Circadian: Build:restrict, Income: +region
   // Zcharo: Combat: strength
   // AI: Move: trap, Income: reset
-  // Leyrein: Build: restrict, Combat: +strength, Income: +Fame
+  // Leyrien: Build: restrict, Combat: +strength, Income: +Fame
   // Jrayek: Combat: +str, +shield
   // Oxytaya: Recruit: placement option
   static facSpecs: FacSpec[] = [
     { name: 'Circadian', rb: ['G1', 'Up', 'G1', 'Up', 'Up',], fg: 2, bg: [[3, 0, 0, 0], [0, 0, 0], [1, 1, 1]], nr: [6, 2, 0, 2], ft: 3, r3: 'G1', }, // no base; 10 Fighters
     { name: 'AI', rb: ['F1', 'F2', 'F2', 'F3', 'F4',], fg: 2, bg: [[2, 0, 1, 1], [0, 0, 1, 1], [0, 1]], nr: [12, 8],       ft: 0, r3: 'G1',}, // +10 on copious
     { name: 'Zcharo', rb: ['G1', 'G1', 'G1', 'G1', 'G1',], fg: 3, bg: [[3, 0, 0, 0], [1, 1, 1], [0, 1, 1]], nr: [9, 5, 6], ft: 1, r3: 'C', },
-    { name: 'Leyrein', rb: ['M0', 'F2', 'F2', 'F3', 'F3',], fg: 1, bg: [[2, 0, 0, 1], [0, 0, 1], [1, 1, 1]], nr: [8, 6, 6], ft: 1, r3: 'C',},
+    { name: 'Leyrien', rb: ['M0', 'F2', 'F2', 'F3', 'F3',], fg: 1, bg: [[2, 0, 0, 1], [0, 0, 1], [1, 1, 1]], nr: [8, 6, 6], ft: 1, r3: 'C',},
     { name: 'Jrayek', rb: ['E2', 'F1', 'E3', 'F1', 'F1',], fg: 2, bg: [[2, 0, 0, 1], [0, 1, 1], [0, 0, 1]], nr: [10, 4, 6], ft: 1, r3: 'C', },
     { name: 'Oxytaya', rb: ['F1', 'F1', 'F1', 'F2', 'F3',], fg: 1, bg: [[2, 0, 1, 1], [0, 0, 1], [0, 1, 1]], nr: [12, 3, 5], ft: 1, r3: 'C', },
   ];
@@ -47,13 +59,30 @@ export class Faction {
   // Base harvest= bh?: E1, E2, G1, R1
   // Base foundations = bf: [string, string]
   static baseSpecs: BaseSpec[] = [
-    { name: 'Circadian', bh: '-', bf: ['%', 'E2'] }, // no base
+    { name: 'Circadian', bh: '-', bf: ['%', 'E2'] }, // no base; ship can harvest without building
     { name: 'AI', bh: 'E1', bf: ['G1', 'E2'] },
     { name: 'Zcharo', bh: 'E2', bf: ['C', 'G1'] },
-    { name: 'Leyrein', bh: 'E2', bf: ['C', 'E2'] },
+    { name: 'Leyrien', bh: 'E2', bf: ['C', 'E2'] },
     { name: 'Jrayek', bh: 'G1', bf: ['G1', '%'] },
     { name: 'Oxytaya', bh: 'R1', bf: ['C', 'C'] },
   ];
+
+  /** identify bonuses awarded on each faction's fameTrack */
+  static fameTrackSpecs: Record<number, FAME_BONUS>[] = [
+    { 1: 'M1', 2: 'E1', 4: 'Win' },                              // Circadian
+    { 5: 'E1', 10: 'G1', 13: 'R1', 18: 'Win' },                  // AI
+    { 3: 'E1', 5: 'R1', 8: 'E1', 13: 'R1', 18: 'C', 20: 'End' }, // Zcharo
+    { 1: 'R1', 3: 'R1', 5: '%', 7: 'R1', 8: 'R1', 11: 'G1', 14: 'Win' },  // Leyrien
+    { 1: 'E2', 2: 'E2', 3: 'R2', 4: 'G1', 5: 'Win' },            // Jrayek
+    { 1: 'E1', 3: 'G1', 5: '%', 7: 'C', 9: 'Win' },              // Oxytaya
+  ]
+
+  static fameTracks = Faction.fameTrackSpecs.map((rec, n) => {
+    const ft = expandArray0(rec);
+    // console.log(stime('Faction', `.static: ft[${n}] =`), ft, ft[3])
+    return ft;
+  });
+
   static {
     // append/include baseSpecs in facSpecs:
     this.facSpecs.forEach((fs, ndx) => Object.assign(this.baseSpecs[ndx], fs));
@@ -62,7 +91,7 @@ export class Faction {
   name!: FactionName;
   /** Relic BONUS on Panel */
   rb!: BONUS;
-  /** Panel Foundation with Gemlock (other than 0) */
+  /** Panel Foundation with Gemlock (other than 0: Stronghold_Gem -> Research) */
   fg!: number;
   /** Foundations w/Gemlock (for the 5 Panel Foundations) */
   bg!: number[][];

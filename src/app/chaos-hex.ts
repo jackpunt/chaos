@@ -214,6 +214,7 @@ export class HexMap2 extends HexMap<ChaosHex2> {
         const cont = new NamedContainer('tunnel');
         const pent = new PathShape({ points: points(rad), fillc, strokec});
         cont.addChild(pent);
+        cont.mouseEnabled = false;
         cont.rotation = tilt;
         return cont;
       };
@@ -233,6 +234,7 @@ export class HexMap2 extends HexMap<ChaosHex2> {
     const placeTile = (tileSpec: TileSpec) => {
       const { row, col, t, h } = tileSpec;
       const tile = new ChaosTile(`T${row},${col}:${t.slice(0,1)}:${h}`, t, h);
+      tile.mouseEnabled = false;
       map.replaceTile(tile, row, col);
     }
     map.sculptMap();                                 // reshape to basic hexes
@@ -249,8 +251,8 @@ export class HexMap2 extends HexMap<ChaosHex2> {
     this.placeMtn(map.getHex({row: 4, col: 4}), map.getHex({row: 3, col: 4}) );
     this.placeMtn(map.getHex({row: 4, col: 4}), map.getHex({row: 4, col: 5}) );
     this.placeMtn(map.getHex({row: 4, col: 2}), map.getHex({row: 5, col: 2}) );
-    placeTunnel(H.N, map.getHex({row: 3, col: 6}), map.getHex({row: 6, col: 2}), C.BLUE)
-    placeTunnel(H.N, map.getHex({row: 3, col: 1}), map.getHex({row: 6, col: 6}), C.RED)
+    if (np > 3) placeTunnel(H.N, map.getHex({row: 3, col: 6}), map.getHex({row: 6, col: 2}), C.BLUE)
+    if (np > 4) placeTunnel(H.N, map.getHex({row: 3, col: 1}), map.getHex({row: 6, col: 6}), C.RED)
 
     // set all Mtn & Base Tiles unreachable: (will re-link when actual Base is placed)
     map.forEachHex(hex => {

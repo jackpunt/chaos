@@ -356,12 +356,13 @@ export class PricingToken extends ChaosToken {
 
   static dist35 = [
     // ^C   [> %]    3      4      5     [6]
-    [1, 0], [1,1], [1,2], [2,2], [2,3], [3,3],
+    [1,0], [1,1], [1,2], [2,2], [2,3], [3,3],
   ]
   static dist2 = [
     // ^     [^]     3      4      5     [6]
-    [1, 0], [2,0], [1,2], [2,2], [2,3], [3,3],
+    [0,1], [0,2], [1,2], [2,2], [2,3], [3,3],
   ]
+  // elt 4 = eject: round when token is removed; coded in 'gamePlay.setPriceNeutral()'
   static neutral = [
       [], [0, 0, 1, 1, 2], [0, 3, 0, 0, 4], [0, 2, 1 ,1], [0, 5, 0, 0], [],
   ]
@@ -402,10 +403,10 @@ export class PricingToken extends ChaosToken {
     this.homeXY = xy;
     this.facId = facId;
     const np = TP.numPlayers
-    if (facId < 0) {
-      this.vdist = (PricingToken.neutral)[vid-1] as VDIST;
-    } else {
+    if (facId <= 5) {
       this.vdist = (np == 2 ? PricingToken.dist2 : PricingToken.dist35)[vid-1] as VDIST;
+    } else {
+      this.vdist = (PricingToken.neutral)[vid-1] as VDIST;
     }
     this.bTexts = ((np == 2) ? PricingToken.bonus_2 : PricingToken.bonus35)[this.vid-1];
     this.fillCont(this);
@@ -414,7 +415,7 @@ export class PricingToken extends ChaosToken {
     this.effect = () => {};
   }
 
-  // add content above the baseShape:
+  // add content above the PricingToken baseShape:
   fillCont(cont: NamedContainer, size = (this.baseShape as RectShape).getBounds().width) {
     const bgcolor = C.nameToRgbaString(this.player!.color, .5)
     const base = this.baseShape as PTokenShape;
@@ -446,10 +447,10 @@ export class PricingToken extends ChaosToken {
       setTR(tb, s*.45, x2, y1);
     } else if (toFac > 0) {  // single payment to Faction:
       const tf = new TextInRect(`${toFac}`, { bgColor: this.pColor, fontSize })
-      setTR(tf, s, 0, y1)
+      setTR(tf, s*.7, 0, y1)
     } else if (toBank > 0) { // single payment to Bank
       const tb = new TextInRect(`${toBank}`, { bgColor: PTokenShape.nColor, fontSize })
-      setTR(tb, s, 0, y1)
+      setTR(tb, s*.7, 0, y1)
     }
     if (neutral && eject !== undefined) {
       const tir = new TextInRect(`X  ${eject}`, { bgColor: C.transparent, fontSize })

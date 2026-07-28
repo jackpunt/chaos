@@ -35,7 +35,7 @@ class SpecGen {
   m1() {}
 
   cardSpecs: CardSpec[] = [
-    { id: "card1", d: "redloy", pE: { phase: 'Move', text: '1 Redeploy before moving', eFunc: () => {}}, cE: { text: 'combat1', eFunc: () =>{}} },
+    { id: "card1", d: "redeploy", pE: { phase: 'Move', text: '1 Redeploy before moving', eFunc: () => {}}, cE: { text: 'combat1', eFunc: () =>{}} },
     { id: "card2", d: "5 Energy", nL: 1, nR: 3, pE: { phase: 'Harvest', text: 'Gain 5 energy if you do not act in this phase', eFunc: ()=>{}}, cE: { text: 'combat2', eFunc: () =>{}} },
     { id: "card3", d: "Gain Fame", nL: 5, nR: 0, pE: { phase: 'Relic', text: 'Gain 1 Fame', eFunc: ()=>{}}, cE: { text: 'combat3', eFunc: () =>{}} },
   ];

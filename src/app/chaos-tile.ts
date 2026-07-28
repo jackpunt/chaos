@@ -83,7 +83,7 @@ export type BASE_PROD_TOKEN = typeof baseProdTokenIds[number];
 export type UPGRADE_PROD_TOKEN = typeof upgradeProdTokenIds[number];
 export type PROD_TOKEN = BASE_PROD_TOKEN | UPGRADE_PROD_TOKEN;
 export type HARVEST = BONUS | PROD_TOKEN;
-export type FAME_BONUS = 'E1' | 'E2' | 'C' | 'G1' | '%' | 'R1' | 'R2' | 'M1' | 'Win'; // M1 is Redeploy
+export type FAME_BONUS = 'E1' | 'E2' | 'C' | 'G1' | '%' | 'R1' | 'R2' | 'M1' | 'Win' | 'End'; // M1 is Redeploy
 
 // the harvest token when upgraded gains the second
 const flipBuff: Partial<Record<PROD_TOKEN, string>> = {
@@ -104,20 +104,22 @@ const flipBuff: Partial<Record<PROD_TOKEN, string>> = {
 export function bonusIcon(harv?: HARVEST | PriceBonus, fs = TP.hexRad * .15, tc?: string ) {
     if (!harv || harv.length > 3) return undefined;
     const spotmap = { E: 'yellow', G: 'red', C: 'white', R: 'orange', U: 'gold', '.': 'grey' };
+    const cardRot = 12;
     const miniCard = () => {
-      const cardRect = { x: -w / 2, y: -h / 2, w, h }; // maybe use TextInRect?
-      const card = new RectShape(cardRect, cHarv, '');
-      card.rotation = 15;
+      const cardRect = { x: -w / 2, y: -h / 2, w, h, r: 2, s: 1 }; // maybe use TextInRect?
+      const card = new RectShape(cardRect, cHarv, 'grey');
+      card.scaleX = card.scaleY = Math.cos(cardRot * Math.PI/180);
       return card;
     }
     const icon = new Container();
     const h0 = harv[0] as keyof typeof spotmap;
     const cHarv = spotmap[h0] ?? C.transparent;
-    const w = fs * .25/.15, h = w * 1.4;
+    const w = fs * .22/.15, h = w * 2.5/1.75;// 1.4;
     const shape = (h0 == 'C' || h0 == 'U' ) ? miniCard() : new CircleShape(cHarv, fs, '');
     const tColor = tc ?? C.pickTextColor(cHarv, ['black', 'white']);
     const iText = new CenterText(h0 == 'C' ? '+' : harv, fs, tColor);
     if (harv !== '-') icon.addChild(shape, iText);
+    if (h0 == 'C') icon.rotation = cardRot;
     return icon
   }
 
@@ -273,6 +275,7 @@ export class ChaosTile extends MapTile {
       f.faceUp(true);
       f.homeXY = { x: f.x, y: f.y }
       this.chex.mapCont.overCont.addChild(f);
+      f.mouseEnabled = false;
     }
     return ndx;
   }
