@@ -77,7 +77,7 @@ class NullGameSetup extends GameSetupLib {
   }
 
   override loadImagesThenStartup() {
-    const fnames: string[] = [];
+    const fnames: string[] = [...factionNames];
     AliasLoader.loader.fnames = [...fnames];
     super.loadImagesThenStartup();    // loader.loadImages(() => this.startup(qParams));
   }
@@ -137,7 +137,7 @@ class NullGameSetup extends GameSetupLib {
 
   // see also: gameSetup.resetState() which can cleanup or extend the Scenario.
   // for Chaos do it like Ankh: np & Faction names (use index number)
-  // /?f=[0,2,3,1] --> ['Circadian', 'Zcharo', 'Leyrein', 'AI']
+  // /?f=[0,2,3,1] --> ['Circadian', 'Zcharo', 'Leyrien', 'AI']
   // /?n=3 --> use fn.slice(0, n)
   override initialScenario(qParams = this.qParams): StartElt {
     let nDefault = TP.numPlayers ?? 4;

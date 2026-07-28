@@ -1,5 +1,5 @@
 import { C, type Constructor, type XY, type XYWH } from "@thegraid/common-lib";
-import { NamedContainer, ParamGUI, type DragInfo, type NamedObject, type ParamItem, type RectShape } from "@thegraid/easeljs-lib";
+import { AliasLoader, NamedContainer, ParamGUI, type DragInfo, type NamedObject, type ParamItem, type RectShape } from "@thegraid/easeljs-lib";
 import { Stage, type Container, type DisplayObject } from "@thegraid/easeljs-module";
 import { Hex2, PlayerPanel, Table, Tile, TileSource, TP, type DragContext, type IHex2, type MapCont, type Player as PlayerLib } from "@thegraid/hexlib";
 import { TokenHex, type ChaosHex2, type HexMap2 } from "./chaos-hex";
@@ -217,7 +217,7 @@ export class ChaosTable extends Table {
 
     const vault = new NamedContainer('Vault'); // will only contain PTokens, 'invault'
     this.hexMap.mapCont.backCont.addChild(vault);
-    vault.x = this.neutralPanel.x + wh * 3.80;
+    vault.x = this.neutralPanel.x + wh * 2.8;
     vault.y = this.neutralPanel.y - wh * 0.82;
 
     factionNames.forEach((fn, i) => {
@@ -230,6 +230,8 @@ export class ChaosTable extends Table {
       tShape.paint(Player.colorScheme[factionColors[i]]);
       fcont.addChild(tShape);
       fcont.visible = false;   // until a PlayerPanel picks it up
+      const fImage = AliasLoader.loader.getBitmap(fn, {x: wh, y: wh});
+      fcont.addChild(fImage)
     })
   }
 
