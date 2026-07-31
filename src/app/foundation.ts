@@ -99,8 +99,7 @@ export class Foundation extends Tile {
     const tile = toHex.ctile!;
     if (!tile) return false;
     if (tile.terrain == 'Mtn' || tile.terrain == 'Base') return false;
-    if (!tile.canAddFoundation(this)) return false;  // TODO: extend number of Foundations, also: Relic
-    return true;
+    return (tile.canAddFoundation());
   }
 
   override dropFunc(targetHex: Hex2, ctx: DragContext): void {

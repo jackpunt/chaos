@@ -265,6 +265,7 @@ export class HexMap2 extends HexMap<ChaosHex2> {
       }
     })
 
+    // Demo for bringup, not real code:
     map.forEachHex(hex => {
       if (hex.ctile?.terrain == 'Swamp') {
         const f = new Foundation('Base!', permute(['E1', 'C', 'G1'])[0] as BONUS, 20)

@@ -7,21 +7,27 @@ import type { GamePlay } from "./game-play";
 type CardId = string; // from CardSpec.id
 
 type LeaderS = string; // LeaderName | LeaderName* if upgraded; on Card unless appears in FactionOnTile
+// TODO: leaderByName: Map<AllLeaderNames, Leader|Rhyzu>
+
+/** see Player.saveState() Player.parseState() */
 interface FactionState {
   coins: number;
   gems: number;
   cards: CardId[];
-  leaders: LeaderS[]; // typeof keyof AllLeaderNames & Rhyzu!
   recruits: number[];  // fighters in each stage of recruit (& Base) see FactionSpec.nr
-  relics: string[];    // "Rn" for each Relic collected
+  leaders?: LeaderS[]; // typeof keyof AllLeaderNames & Rhyzu!
+  relics?: string[];    // "Rn" for each Relic collected
   // all from Player.playerBits
 }
 
-export interface FactionOnTileState {
+
+/** leaders[...], fighters(n), buildings(F|P|S), special: Morale (M1, M2) | Trap (T1: armed, T0: used) */
+export interface FactionOnTileState { // SEE ALSO: chaos-tile/FactionOnTile
   l?: LeaderS[];                   // 2 slots (own + Rhyzu), Zcharo: 4, Oxytaya: 4
   f?: number;                     // Fighters in region
   b?: ('F'|'P'|'S')[];            // if this Faction has buildings on tile, ordered by foundation index
   s?: 'M1' | 'M2' | 'T1' | 'T0';  // Morale: 'M1' | 'M2', AI_Trap: 'T1' | 'T0'
+  // pins
 }
 
 interface TileState {
@@ -53,7 +59,7 @@ export interface SetupElt extends SetupEltLib {
   p6ary?: number[];        // permutations (0..5) of the xtraTiles for 3, 4 and 5 Player games
   Aname?: string;          // from initial setup
   gameState?: any[];       // from GameState.saveState()
-  plyrStates?: FactionState[];
+  plyrStates?: FactionState[]; // from Player.saveState()
   tileStates?: TileStates;
 }
 
@@ -93,5 +99,12 @@ export class ScenarioParser extends SPLib {
       (gamePlay.hexMap as HexMap2).setupMapTiles( ); // (p6ary,TP.numPlayers)
     }
     this.gamePlay.hexMap.update();
+  }
+
+  override addStateElements(setupElt: SetupElt): SetupElt {
+    const gamePlay = this.gamePlay;
+    setupElt.gameState = gamePlay.gameState.saveState();
+    setupElt.plyrStates = gamePlay.allPlayers.map(plyr => plyr.saveState())
+    return setupElt;
   }
 }

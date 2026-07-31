@@ -142,8 +142,34 @@ export class Fighter extends ChaosUnit {
 
 }
 
+/** maybe someday itemize them */
+export type LeaderName = string;
+
+type CombatStats = { str: number, atk: number, shield: number };
+export interface ILeader {
+  name: string;
+  onBoard: boolean;     // false: not recruited/deployed
+  upgraded: boolean;
+  stats: CombatStats[]; // [0]: initial, [1]: upgraded
+  isRhyzu: boolean;
+  placeGem: number;
+  upgradeGem: number;
+  special: () => CombatStats; // also effects before-during-after combat, or move or recruit or ...
+  // specialByPhase: Map<phase, function>
+}
+
 export class Leader extends ChaosUnit {
-  upgrade = false;  // set true when upgraded
+  static allLeadersByName = new Map<LeaderName, Leader>();
+  upgraded = false;  // set true when upgraded
+  onBoard = false;
+  placeGem = 0;
+  upgradeGem = 0;
+  isRhyzu = false;
+
+  constructor(Aname: string) {
+    super(Aname); // TODO: inject Player/Faction
+    Leader.allLeadersByName.set(Aname, this);
+  }
 }
 
 // methods in common to Buildings

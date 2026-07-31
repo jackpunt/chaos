@@ -1,6 +1,6 @@
 import type { Phase } from "@thegraid/hexlib";
 import type { BONUS, FAME_BONUS, HARVEST } from "./chaos-tile";
-import type { PricingToken } from "./meeples";
+import type { LeaderName, PricingToken } from "./meeples";
 import { type Player } from "./player";
 //
 function expandArray<T>(rec: Record<number, T>): (T | undefined)[] {
@@ -31,13 +31,6 @@ export type BaseSpec = {name: FactionName, bh?: BONUS, bf?: [HARVEST, HARVEST] }
 export type FacSpec = {name: FactionName, rb: string[], fg: number, bg: number[][], nr: number[], ft: number, r3: BONUS } & BaseSpec;
 
 export class Faction {
-  static factionById = new Map<FactionId, Faction>();
-
-  // Relic bonus = rb: G: Gem, F: Fame, E: Energy, M: Morale, Up: Upgrade Attribute(flip),
-  // Bldg gemlock= bg: [[0, 1, 1], [0, 0, 1, 1], [0, 1]] <== Zcharo! always 9 there are
-  // Base income = bi?: 3 | undefined => 2/G
-  // Num recruit = nr: [8, 6, 6] initial number of Fighters in each stage & base
-  // Foundation w/gem = fg: 1-4 (0 is implicit) [gem->res, ubiq harv, ubiq adj, gemlock, handlim]
   //
   // Factory: Energy2, Baracks: Card, Stronghold: Gem (--> %)
   // Stronghold = sf?: () => void;
@@ -47,6 +40,13 @@ export class Faction {
   // Leyrien: Build: restrict, Combat: +strength, Income: +Fame
   // Jrayek: Combat: +str, +shield
   // Oxytaya: Recruit: placement option
+  static factionById = new Map<FactionId, Faction>();
+
+  // Relic bonus = rb: G: Gem, F: Fame, E: Energy, M: Morale, Up: Upgrade Attribute(flip),
+  // Bldg gemlock= bg: [[0, 1, 1], [0, 0, 1, 1], [0, 1]] <== Zcharo! always 9 there are
+  // Base income = bi?: 3 | undefined => 2/G
+  // Num recruit = nr: [8, 6, 6] initial number of Fighters in each stage & base
+  // Foundation w/gem = fg: 1-4 (0 is implicit) [gem->res, ubiq harv, ubiq adj, gemlock, handlim]
   static facSpecs: FacSpec[] = [
     { name: 'Circadian', rb: ['G1', 'Up', 'G1', 'Up', 'Up',], fg: 2, bg: [[3, 0, 0, 0], [0, 0, 0], [1, 1, 1]], nr: [6, 2, 0, 2], ft: 3, r3: 'G1', }, // no base; 10 Fighters
     { name: 'AI', rb: ['F1', 'F2', 'F2', 'F3', 'F4',], fg: 2, bg: [[2, 0, 1, 1], [0, 0, 1, 1], [0, 1]], nr: [12, 8],       ft: 0, r3: 'G1',}, // +10 on copious
@@ -59,7 +59,7 @@ export class Faction {
   // Base harvest= bh?: E1, E2, G1, R1
   // Base foundations = bf: [string, string]
   static baseSpecs: BaseSpec[] = [
-    { name: 'Circadian', bh: '-', bf: ['%', 'E2'] }, // no base; ship can harvest without building
+    { name: 'Circadian', bh: '-', bf: ['%', 'E2'] }, // no base; ship can do 1 harvest without a building
     { name: 'AI', bh: 'E1', bf: ['G1', 'E2'] },
     { name: 'Zcharo', bh: 'E2', bf: ['C', 'G1'] },
     { name: 'Leyrien', bh: 'E2', bf: ['C', 'E2'] },
@@ -116,6 +116,8 @@ export class Faction {
   player!: Player;
   // PricingTokens available to play
   pTokens: PricingToken[] = [];
+
+  leaders: LeaderName[] = [];
 
   get coins() { return this.player.coinCounter?.value; }
   set coins(v) { this.player.coinCounter?.updateValue(v); }

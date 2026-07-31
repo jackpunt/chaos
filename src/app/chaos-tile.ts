@@ -6,7 +6,7 @@ import { type ChaosHex as Hex1, type ChaosHex2 as Hex2 } from "./chaos-hex";
 import { type ChaosTable } from "./chaos-table";
 import { Foundation } from "./foundation";
 import type { GamePlay } from "./game-play";
-import type { AI_Trap, Factory, Leader, Morale, Outposts, PriceBonus, Stronghold } from "./meeples";
+import type { AI_Trap, Factory, Leader, Morale, Outposts, PriceBonus, Relic, Stronghold } from "./meeples";
 import type { Player } from "./player";
 import type { FactionOnTileState } from "./scenario-parser";
 
@@ -133,7 +133,7 @@ const colorOfTerrain: Record<TERRAIN, string> = {
 }
 
 
-/** per-Player bit on map Hex */
+/** per-Player bits on map Tile/Hex; add one for each Faction, in apprpriate place */
 class FactionOnTile extends NamedContainer {
   constructor(public player: Player, public tile: ChaosTile) {
     super(`fac-${player.facId}`);
@@ -145,10 +145,14 @@ class FactionOnTile extends NamedContainer {
   buildings: ('F'|'P'|'S')[] = [];      // if this Faction has buildings on tile, ordered by foundation index
   // TODO: methods to add/remove elements
 
+  /** maybe/beginning what we need to saveState of Map.
+   *
+   * @return FactionOnTileState for this Player.
+   */
   getState() {
     const buildings = this.tile.buildings;
     const rv = {
-      l: this.leaders.map(l => `${l.Aname}${l.upgrade ? '*': ''}`),
+      l: this.leaders.map(l => `${l.Aname}${l.upgraded ? '*': ''}`),
       f: this.fighters,
     } as FactionOnTileState;
 
@@ -175,6 +179,7 @@ export class ChaosTile extends MapTile {
   static readonly allChaosTiles: ChaosTile[] = [];
 
   declare gamePlay: GamePlay;
+  /** this.hex as ChaosHex */
   get chex() { return super.hex as Hex2; }
 
   static curTable: ChaosTable;
@@ -193,13 +198,22 @@ export class ChaosTile extends MapTile {
 
   /** hold all the Faction Units; index by FactionId (or PlayerId?) */
   factions: FactionOnTile[] = [];
+
+  /** set if there is a Relic on this Tile; */
+  relic?: Relic;
+
   special?: Morale| AI_Trap;
+
+  // Note: "Zcharo may have up to 2 Outposts in each Region";
+  // one [Zcharo?] Leader can build w/o foundation! we will place a pseudo-Foundation and remove if bldg is destroyed.
+  // saveState reduces buildings to ('F'|'P'|'S')[]
   get buildings() {
     return this.foundations.map(f => f?.bldg).filter(b => !!b);
   }
 
   // Tiles: isLegalTarget(hex, ctx) => (hex.foundations.length < 3)
   foundations: [Foundation?, Foundation?, Foundation?] = [undefined, undefined, undefined]; // Factory, Baracks, Stronghold
+
   // Meeples: isLegalTarget(hex, ctx) => !hex[this.type] && foundations.find(f=>!f.bldg)
   Factory!: Factory;        //
   Outposts!: Outposts;      //
@@ -257,13 +271,19 @@ export class ChaosTile extends MapTile {
     return super.cantBeMovedBy(player, ctx);
   }
 
-  canAddFoundation(f: Foundation) {
-    return this.addFoundation(f, false) !== undefined;
+  // Note: Foundations are never removed
+  ndxForFoundation() {
+    return [1, 2, 0].find(ndx => this.foundations[ndx] == undefined);
+  }
+
+  canAddFoundation() {
+    return this.ndxForFoundation() !== undefined;
   }
 
   // allocate room for 3 foundations; TODO: if user places more...?
+  // "Each Region can contain no more than 3 Foundations"
   addFoundation(f: Foundation, commit = true) {
-    const ndx = [1, 2, 0].find(ndx => this.foundations[ndx] == undefined);
+    const ndx = this.ndxForFoundation();
     if (commit && ndx != undefined) {
       this.foundations[ndx] = f;
       f.onTile = this;

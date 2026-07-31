@@ -235,4 +235,11 @@ export class ChaosTable extends Table {
     })
   }
 
+  /** take card from top of deck (TacticsCard.souce) */
+  takeCard() {
+    const source = this.cardSource; // TacticsCard.source;
+    if (source.numAvailable == 0) TacticsCard.reshuffle();
+    source.nextUnit();
+    return source.takeUnit(false);
+  }
 }

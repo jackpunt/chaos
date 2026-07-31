@@ -73,6 +73,7 @@ export class Player extends PlayerLib {
     super(index, gamePlay); // <-- index is 'table ordinal'
     const facId = gamePlay.gameSetup.facIds[index];     // Aname and HTML color should be aligned with facId
     this.facId = facId;
+    // Or: make subclass for each Faction; map from facId --> Constructor<Faction>; new facClass()
     this.faction = Faction.factionById.get(facId) ?? new Faction(facId);
     this.facName = this.faction.name;
     const cname = playerColors[this.facId];
@@ -169,11 +170,20 @@ export class Player extends PlayerLib {
   //   return card;
 
   /** for ScenarioParser.saveState() */ // TODO: code cards with index, or string->card
-  get cards() { return this.cardRack.map(hex => hex.tile) }
+  get cards() { return this.cardRack.map(hex => hex.tile).filter(card => !!card) as TacticsCard[] }
 
   /** rules in Player's cardRack */
   get cardRules() {
     return this.cardRack.filter(h => h.card).map(h => h.card!.phaseEffect);
+  }
+
+  // include: facId, coins, gems, cards[], pricingTokens[],
+  saveState() {
+    const coins = this.coins;
+    const gems = this.gems;
+    const cards = this.cards.map(card => card?.name);
+    const recruits = this.panel.recruits.map(ctr => ctr.value);
+    return {coins, gems, cards, recruits }
   }
 }
 
@@ -455,12 +465,14 @@ export class Panel extends PlayerPanel {
     })
   }
 
+  /** fighters available in each stage of recruiting; [0] is fast-trackable; [lim] is in Base */
+  recruits = [] as NumCounter[];
   /** a Counters & Buttons to move recruits into Base */
   addRecruits(spec: Faction, tw = this.wh * 5) {
     const nr = spec.nr, ft = spec.ft, c = this.pColor, wh = this.wh, fs = wh * .5, bfs = wh * .25;
     const x0 = wh * 3, y0 = wh * 4, dx = tw / nr.length, base = nr.length - 1;
     const cont = new NamedContainer(`recruits`, x0, y0);
-    this.addChild(cont);
+    this.addChild(cont);     // A black bar to hold the recruit counters & buttons:
     cont.addChild(new RectShape({ x: -wh/2, y: -wh/2, w: tw + wh, h: wh }, 'black', ''))
     const addButton = (name: string, x: number, y: number) => {
       const button = new UtilButton(name, { bgColor: CO.orange, active: true, fontSize: bfs});
@@ -476,6 +488,7 @@ export class Panel extends PlayerPanel {
     ravail.y -= wh * .6;
     cont.addChild(ravail)
 
+    // Exchange 3 recruits for a Card:
     const r3button = addButton(`R3->${spec.r3}`, wh, -wh * .6);
     r3button.on('click', () => {
       if (ravail.value >= 3) {
@@ -484,28 +497,27 @@ export class Panel extends PlayerPanel {
           this.player.gems += 1;
         } else if (spec.r3 == 'C') {
           // if (spec.r3 == 'C') draw a card into hand
-          const source = this.player.gamePlay.table.cardSource; // TacticsCard.source;
-          if (source.numAvailable == 0) TacticsCard.reshuffle();
-          source.nextUnit();
-          const card = source.takeUnit(false);
+          const card = this.player.gamePlay.table.takeCard();
           this.cardPanel.addCard(card);
           this.stage.update()
         }
       }
     })
+    // Fast track:
     if (ft > 0) { // AI does not have a FT button.
     const ft_button = addButton(`FT:${ft}`, wh * 2, -wh * .6);
+    const ftc = spec.ft;      // fast track cost
     ft_button.on('click', () => {
-      if (ravail.value > 0 && this.player.coins >= spec.ft) {
-        this.player.coinCounter.incValue(-spec.ft);
-        ravail.incValue(-1);
-        rctrs[0].incValue(-1);
+      if (ravail.value > 0 && this.player.coins >= ftc) {
+        this.player.coinCounter.incValue(-ftc); // pay fast-track cost
+        ravail.incValue(-1);     // consume a Recruit action
+        rctrs[0].incValue(-1);   // decrement Unit count is left-most fighter supply.
         rctrs[base].incValue(1); // <-- into base
       }
     });
     }
     // counters at each stage of recruit; last one represents the Base.
-    const rctrs = [] as NumCounter[];
+    const rctrs = this.recruits;
     nr.forEach((nr, i, ary) =>  {
       const rc = new NumCounter(`nr[${i}]`, nr, c, fs, undefined, [C.BLACK, C.WHITE]);
       rctrs[i] = rc; // rctrs.push(rc);
@@ -523,6 +535,12 @@ export class Panel extends PlayerPanel {
         })
       }
     })
+  }
+
+  // increase fighters in Base by n (presumably also decrement some recruit counter)
+  // override for Circadians, also for Oxytaya: allow recruit to Stronghold
+  moveToBase(n = this.recruits[this.recruits.length - 1].value) {
+      this.baseTile.factions[this.factionId].fighters += n;
   }
 
   baseTile!: ChaosTile;
