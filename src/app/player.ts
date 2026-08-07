@@ -555,8 +555,11 @@ export class Panel extends PlayerPanel {
   // make ChaosTile, set color, set Harvest token
   setupBase(faction: Faction) {
     const baseTile = faction.makeBaseTile(this.player);// new ChaosTile(`${faction.name}Base`, 'Base', h, this.player);
-    baseTile.paint('#d0a53b');  // color TBD; maybe use this.pColor
-    const hex = this.table.newHex2(0, this.factionId, 'a base');  // TODO use panel as mapCont?
+    const color = C.nameToRgbaString(CO.mauve, .4); // this.pColor; '#d0a53b';
+    baseTile.paint(color);                          // color TBD;
+    const hex = this.table.newHex2(0, 0, `${this.faction.name}Base`);
+    // move hex to center-right of this Panel:
+    this.localToLocal(11.3*this.wh, 3.7*this.wh, hex.cont.parent, hex.cont)
     baseTile.moveTo(hex);
   }
 

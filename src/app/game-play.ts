@@ -29,6 +29,13 @@ export class GamePlay extends GamePlayLib {
   override get curPlayer() { return super.curPlayer as Player; }
   override set curPlayer(plyr: Player) { this._curPlayer = plyr; } // proforma, must reassert the setter!
 
+  /** highligh panel of curPlayer: */
+  override setCurPlayer(player: Player): void {
+    this.curPlayer.panel.showPlayer(false);
+    super.setCurPlayer(player);
+    this.curPlayer.panel.showPlayer(true);
+  }
+
   override startTurn() {
   }
   /** which faction priced the given Phase.

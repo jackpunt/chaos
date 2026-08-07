@@ -175,7 +175,7 @@ export class Faction {
     const si = .8;
     image.scaleX *= si;
     image.scaleY *= si;
-    image.y  -= TP.hexRad * .3;
+    image.y  -= TP.hexRad * .4;
     base.addChild(image)
     return base;
   }
