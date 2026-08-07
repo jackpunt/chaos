@@ -1,5 +1,5 @@
 import { arrayN, C, Constructor, stime, type XY } from "@thegraid/common-lib";
-import { CenterText, CircleShape, NamedContainer, RectShape, TextInRect, UtilButton } from "@thegraid/easeljs-lib";
+import { AliasLoader, CenterText, CircleShape, NamedContainer, RectShape, TextInRect, UtilButton } from "@thegraid/easeljs-lib";
 import { HexMap, newPlanner, NumCounter, Player as PlayerLib, PlayerPanel, TP, type IHex2, type MapCont, type Tile, type TileSource } from "@thegraid/hexlib";
 import { ChaosHex2 as Hex2, type ChaosHex2 } from "./chaos-hex";
 import { type ChaosTable, type ChaosTable as Table } from "./chaos-table";
@@ -233,6 +233,10 @@ export class Panel extends PlayerPanel {
     }
   }
 
+  /** common wh for relics & foundations & buildings */
+  wh = TP.meepleRad;
+
+
   // TODO: table.vault
   layoutNeutralPanel(table: ChaosTable) {
     const np = table.gamePlay.allPlayers.length;
@@ -350,9 +354,12 @@ export class Panel extends PlayerPanel {
     return this.children;
   }
 
-  /** common wh for relics & foundations & buildings */
-  wh = TP.meepleRad;
-
+  addImage(x = this.wh, y = this.wh * 3) {
+    const img = AliasLoader.loader.getBitmap(this.player.facName);
+    img.x = x;
+    img.y = y;
+    this.addChild(img);
+  }
   /** a row of icon pairs: [ % bonus ] */
   addRelics(spec: Faction) {
     const { x, y, width, height } = this.getBounds();
@@ -447,8 +454,7 @@ export class Panel extends PlayerPanel {
       unlock: '-E2\nv\nunlock',
       handlimit: '+E2\n\n5 Cards'
     }
-    const wh = this.wh, x0 = wh * .55, y0 = wh * .55;
-    const s1 = wh * 1.1;
+    const wh = this.wh, x0 = wh * .55, y0 = wh * .55, s1 = wh * 1.1;
     foundationIds.forEach((fid, ndx) => {
       const bText = fn[fid] as BONUS;
       const x = x0 + s1 * c[ndx];
@@ -463,17 +469,19 @@ export class Panel extends PlayerPanel {
       }
       this.makePair({ x, y }, maker);
     })
+    this.addImage(x0 + s1 * 2, y0 + s1 * 3)
   }
 
   /** fighters available in each stage of recruiting; [0] is fast-trackable; [lim] is in Base */
   recruits = [] as NumCounter[];
   /** a Counters & Buttons to move recruits into Base */
   addRecruits(spec: Faction, tw = this.wh * 5) {
-    const nr = spec.nr, ft = spec.ft, c = this.pColor, wh = this.wh, fs = wh * .5, bfs = wh * .25;
-    const x0 = wh * 3, y0 = wh * 4, dx = tw / nr.length, base = nr.length - 1;
-    const cont = new NamedContainer(`recruits`, x0, y0);
+    const wh = this.wh, x0 = wh * .55, y0 = wh * .55, s1 = wh * 1.1;
+    const nr = spec.nr, ft = spec.ft, c = this.pColor, fs = wh * .5, bfs = wh * .25;
+    const dx = tw / nr.length, base = nr.length - 1;
+    const cont = new NamedContainer(`recruits`, x0 + s1 * 3, y0 + s1 * 3);
     this.addChild(cont);     // A black bar to hold the recruit counters & buttons:
-    cont.addChild(new RectShape({ x: -wh/2, y: -wh/2, w: tw + wh, h: wh }, 'black', ''))
+    cont.addChild(new RectShape({ x: -wh/2, y: -y0, w: tw + wh, h: 2 * y0 }, 'black', ''))
     const addButton = (name: string, x: number, y: number) => {
       const button = new UtilButton(name, { bgColor: CO.orange, active: true, fontSize: bfs});
       button.x = x;

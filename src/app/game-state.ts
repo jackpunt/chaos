@@ -1,7 +1,7 @@
 import { arrayN } from "@thegraid/common-lib";
 import { GameState as GameStateLib, type Phase } from "@thegraid/hexlib";
 import type { ChaosTable as Table } from "./chaos-table";
-import type { FactionId } from "./factions";
+import { factionNames, type FactionId } from "./factions";
 import type { GamePlay } from "./game-play";
 import type { PricingToken } from "./meeples";
 import type { Player } from "./player";
@@ -56,7 +56,7 @@ export class GameState extends GameStateLib {
    * @param pid player index; [-1] to start, and consider Oxataya
    */
   vaultPlayerBeforePid(pid = -1) {
-    const pfac = this.gamePlay.allPlayers[pid]?.facId ?? 6; // previous faction index
+    const pfac = this.gamePlay.allPlayers[pid]?.facId ?? this.playerByFacId.length; // previous faction index
     const nfac =  arrayN(pfac).reverse().find(facId => this.playerByFacId[facId] !== undefined)
     return (nfac == undefined) ? nfac : this.playerByFacId[nfac];
   }
@@ -72,9 +72,9 @@ export class GameState extends GameStateLib {
   }
 
   override start(startPhase?: string, startArgs?: any[]): void {
-    this.playerByFacId = arrayN(6).map(facId => this.gamePlay.allPlayers.find(plyr => (plyr.facId == facId)))
     this.nPlayers = this.gamePlay.allPlayers.length;
-    this.gunPlayer = this.gamePlay.initialGunPlayer;
+    this.playerByFacId = factionNames.map((fn, facId) => this.gamePlay.allPlayers.find(plyr => (plyr.facId == facId)))
+    this.gunPlayer = this.playerByFacId.find(plyr => plyr !== undefined)!;
     super.start(startPhase, startArgs);
   }
 

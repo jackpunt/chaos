@@ -211,6 +211,7 @@ export class ChaosTable extends Table {
     return thex;
   }
 
+  /** arrange slots on top for each faction */
   makeTokenVault() {
     // much like addPriceSlots()
     const wh = TP.hexRad * .8, fs = wh * .15, x0 = wh * .1, y0 = wh * .2, wh0 = wh*1.1;
@@ -220,14 +221,14 @@ export class ChaosTable extends Table {
     vault.x = this.neutralPanel.x + wh * 2.8;
     vault.y = this.neutralPanel.y - wh * 0.82;
 
-    factionNames.forEach((fn, i) => {
+    factionNames.forEach((fn, facId) => {
       const fcont = new NamedContainer(`vault:${fn}`); // container for PriceTokens of Faction
-      fcont.x = x0 + i * wh0;
+      fcont.x = x0 + facId * wh0;
       fcont.y = y0;     // no real need to displace, will move 'vault' container
       vault.addChild(fcont);
-      this.tokenVault[i] = fcont; // roughly the same as vault.children
+      this.tokenVault[facId] = fcont; // roughly the same as vault.children
       const tShape = new PTokenShape(wh, 'white');
-      tShape.paint(Player.colorScheme[factionColors[i]]);
+      tShape.paint(Player.colorScheme[factionColors[facId]]);
       fcont.addChild(tShape);
       fcont.visible = false;   // until a PlayerPanel picks it up
       const fImage = AliasLoader.loader.getBitmap(fn, {x: wh, y: wh});

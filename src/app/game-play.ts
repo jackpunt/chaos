@@ -29,11 +29,6 @@ export class GamePlay extends GamePlayLib {
   override get curPlayer() { return super.curPlayer as Player; }
   override set curPlayer(plyr: Player) { this._curPlayer = plyr; } // proforma, must reassert the setter!
 
-  get initialGunPlayer() {
-    const gunPlayer = this._allPlayers.slice().sort((a, b) => a.panel.factionId - b.panel.factionId)[0];
-    return gunPlayer;
-  }
-
   override startTurn() {
   }
   /** which faction priced the given Phase.
