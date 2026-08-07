@@ -551,13 +551,16 @@ export class Panel extends PlayerPanel {
       this.baseTile.factions[this.factionId].fighters += n;
   }
 
+  /** place for baseTile on panel */
+  baseHex!: IHex2;
+  /** Faction's baseTile */
   baseTile!: ChaosTile;
   // make ChaosTile, set color, set Harvest token
   setupBase(faction: Faction) {
-    const baseTile = faction.makeBaseTile(this.player);// new ChaosTile(`${faction.name}Base`, 'Base', h, this.player);
+    const baseTile = this.baseTile = faction.makeBaseTile(this.player);// new ChaosTile(`${faction.name}Base`, 'Base', h, this.player);
     const color = C.nameToRgbaString(CO.mauve, .4); // this.pColor; '#d0a53b';
     baseTile.paint(color);                          // color TBD;
-    const hex = this.table.newHex2(0, 0, `${this.faction.name}Base`);
+    const hex = this.baseHex = this.table.newHex2(0, 0, `${this.faction.name}Base`);
     // move hex to center-right of this Panel:
     this.localToLocal(11.3*this.wh, 3.7*this.wh, hex.cont.parent, hex.cont)
     baseTile.moveTo(hex);
