@@ -189,9 +189,6 @@ export class ChaosTile extends MapTile {
     return `${this.Aname}`;
   }
 
-  // use plyrDisk to show Player controlling Region
-  readonly colorHex = new HexShape(TP.hexRad); // may want a plyrDisk later to show owner?
-  readonly plyrDisk = new CircleShape(C.white, TP.hexRad * .5, '');
   readonly terrain!: TERRAIN; // immutable
   harvest!: HARVEST;          // can place harvest buff token to change
   harvest_buff?: HARVEST;     // TODO: need additional HARVEST types
@@ -224,7 +221,6 @@ export class ChaosTile extends MapTile {
     this.terrain = t;
     this.harvest = h;
     this.nameText.y = this.radius * .66;
-    this.addChild(this.colorHex);
     this.addChild(this.nameText);        // re-add above afHex
     this.addHarvest();
     // this.setPlayerAndPaint(player);
@@ -232,25 +228,15 @@ export class ChaosTile extends MapTile {
     ChaosTile.allChaosTiles.push(this);
   }
 
-  // paint the [player] color onto the plyrDisk; for baseShape use paintBase()
-  override paint(colorn = this.pColor ?? colorOfTerrain[this.terrain], force?: boolean): void {
-    if (force || colorn !== this.colorHex.colorn) {
-      this.colorHex.paint(colorn, force);
-      this.updateCache();
-    }
+  // paint the [terrain or base] color onto the baseShape;
+  override paint(colorn = colorOfTerrain[this.terrain], force?: boolean): void {
+    super.paint(colorn, force)
   }
 
   addHarvest() {
     const icon = bonusIcon(this.harvest)!;
     icon.y = this.radius * .37;
     this.addChild(icon);
-  }
-
-  // invoked by ParamGUI: (peculiar to hexpath)
-  paintBase(colorn = C.black, tColor = C.pickTextColor(colorn)) {
-    this.nameText.color = tColor;
-    this.baseShape.paint(colorn)
-    this.updateCache();
   }
 
   override makeShape(): PaintableShape {

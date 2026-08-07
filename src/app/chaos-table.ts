@@ -181,8 +181,8 @@ export class ChaosTable extends Table {
     gui.spec("nHexes").onChange = (item: ParamItem) => { gameSetup.restart({ nh: item.value }) }
 
     const setColor = (value: string) => {
-      const tColor = C.pickTextColor(value);
-      ChaosTile.allChaosTiles.forEach(tile => tile.paintBase(value, tColor))
+      const tColor = C.pickTextColor(value); // is why we needed tile.paintBase()
+      ChaosTile.allChaosTiles.forEach(tile => tile.paint(value))
     }
     const colors = [C.black, C.white];
     gui.makeParamSpec('color', colors).onChange = (item: ParamItem) => setColor(item.value);

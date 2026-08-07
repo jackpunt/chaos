@@ -553,10 +553,11 @@ export class Panel extends PlayerPanel {
 
   baseTile!: ChaosTile;
   // make ChaosTile, set color, set Harvest token
-  setupBase(spec: Faction) {
-    const h = spec.bh ?? '-';
-    const baseTile = new ChaosTile(`${spec.name}Base`, 'Base', h, this.player);
-    baseTile.paint(this.pColor)
+  setupBase(faction: Faction) {
+    const baseTile = faction.makeBaseTile(this.player);// new ChaosTile(`${faction.name}Base`, 'Base', h, this.player);
+    baseTile.paint('#d0a53b');  // color TBD; maybe use this.pColor
+    const hex = this.table.newHex2(0, this.factionId, 'a base');  // TODO use panel as mapCont?
+    baseTile.moveTo(hex);
   }
 
   /** a sub-panel that holds the hand of TacticsCards */

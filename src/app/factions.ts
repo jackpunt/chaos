@@ -1,7 +1,9 @@
+import { AliasLoader } from "@thegraid/easeljs-lib";
 import type { Phase } from "@thegraid/hexlib";
-import type { BONUS, FAME_BONUS, HARVEST } from "./chaos-tile";
+import { ChaosTile, type BONUS, type FAME_BONUS, type HARVEST } from "./chaos-tile";
 import type { LeaderName, PricingToken } from "./meeples";
 import { type Player } from "./player";
+import { TP } from "./table-params";
 //
 function expandArray<T>(rec: Record<number, T>): (T | undefined)[] {
   const length = Math.max(-1, ...Object.keys(rec).map(Number)) + 1; // .filter(k ->!isNan(k))
@@ -26,8 +28,11 @@ export type FactionName = typeof factionNeutral[number];
 export type FactionId = 0 | 1 | 2 | 3 | 4 | 5;  // at most 5 Factions in game
 
 /** bh: HARVEST in base, bf: beginning Foundations */
-export type BaseSpec = {name: FactionName, bh?: BONUS, bf?: [HARVEST, HARVEST] }
-/** rb: RelicBonus, fg: foundation w/gem, serial [0..4], bg: building w/gemlock (index per type), nr: number in recruit */
+export type BaseSpec = {name: FactionName, bh?: HARVEST, bf?: [HARVEST, HARVEST] }
+/** rb: RelicBonus, fg: foundation w/gem, serial [0..4], bg: building w/gemlock (index per type), nr: number in recruit, r3: alt_recruit
+ *
+ * bh: base_Harvest BONUS, bf: base_Foundations [HARVEST, HARVEST]
+ */
 export type FacSpec = {name: FactionName, rb: string[], fg: number, bg: number[][], nr: number[], ft: number, r3: BONUS } & BaseSpec;
 
 export class Faction {
@@ -85,7 +90,7 @@ export class Faction {
 
   static {
     // append/include baseSpecs in facSpecs:
-    this.facSpecs.forEach((fs, ndx) => Object.assign(this.baseSpecs[ndx], fs));
+    this.facSpecs.forEach((fs, ndx) => Object.assign(fs, this.baseSpecs[ndx]));
   }
   /** display name of Faction */
   name!: FactionName;
@@ -108,7 +113,7 @@ export class Faction {
 
   constructor(facId: FactionId) {
     this.facId = facId;
-    const facSpec = Faction.facSpecs[facId] ?? { name: 'Neutral' };
+    const facSpec = Faction.facSpecs[facId] ?? { name: 'Neutral', bh: '-' };
     Object.assign(this, facSpec);
     Faction.factionById.set(facId, this);
   }
@@ -161,6 +166,18 @@ export class Faction {
         case 'Win': // signal instant win
       }
     }
+  }
+
+  makeBaseTile(player: Player) {
+    const bh = this.bh!;
+    const base = new ChaosTile(`${this.name}Base`, 'Base', bh, player); // we really should be subclassing for Neutral... (& Circadian)
+    const image = AliasLoader.loader.getBitmap(this.name);
+    const si = .8;
+    image.scaleX *= si;
+    image.scaleY *= si;
+    image.y  -= TP.hexRad * .3;
+    base.addChild(image)
+    return base;
   }
 
   /** override for phase specific checks; Faction attributes */
