@@ -210,7 +210,7 @@ class NullGameSetup extends GameSetupLib {
   /** hack a neutral 'Player' so we can build the neutral Panel (the Research tracks)  */
   makeNeutralPlayer(gamePlay: GamePlay) {
     const np = TP.numPlayers;      // this.facIds.length
-    const nid = (6) as FactionId;  // 'neutral' FactionId, pretend it exists...
+    const nid = 6 as FactionId;  // 'neutral' FactionId, pretend it exists...
     this.facIds.push(nid);         // this.facIds[np] = 6;
     this.facNames[nid] = 'Neutral';
     const plyr = gamePlay.neutralPlayer = new Player(np, gamePlay); // plyr.index = numPlayers

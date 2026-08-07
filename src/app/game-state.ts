@@ -1,3 +1,4 @@
+import { arrayN } from "@thegraid/common-lib";
 import { GameState as GameStateLib, type Phase } from "@thegraid/hexlib";
 import type { ChaosTable as Table } from "./chaos-table";
 import type { FactionId } from "./factions";
@@ -29,6 +30,7 @@ export class GameState extends GameStateLib {
   get gunPlayer() { return this._gunPlayer }
   set gunPlayer(plyr: Player) { this._gunPlayer = plyr }
 
+  // presumably this highlights the proper Faction/Panel
   setCurPlayerNdx(ndx = this.gunPlayer.index) {
     this.gamePlay.setCurPlayer(this.gamePlay.allPlayers[ndx]);
   }
@@ -45,9 +47,22 @@ export class GameState extends GameStateLib {
   phaseNdx: PlayerId = 0;
 
   /** (ndx+1) mod nPlayers */
-  nextNdx(ndx = 0) {
-    return (ndx + 1) % this.nPlayers as PlayerId;
+  nextNdx(ndx = 0, dn = 1) {
+    return (ndx + dn) % this.nPlayers as PlayerId;
   }
+
+  /**
+   * find player of faction preceeding pid in vault order.
+   * @param pid player index; [-1] to start, and consider Oxataya
+   */
+  vaultPlayerBeforePid(pid = -1) {
+    const pfac = this.gamePlay.allPlayers[pid]?.facId ?? 6; // previous faction index
+    const nfac =  arrayN(pfac).reverse().find(facId => this.playerByFacId[facId] !== undefined)
+    return (nfac == undefined) ? nfac : this.playerByFacId[nfac];
+  }
+
+  /** simple map from facId to Player */
+  playerByFacId: (Player|undefined)[] = [];
 
   phasePrices: Partial<Record<PriceName, PricingToken>> = {};
 
@@ -57,13 +72,14 @@ export class GameState extends GameStateLib {
   }
 
   override start(startPhase?: string, startArgs?: any[]): void {
+    this.playerByFacId = arrayN(6).map(facId => this.gamePlay.allPlayers.find(plyr => (plyr.facId == facId)))
     this.nPlayers = this.gamePlay.allPlayers.length;
     this.gunPlayer = this.gamePlay.initialGunPlayer;
     super.start(startPhase, startArgs);
   }
 
-  override startPhase = 'BeginRound';
-  override startArgs: any[] = [1];
+  override startPhase = 'PlaceBase';
+  override startArgs: any[] = [-1];
 
   // this.gamePlay.curPlayer
   override get curPlayer() { return super.curPlayer as Player }
@@ -91,8 +107,28 @@ export class GameState extends GameStateLib {
 
   /** define this.states */
   override readonly states: { [index: string]: Phase } = {
+    PlaceBase: {
+      // start(-1) ==> consider from Oxataya
+      start: (pid = -1) => {         // and look backward from there
+        const plyr = this.vaultPlayerBeforePid(pid)!; // last player in vault list, before pid (highest facId)
+        if (plyr) {
+          this.setCurPlayerNdx(plyr.index);
+          this.doneButton(`PlaceBase: ${plyr.Aname}`);
+        } else {
+          this.gunPlayer = this.gamePlay.allPlayers[pid];  // last to place Base is first with the Gun.
+          this.phase('BeginRound', 1); // begin with Round = 1
+        }
+      },
+      // done(this.player.index)
+      done: (pid = this.curPlayer.index) => {
+        this.state.start(pid); // loop for each player
+      }
+    },
+
     BeginRound: {
-      start: () => {
+      // start(1)
+      start: (round = this.roundNum) => {
+        this._round = round;   // 'PlaceBase' & 'Relics' invoke to set/incr roundNum
         this.gamePlay.saveGame();
         this.doneButton(`Begin Round: ${this.roundNum}`); // activate
       },
@@ -103,6 +139,7 @@ export class GameState extends GameStateLib {
       }
     },
 
+    // start(this.phaseNdx)
     SetPrices: {
       start: (ndx: PlayerId) => {
         this.setCurPlayerNdx(ndx);
@@ -114,6 +151,7 @@ export class GameState extends GameStateLib {
           this.state.start(next); // loop for each player
           return;
         }
+        // this code block so SetPrices is run twice when only 2-Players
         const openSlots = priceNames.filter(pn => !this.phasePrices[pn]).length; // HACK! Move has 2 slots...
         if (openSlots > this.nPlayers) {
           this.state.start(this.phaseNdx);     // restart with original gunPlayer when nPlayers == 2
@@ -170,7 +208,7 @@ export class GameState extends GameStateLib {
       start: () => {
         this.doneButton('Relics');
       },
-      done: () => { this.phase('BeginRound', this.roundNum); }
+      done: () => { this.phase('BeginRound', this.roundNum + 1); }
     },
 
 
