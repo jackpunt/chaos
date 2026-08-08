@@ -160,11 +160,6 @@ export class ChaosTable extends Table {
     this.gamePlay.gameState.start();   // gamePlay.phase(startPhase); enable GUI to drive game
   }
 
-  override markLegalHexes(tile: Tile, ctx: DragContext): number {
-    ctx.gameState = this.gamePlay.gameState; // gameState->gamePlay->table->cardPanel->rules
-    return super.markLegalHexes(tile, ctx);
-  }
-
   // debug copy; do not keep [default dragFunc for makeDragable()]
   override dragFunc(tile: Tile, info: DragInfo) {
     const hex = this.hexUnderObj(tile); // clickToDrag 'snaps' to non-original hex!
@@ -204,6 +199,7 @@ export class ChaosTable extends Table {
   }
 
   tokenVault: NamedContainer[] = [];
+  /** make a TokenHex, put it (& its legalMark) at location of dObj */
   makeHexForObj(dObj: DisplayObject, label: string) {
     const thex = this.newHex2(0, 0, `${label}`, TokenHex) as TokenHex; // hex on mapCont
     dObj.parent.localToLocal(dObj.x, dObj.y, this.hexMap.mapCont.hexCont, thex.cont)

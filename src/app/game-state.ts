@@ -159,6 +159,7 @@ export class GameState extends GameStateLib {
         }
 
         if (this.nPlayers < pricePhases.length) this.gamePlay.setPriceNeutral();
+        this.gamePlay.setPendingToAvail();
         this.phase('Discovery');
       }
     },

@@ -31,9 +31,9 @@ export class GamePlay extends GamePlayLib {
 
   /** highligh panel of curPlayer: */
   override setCurPlayer(player: Player): void {
-    this.curPlayer.panel.showPlayer(false);
+    this.curPlayer?.panel?.showPlayer(false);
     super.setCurPlayer(player);
-    this.curPlayer.panel.showPlayer(true);
+    this.curPlayer?.panel?.showPlayer(true);
   }
 
   override startTurn() {
@@ -75,6 +75,14 @@ export class GamePlay extends GamePlayLib {
         const token = this.neutralPlayer.panel.priceTokens.find(pt => pt && pt.vid == tid)!;
         token.setTokenOnPhase(ndx);
       }
+    })
+  }
+
+  setPendingToAvail() {
+    this.allPlayers.forEach(plyr => {
+      plyr.panel.priceTokens.forEach(pt => {
+        if (pt.status == 'pending') pt.status = 'avail';
+      })
     })
   }
 

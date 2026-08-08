@@ -2,8 +2,8 @@ import { C, stime, type XY, type XYWH } from "@thegraid/common-lib";
 import { NamedContainer, PathShape, RectShape, TextInRect, type Paintable } from "@thegraid/easeljs-lib";
 import type { Rectangle } from "@thegraid/easeljs-module";
 import { Graphics } from "@thegraid/easeljs-module";
-import { LegalMark, Meeple, MeepleShape, Tile, TP, type DragContext, type Hex, type HexM, type IHex2 } from "@thegraid/hexlib";
-import type { ChaosHex2 as Hex2, HexMap2 } from "./chaos-hex";
+import { Meeple, MeepleShape, Tile, TP, type DragContext, type Hex, type HexM, type IHex2 } from "@thegraid/hexlib";
+import { TokenHex, type ChaosHex2 as Hex2, type HexMap2 } from "./chaos-hex";
 import { type BONUS } from "./chaos-tile";
 import { factionNeutral, type FactionId } from "./factions";
 import { Foundation } from "./foundation";
@@ -123,7 +123,9 @@ class StrongholdShape extends PathShapeMeeple {
  * - ChaosToken(Trap, Morale, Foundation, PricingToken, 'Relic', )
  */
 export class ChaosMeeple extends Meeple {
+  declare gamePlay: GamePlay;
   declare player: Player;
+  homeXY!: XY;                // sendHome location, if needed
 
   /** invoke from startDrag() to prevent movement */
   stopDrag() {
@@ -367,23 +369,27 @@ class PTMark extends RectShape {
   constructor(wh = TP.meepleRad * 1.9) {
     super({x: -wh/2, y: -wh/2, w: wh, h: wh}, 'rgba(130, 130, 130, 0.4)', '');
     this.name = 'TargetMark';
+    this.visible = false;
   }
 
   get inUse() { return this.visible && this.parent }
 }
 
 
-export class PricingToken extends ChaosToken {
+export class PricingToken extends ChaosMeeple {
   bColor = 'rgb(150, 70, 0)';
   nColor = 'rgb(255, 140, 0)'; // neutral color
 
   static bonus35 = [ ['^', 'C'], ['>', '%']] as PriceBonus[][];
   static bonus_2 = [ ['^'], ['^']] as PriceBonus[][];
 
+  // distinguish for number of players;
+  // 3-5 players: 1 & 2 contribnute to player; only 1 has '^' retrieval bonus
   static dist35 = [
-    // ^C   [> %]    3      4      5     [6]
+    // ^ C [> %]    3      4      5     [6]
     [1,0], [1,1], [1,2], [2,2], [2,3], [3,3],
   ]
+  // 2 players: 1 & 2 vdist --> Bank; have '^' retreival bonus
   static dist2 = [
     // ^     [^]     3      4      5     [6]
     [0,1], [0,2], [1,2], [2,2], [2,3], [3,3],
@@ -393,9 +399,13 @@ export class PricingToken extends ChaosToken {
       [], [0, 0, 1, 1, 2], [0, 3, 0, 0, 4], [0, 2, 1 ,1], [0, 5, 0, 0], [],
   ]
 
+  declare baseShape: PTokenShape;
+
   facId: FactionId;    // undefined for Neutral Tokens
 
-  readonly vdist: VDIST; // distribution of funds
+  /** distribution of funds */
+  readonly vdist: VDIST;
+  // string[] indicating each PriceBonus:
   readonly bTexts?: PriceBonus[];
 
   // extra things that happen when used to price a phase; for ex: gain ('%' or 'C'), place Rhyzu or retrieve from vault
@@ -437,12 +447,13 @@ export class PricingToken extends ChaosToken {
     this.bTexts = ((np == 2) ? PricingToken.bonus_2 : PricingToken.bonus35)[this.vid-1];
     this.fillCont(this);
     this.status = ['avail', 'invault', 'avail', 'avail', 'avail', 'invault'][vid-1] as PT_Status;
+    if (this.status == 'avail') { this.setAvailable() } else { this.moveToVault() }
     // TODO: implement expiration, and (%) and retrieve(^) and card(C)
     this.effect = () => {};
   }
 
   // add content above the PricingToken baseShape:
-  fillCont(cont: NamedContainer, size = (this.baseShape as RectShape).getBounds().width) {
+  fillCont(cont: NamedContainer, size = (this.baseShape).getBounds().width) {
     const bgcolor = C.nameToRgbaString(this.player!.color, .5)
     const base = this.baseShape as PTokenShape;
     const over = new RectShape(base._rect)
@@ -503,6 +514,11 @@ export class PricingToken extends ChaosToken {
     map?.mapCont.overCont?.addChild(PricingToken.mark); // move to overCont
   }
 
+  override isLegalTarget(toHex: Hex2, ctx?: DragContext): boolean {
+    return (toHex instanceof TokenHex);
+  }
+
+  // return token to place on panel
   override sendHome(): void {
     this.x = this.homeXY.x;
     this.y = this.homeXY.y;
@@ -554,6 +570,7 @@ export class PricingToken extends ChaosToken {
     this.x = this.y = 0;
     this.player.panel.vault.addChild(this);
     this.status = 'invault';
+    this.visible = false;
     this.stage.update();
   }
 
@@ -561,10 +578,21 @@ export class PricingToken extends ChaosToken {
   retrieveFromVault() {
     this.sendHome();
     this.status = 'pending';  // flipped down...
+    this.visible = true;      // TODO: visually dim, disable mouse
+    this.faceUp(false)
   }
+
   /** mark token available for use */
   setAvailable() {
     this.status = 'avail';
+    // TODO: full visiblitiy & mouse enable
+    this.faceUp(true);
+  }
+
+  override cantBeMovedBy(player: Player, ctx: DragContext): string | boolean | undefined {
+    if (this.status == 'pending') return "Not available until next round";
+    if (this.status == 'invault') return "In Vault -- Not available";
+    return undefined;
   }
 }
 
@@ -578,6 +606,7 @@ export class PTokenShape extends RectShape {
   override paint(colorn?: string, force?: boolean): Graphics {
     return super.paint(colorn ?? this.colorn, force)
   }
+  backSide = new RectShape(this.getBounds(), 'rgba(225,255,255,.5)', 'black');
 }
 
 // Also: factory, outposts, stronghold, foundation, relic, discovery-marker?, fame-marker?
