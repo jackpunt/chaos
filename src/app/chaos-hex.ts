@@ -58,10 +58,13 @@ export class ChaosHex extends Hex1Lib {
   set card(card) { super.meep = card; }
 }
 
-class ChaosHex2Lib extends Hex2Mixin(ChaosHex) {};
+class ChaosHex2Lib extends Hex2Mixin(ChaosHex) {
+  override get tile() { return super.tile as ChaosTile }
+  override set tile(tile: ChaosTile) { super.tile = tile }
+};
 
 export class ChaosHex2 extends ChaosHex2Lib {
-  // declare tile: ChaosTile | undefined; // uses get/set from Hex2Mixin(ChaosHex)
+  // declare tile: ChaosTile | undefined; // must use get/set from Hex2Mixin(ChaosHex)
   // declare meep: ChaosCard | undefined;
 
   // enlarge to remove dead-zone between hexes:
@@ -83,7 +86,7 @@ export class TokenHex extends ChaosHex2 {
 /////////////////////////////////// HexMap2 ///////////////////////////////////////////////
 
 /** specify Terrain & Harvest of map Region hexes */
-type TileSpec = { row: number, col: number, t: TERRAIN, h: HARVEST }
+type TileSpec = { row: number, col: number, ter: TERRAIN, h: HARVEST }
 
 /** HexMap2 holds the playable ChaosTile for each Region, plus Base Regions & some Base Regions (2-3-4 Player) */
 export class HexMap2 extends HexMap<ChaosHex2> {
@@ -160,32 +163,32 @@ export class HexMap2 extends HexMap<ChaosHex2> {
       return [ary3[p[0]], ary3[p[1]], ary3[p[2]]];  // could use ary3.reduce(), but why bother?
     }
     // splice in t & h
-    const rct = (nspec: [number, number, { t: TERRAIN, h?: HARVEST }][]) => nspec.map(([row, col, thid]) => ({ row, col, h: '-', ...thid } as TileSpec))
+    const rct = (nspec: [number, number, { ter: TERRAIN, h?: HARVEST }][]) => nspec.map(([row, col, thid]) => ({ row, col, h: '-', ...thid } as TileSpec))
 
     // 'Base' terrain are placeholders, not actual Faction Bases
     const initTiles: TileSpec[] = [
-      {row: 2, col: 5, t: 'Base', h: '-'}, // Base
-      {row: 4, col: 1, t: 'Base', h: '-'}, // Base(2)|Mtn(3-5)
+      {row: 2, col: 5, ter: 'Base', h: '-'}, // Base
+      {row: 4, col: 1, ter: 'Base', h: '-'}, // Base(2)|Mtn(3-5)
 
-      {row: 3, col: 3, t: 'Plains', h: 'G1'}, // Plain:gem
-      {row: 3, col: 4, t: 'Swamp', h: 'C'}, // Swamp:card
-      {row: 3, col: 5, t: 'Hills', h: 'G1'}, // Hills:gem
-      {row: 4, col: 2, t: 'Swamp', h: 'E2'}, // S:energy
-      {row: 4, col: 3, t: 'Swamp', h: 'C'}, // S:card
-      {row: 4, col: 4, t: 'Hills', h: 'E2'}, // H:energy
-      {row: 4, col: 5, t: 'Swamp', h: 'G1'}, // swamp:gem
-      {row: 5, col: 2, t: 'Plains', h: 'C'}, // Plain:card
-      {row: 5, col: 4, t: 'Plains', h: 'E2'}, // Plain:energy
+      {row: 3, col: 3, ter: 'Plains', h: 'G1'}, // Plain:gem
+      {row: 3, col: 4, ter: 'Swamp', h: 'C'}, // Swamp:card
+      {row: 3, col: 5, ter: 'Hills', h: 'G1'}, // Hills:gem
+      {row: 4, col: 2, ter: 'Swamp', h: 'E2'}, // S:energy
+      {row: 4, col: 3, ter: 'Swamp', h: 'C'}, // S:card
+      {row: 4, col: 4, ter: 'Hills', h: 'E2'}, // H:energy
+      {row: 4, col: 5, ter: 'Swamp', h: 'G1'}, // swamp:gem
+      {row: 5, col: 2, ter: 'Plains', h: 'C'}, // Plain:card
+      {row: 5, col: 4, ter: 'Plains', h: 'E2'}, // Plain:energy
 
-      {row: 4, col: 6, t: 'Lake', h: '-'}, // Lake:none
-      {row: 5, col: 3, t: 'Lake', h: '-'}, // Lake:none
-      {row: 5, col: 5, t: 'Hills', h: 'C'}, // Hills:card
-      {row: 6, col: 4, t: 'Base', h: '-'}, // Base(2)|xtile3
+      {row: 4, col: 6, ter: 'Lake', h: '-'}, // Lake:none
+      {row: 5, col: 3, ter: 'Lake', h: '-'}, // Lake:none
+      {row: 5, col: 5, ter: 'Hills', h: 'C'}, // Hills:card
+      {row: 6, col: 4, ter: 'Base', h: '-'}, // Base(2)|xtile3
     ];
-    const xtile3 = permute6([{t: 'Hills', h: 'E2'}, {t: 'Swamp', h: 'G1'}, {t: 'Plains', h: 'C' }], p6ary[0])
-    const xtile4 = permute6([{t: 'Hills', h: 'C' }, {t: 'Swamp', h: 'E2'}, {t: 'Plains', h: 'G1'}], p6ary[1])
-    const xtile5 = permute6([{t: 'Hills', h: 'G1'}, {t: 'Swamp', h: 'C' }, {t: 'Plains', h: 'E2'}], p6ary[2])
-    const xbase = (tid: TERRAIN) => ({ t: tid });
+    const xtile3 = permute6([{ter: 'Hills', h: 'E2'}, {ter: 'Swamp', h: 'G1'}, {ter: 'Plains', h: 'C' }], p6ary[0])
+    const xtile4 = permute6([{ter: 'Hills', h: 'C' }, {ter: 'Swamp', h: 'E2'}, {ter: 'Plains', h: 'G1'}], p6ary[1])
+    const xtile5 = permute6([{ter: 'Hills', h: 'G1'}, {ter: 'Swamp', h: 'C' }, {ter: 'Plains', h: 'E2'}], p6ary[2])
+    const xbase = (tid: TERRAIN) => ({ ter: tid });
 
     const tiles3: TileSpec[] = rct([
       [6, 2, xtile3[0]], [6, 3, xtile3[1]], [6, 4, xtile3[2]],
@@ -232,8 +235,8 @@ export class HexMap2 extends HexMap<ChaosHex2> {
     }
 
     const placeTile = (tileSpec: TileSpec) => {
-      const { row, col, t, h } = tileSpec;
-      const tile = new ChaosTile(`T${row},${col}:${t.slice(0,1)}:${h}`, t, h);
+      const { row, col, ter, h } = tileSpec;
+      const tile = new ChaosTile(`T${row},${col}:${ter.slice(0,1)}:${h}`, ter, h); // player = undefined
       tile.mouseEnabled = false;
       map.replaceTile(tile, row, col);
     }
@@ -244,7 +247,7 @@ export class HexMap2 extends HexMap<ChaosHex2> {
     }
 
     map.forEachHex(hex => {
-      hex.tile || placeTile({ ... hex, t: 'Mtn', h: '-' });   // cover unused hexes with Mtn
+      hex.tile || placeTile({ ... hex, ter: 'Mtn', h: '-' });   // cover unused hexes with Mtn
     })
 
     // place 3 standard adjacency-breaking mountains:
