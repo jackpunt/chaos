@@ -10,7 +10,7 @@ import { type GamePlay } from "./game-play";
 import { pricePhases, type PlayerId } from "./game-state";
 import { ChaosPresence, Factory, Outposts, PricingToken, PTokenShape, Stronghold, type ChaosUnitType, type Fighter, type Leader, type PriceId } from "./meeples";
 import { CO, ResearchCell, ResGrid } from "./research-cell";
-import { CardBack, CardPanel, TacticsCard } from "./tactics-card";
+import { CardBack, CardPanel, type CardHex } from "./tactics-card";
 
 /** Canonical Faction colors, aligned with gameSetup.factionNames.
  *
@@ -170,7 +170,7 @@ export class Player extends PlayerLib {
   //   return card;
 
   /** for ScenarioParser.saveState() */ // TODO: code cards with index, or string->card
-  get cards() { return this.cardRack.map(hex => hex.tile).filter(card => !!card) as TacticsCard[] }
+  get cards() { return this.cardRack.map(hex => hex.card).filter(card => !!card) }
 
   /** rules in Player's cardRack */
   get cardRules() {
@@ -211,7 +211,7 @@ export class Panel extends PlayerPanel {
   readonly buildingHomes: Hex2[][] = [];  // fill per spec -> Building.homeAry
 
   /** the 'hand' of TacticsCards */
-  readonly cardRack: Hex2[] = [];
+  readonly cardRack: CardHex[] = [];
   cardPanel!: CardPanel;
   vault!: NamedContainer;
 
@@ -557,7 +557,7 @@ export class Panel extends PlayerPanel {
   baseTile!: ChaosTile;
   // make ChaosTile, set color, set Harvest token
   setupBase(faction: Faction) {
-    const baseTile = this.baseTile = faction.makeBaseTile(this.player);// new ChaosTile(`${faction.name}Base`, 'Base', h, this.player);
+    const baseTile = this.baseTile = faction.makeBaseTile(this.player);
     const color = C.nameToRgbaString(CO.mauve, .4); // this.pColor; '#d0a53b';
     baseTile.paint(color);                          // color TBD;
     const hex = this.baseHex = this.table.newHex2(0, 0, `${this.faction.name}Base`);

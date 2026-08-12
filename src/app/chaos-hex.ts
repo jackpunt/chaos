@@ -1,9 +1,8 @@
-import { C, permute, Random, stime, type Constructor } from "@thegraid/common-lib";
+import { C, Random, stime, type Constructor } from "@thegraid/common-lib";
 import { NamedContainer, PathShape, RectShape, type Paintable } from "@thegraid/easeljs-lib";
 import type { DisplayObject } from "@thegraid/easeljs-module";
 import { H, Hex1 as Hex1Lib, Hex2Mixin, HexMap, HexMark, HexShape, TileSource, TP, type HexDir, type HexM, type IHex2, type Tile } from "@thegraid/hexlib";
-import { ChaosTile, type BONUS, type HARVEST, type TERRAIN } from "./chaos-tile";
-import { Foundation } from "./foundation";
+import { ChaosTile, type HARVEST, type TERRAIN } from "./chaos-tile";
 import { Fighter } from "./meeples";
 import type { TacticsCard } from "./tactics-card";
 
@@ -67,12 +66,17 @@ export class ChaosHex2 extends ChaosHex2Lib {
   // declare tile: ChaosTile | undefined; // must use get/set from Hex2Mixin(ChaosHex)
   // declare meep: ChaosCard | undefined;
 
+  // type transmission from HexMixin
+  override forEachHexDir(func: (hex: this, dir: HexDir, hex0: this) => unknown) {
+    super.forEachHexDir(func);
+  }
+
   // enlarge to remove dead-zone between hexes:
   override makeHexShape(colorn = C.grey224): Paintable {
-      const hs = new HexShape(Math.ceil(this.radius * 60/59))
-      hs.paint(colorn);
-      return hs;
-    }
+    const hs = new HexShape(Math.ceil(this.radius * 60/59))
+    hs.paint(colorn);
+    return hs;
+  }
 }
 
 export class TokenHex extends ChaosHex2 {
@@ -109,6 +113,24 @@ export class HexMap2 extends HexMap<ChaosHex2> {
     this.rmHex2(hexMap[row][col] as ChaosHex2); // remove hex.cont from display list
     delete hexMap[row][col];       // remove hex element from hexMap
   }
+
+  /**
+   * Remove links to the hexes indicated by the given predicate.
+   *
+   * HexMap.link links all the phyically adjacent hexes; without considering mountains.
+   * @param hex a ChaosHex2 to be unlinked
+   * @param pred (nextHex) if true: break adjacency between this hex and nextHex.
+   */
+  override_unlink<T extends ChaosHex2>(hex: T, pred: (nHex: T) => boolean ) {
+    // check each direction for a Hex with pred(nHex)
+    hex.forEachHexDir((nHex, dir) => {
+      // const nHex = hex.links[dir]; // = hex.nextHex(dir)
+      if (nHex && pred(nHex)) {
+        hex.links[dir] = undefined;
+        nHex.links[H.dirRev[dir]] = undefined;
+      }
+    })
+  };
 
   /** remove each hex not used by Chaos map */
   sculptMap(hexMap = this) {
@@ -268,17 +290,9 @@ export class HexMap2 extends HexMap<ChaosHex2> {
       }
     })
 
-    // Demo for bringup, not real code:
     map.forEachHex(hex => {
-      if (hex.ctile?.terrain == 'Swamp') {
-        const f = new Foundation('Base!', permute(['E1', 'C', 'G1'])[0] as BONUS, 20)
-        hex.ctile.addFoundation(f, true);    // hack to add some Foundation to map:
-      }
+      if (hex.ctile?.terrain == 'Base') hex.ctile.sendHome(); // remove 'Base' cover tiles
     })
-
-    // map.forEachHex(hex => {
-    //   if (hex.ctile?.terrain == 'Base') hex.ctile.sendHome(); // remove 'Base' cover tiles
-    // })
 
   }
 }

@@ -116,6 +116,7 @@ export class Faction {
     const facSpec = Faction.facSpecs[facId] ?? { name: 'Neutral', bh: '-' };
     Object.assign(this, facSpec);
     Faction.factionById.set(facId, this);
+    this.fameTrack = Faction.fameTracks[facId]
   }
 
   player!: Player;
@@ -135,7 +136,7 @@ export class Faction {
   facName: FactionName = this.name;
 
   _fame = 0;
-  fameTrack = [] as FAME_BONUS[];
+  fameTrack: (FAME_BONUS | undefined)[];
 
   get fame() { return this._fame; } // readonly
 

@@ -1,8 +1,8 @@
-import { C } from "@thegraid/common-lib";
+import { C, permute } from "@thegraid/common-lib";
 import { CenterText, CircleShape, NamedContainer, PaintableShape, RectShape } from "@thegraid/easeljs-lib";
 import { Container } from "@thegraid/easeljs-module";
 import { type DragContext, HexShape, type IHex2, MapTile, Player as PlayerLib, type Table, TP } from "@thegraid/hexlib";
-import { type ChaosHex as Hex1, type ChaosHex2 as Hex2 } from "./chaos-hex";
+import { type ChaosHex as Hex1, type ChaosHex2 as Hex2, type HexMap2 } from "./chaos-hex";
 import { type ChaosTable } from "./chaos-table";
 import { Foundation } from "./foundation";
 import type { GamePlay } from "./game-play";
@@ -129,7 +129,7 @@ const colorOfTerrain: Record<TERRAIN, string> = {
   Swamp: C.nameToRgbaString(C.lightgreen, .5),
   Plains: C.nameToRgbaString(C.BROWN, .5),
   Lake: C.lightblue,
-  Base: C.WHITE,
+  Base: C.WHITE,  // color of temp Tiles placed on hexes reserved for 'Base' Tiles
 }
 
 
@@ -179,6 +179,8 @@ export class ChaosTile extends MapTile {
   static readonly allChaosTiles: ChaosTile[] = [];
 
   declare gamePlay: GamePlay;
+  declare player: Player | undefined;
+  declare fromHex: Hex2;
   /** this.hex as ChaosHex */
   get chex() { return super.hex as Hex2; }
 
@@ -292,6 +294,10 @@ export class ChaosTile extends MapTile {
 
   override dragStart(ctx: DragContext): void {
     super.dragStart(ctx); // --> cantBeMovedBy()
+    if (this.DragData) {
+      // unlink base & remove baseFoundations! (because shiftkey-move)
+      this.rmBaseFoundationsAndUnlink(ctx); // if is dragging...
+    }
   }
 
   // dragStart -> markLegal; dragFunc(ctx.info.first) -> setLegalColors
@@ -300,15 +306,61 @@ export class ChaosTile extends MapTile {
   }
 
   // constraints to drag/drop a ChaosTile (place a Base)
-  override isLegalTarget(toHex: Hex1, ctx: DragContext): boolean {
-    const tile = (toHex.tile as ChaosTile);
-    const rv = !tile || tile.terrain == 'Base';
-    return rv;
+  override isLegalTarget(toHex: Hex2, ctx: DragContext): boolean {
+    return !toHex.tile;
   }
+
   override dropFunc(targetHex: Hex2, ctx: DragContext): void {
     if (targetHex.tile) {
       targetHex.tile.sendHome();
     }
     super.dropFunc(targetHex, ctx);
+    // TODO: choose hexes for base foundations
+    this.addBaseFoundationsAndLink(targetHex, ctx)
+  }
+
+  /**
+   * Link base Hex to map.
+   *
+   * If this Base is adjacent to > 2 Regions, select which to use (and place mountains)
+   *
+   * Then place faction's bf on the two Regions.
+   */
+  addBaseFoundationsAndLink(hex: Hex2, ctx: DragContext) {
+    // link base to adjacent non-Mtn Hexes
+    const map = this.hex!.map as HexMap2;
+    map.link(hex);                                         // link to all adjacent hexes (Mtn & Lake!)
+    const adjRegions = (hex.linkHexes as Hex2[]).filter(h => h.tile?.terrain !== 'Mtn' && h.tile?.terrain !== 'Lake')
+    const nAdjacent = adjRegions.length;
+    if (nAdjacent > 2) {
+      // find each pair of adjacent regions, and edge(s) to place mountain(s) to block other(s)
+      // put GUI selector on each pair; on(click) -->
+      // --> place mountains on other side(s) of Base
+      // --> placeFactionBaseFoundations(adjRegions)
+      const cb = () => { this.placeFactionBaseFoundations(adjRegions); hex.map.update() }
+      setTimeout(cb, 300);
+      return;
+    }
+    map.unlink(hex, (hex) => hex.tile?.terrain == 'Mtn');  // unlink from Mtn
+    this.placeFactionBaseFoundations(adjRegions);
+  }
+
+  // ASSERT: adjRegions.length == 2
+  placeFactionBaseFoundations(adjRegions: Hex2[]) {
+    const faction = this.player!.faction;
+    const founds = permute(faction.bf).map((bonus, i) => new Foundation(`${faction.name}bf${i}`, bonus))
+    adjRegions.slice(0, 2).forEach((hex, n) => hex.tile?.addFoundation(founds[n]))
+  }
+
+  /** on this.dragStart() */
+  rmBaseFoundationsAndUnlink(ctx: DragContext) {
+    const hex = this.fromHex, map = hex.map as HexMap2;
+    hex.forEachLinkHex((nHex: Hex2) => {
+      nHex?.tile?.foundations.forEach((elt, n, ary) => {
+        elt?.parent?.removeChild(elt);
+        ary[n] = undefined;
+      })
+    });
+    map.unlink(hex, nh => true);
   }
 }
