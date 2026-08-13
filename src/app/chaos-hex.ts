@@ -1,7 +1,7 @@
 import { C, Random, stime, type Constructor } from "@thegraid/common-lib";
 import { NamedContainer, PathShape, RectShape, type Paintable } from "@thegraid/easeljs-lib";
 import type { DisplayObject } from "@thegraid/easeljs-module";
-import { H, Hex1 as Hex1Lib, Hex2Mixin, HexMap, HexMark, HexShape, TileSource, TP, type HexDir, type HexM, type IHex2, type Tile } from "@thegraid/hexlib";
+import { H, Hex1 as Hex1Lib, Hex2Mixin, HexMap, HexMark, HexShape, TileSource, TP, type HexDir, type HexM, type IdHex, type IHex2, type Tile } from "@thegraid/hexlib";
 import { ChaosTile, type HARVEST, type TERRAIN } from "./chaos-tile";
 import { Fighter } from "./meeples";
 import type { TacticsCard } from "./tactics-card";
@@ -87,6 +87,26 @@ export class TokenHex extends ChaosHex2 {
   }
 }
 
+class Mountain extends RectShape {
+  constructor(public hex0: IHex2, public hex1: IHex2) {
+    const dx = TP.hexRad * .9, dy = dx/11;
+    super({x: -dx/2, y: -dy/2, w: dx, h: dy}, C.PURPLE, '');
+    const map = this.hex1.map as HexMap2;
+    const dir01 = hex0.findLinkHex(hex => (hex == hex1));
+    if (!dir01) {
+      throw(`new Mountain: hexes ${hex0} & ${hex1} are not adjacent`);
+    }
+
+    map.mountains.push(this);
+    this.rotation = (H.dirRot[dir01]);
+    hex0.edgePoint(dir01, 1, this);      // set mountain on edge of Hex
+    map.mapCont.overCont.addChild(this); // mtn piece on top of other tiles
+    // remove adjacency links:
+    delete hex0.links[dir01];
+    delete hex1.links[H.dirRev[dir01]];
+  }
+};
+
 /////////////////////////////////// HexMap2 ///////////////////////////////////////////////
 
 /** specify Terrain & Harvest of map Region hexes */
@@ -145,21 +165,36 @@ export class HexMap2 extends HexMap<ChaosHex2> {
     this.rmHex(hexMap, 5, 7);
   }
 
+  // record for saveState/parseScenario:
+  // serialize with: Hex.aname(row, col)?
+  // restore using: Hex.ofMap(IdHex, HexMap2)
+  /** list of mountains placed on this HexMap2 */
+  mountains: Mountain[] = [];
+
+  findMtnIndex(hex0: IdHex, hex1: IdHex) {
+    const eq = (hex0: IdHex, hex1: IdHex) => (hex0.row == hex1.row) && (hex0.col == hex1.col);
+    return this.mountains.findIndex(elt => (eq(elt.hex0, hex0) && elt.hex1 == hex1) || (eq(elt.hex0, hex1) && eq(elt.hex1, hex0)))
+  }
+
+  isMtn(hex0: IdHex, hex1: IdHex) {
+    return this.findMtnIndex(hex0, hex1) >= 0;
+  }
+
+  removeMtn(hex0: IHex2, hex1: IHex2) {
+    const ndx = this.findMtnIndex(hex0, hex1);
+    if (ndx < 0) return;
+    this.mapCont.overCont.removeChild(this.mountains[ndx]);
+    this.mountains.splice(ndx, 1);
+  }
+
   /* place a purple mountain between two Hexes */
-  placeMtn(hex1: IHex2, hex2: IHex2) {
-    const dir12 = hex1.findLinkHex(hex => (hex == hex2));
-    if (!dir12) {
-      console.log(stime(this, '.placeMtn: hexes not adjacent'), hex1, hex2);
-      return;
+  placeMtn(hex0: IHex2, hex1: IHex2) {
+    if (this.isMtn(hex0, hex1)) return;
+    try {
+      new Mountain(hex0, hex1);
+    } catch (msg) {
+      console.log(stime(this, `.placeMtn: ${msg}`))
     }
-    const dx = TP.hexRad * .9, dy = dx/11;
-    const mtn = new RectShape({x: -dx/2, y: -dy/2, w: dx, h: dy}, C.PURPLE, '');
-    mtn.rotation = (H.dirRot[dir12]);
-    hex1.edgePoint(dir12, 1, mtn);           // set mountain on edge of Hex
-    this.mapCont.overCont.addChild(mtn); // mtn piece on top of other tiles
-    // remove adjacency links:
-    delete hex1.links[dir12];
-    delete hex2.links[H.dirRev[dir12]];
   }
 
   /** placeTile(row, col) after removing existing tile at row, col */
