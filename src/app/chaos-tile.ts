@@ -1,8 +1,8 @@
 import { C, permute } from "@thegraid/common-lib";
 import { CenterText, CircleShape, NamedContainer, PaintableShape, RectShape } from "@thegraid/easeljs-lib";
 import { Container } from "@thegraid/easeljs-module";
-import { type DragContext, HexShape, type IHex2, MapTile, Player as PlayerLib, type Table, TP } from "@thegraid/hexlib";
-import { type ChaosHex as Hex1, type ChaosHex2 as Hex2, type HexMap2 } from "./chaos-hex";
+import { type DragContext, type HexDir, HexShape, type IHex2, MapTile, Player as PlayerLib, type Table, TP } from "@thegraid/hexlib";
+import { type ChaosHex2 as Hex2, type HexMap2 } from "./chaos-hex";
 import { type ChaosTable } from "./chaos-table";
 import { Foundation } from "./foundation";
 import type { GamePlay } from "./game-play";
@@ -330,19 +330,45 @@ export class ChaosTile extends MapTile {
     // link base to adjacent non-Mtn Hexes
     const map = this.hex!.map as HexMap2;
     map.link(hex);                                         // link to all adjacent hexes (Mtn & Lake!)
-    const adjRegions = (hex.linkHexes as Hex2[]).filter(h => h.tile?.terrain !== 'Mtn' && h.tile?.terrain !== 'Lake')
-    const nAdjacent = adjRegions.length;
-    if (nAdjacent > 2) {
-      // find each pair of adjacent regions, and edge(s) to place mountain(s) to block other(s)
+    const pairs = this.getAdjacentPairs(hex);              // find each pair of adjacent regions
+    if (pairs.length > 1) {
+      // and edge(s) to place mountain(s) to block other(s)
       // put GUI selector on each pair; on(click) -->
       // --> place mountains on other side(s) of Base
-      // --> placeFactionBaseFoundations(adjRegions)
-      const cb = () => { this.placeFactionBaseFoundations(adjRegions); hex.map.update() }
-      setTimeout(cb, 300);
+      // --> placeFactionBaseFoundations(pairs[n])
+      const cb = (ndx: number) => {
+        const pair = pairs[ndx];
+        const xpairs = pairs.filter((p, n) => n != ndx);
+        xpairs.forEach(hexes => hexes.filter(hex => !pair.includes(hex)).forEach(hex2 => map.placeMtn(hex, hex2)))
+        this.placeFactionBaseFoundations(pair); hex.map.update()
+      }
+      setTimeout(cb, 300, 1);
       return;
     }
-    map.unlink(hex, (hex) => hex.tile?.terrain == 'Mtn');  // unlink from Mtn
-    this.placeFactionBaseFoundations(adjRegions);
+    // map.unlink(hex, (hex) => hex.tile?.terrain == 'Mtn');  // unlink from Mtn
+    this.placeFactionBaseFoundations(pairs[0]);
+  }
+
+  getAdjacentPairs(hex: Hex2) {
+    // cycle through hex.linkDirs[i], [i+1 % 6]
+    const mapDirs = (hex.map as HexMap2).linkDirs;  // assume length == 6; [N, EN, ES, S, WS, WN ]
+    const pairs: [Hex2, Hex2][] = [];  // push [hex1, hex2]
+    const isRegion = (hex?: Hex2) => { return hex?.tile && hex.tile.terrain != 'Mtn' && hex.tile.terrain != 'Lake'};
+    const links = hex.links as Partial<Record<HexDir, Hex2>>; // avoid & Partial<Record<HexDir, any>>
+    mapDirs.forEach((dir, ndx) => {
+      const hex1 = links[dir];
+      const hex2 = links[mapDirs[(ndx + 1) % 6]]; // next hex in rotation
+      if (isRegion(hex1) && isRegion(hex2)) {
+        pairs.push([hex1!, hex2!]);
+      }
+    })
+    return pairs;
+  }
+
+  // Base must choose which pair of Hexes to use & add mountains
+  chooseAdjacentPair(hex: Hex2) {
+    const pairs = this.getAdjacentPairs(hex);
+
   }
 
   // ASSERT: adjRegions.length == 2
@@ -356,6 +382,9 @@ export class ChaosTile extends MapTile {
   rmBaseFoundationsAndUnlink(ctx: DragContext) {
     const hex = this.fromHex, map = hex.map as HexMap2;
     hex.forEachLinkHex((nHex: Hex2) => {
+      // remove any Mtn between hex and nHex:
+      map.removeMtn(hex, nHex);
+      // remove any foundation in nHex:
       nHex?.tile?.foundations.forEach((elt, n, ary) => {
         elt?.parent?.removeChild(elt);
         ary[n] = undefined;
