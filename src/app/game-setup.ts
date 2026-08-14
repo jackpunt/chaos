@@ -120,8 +120,10 @@ class NullGameSetup extends GameSetupLib {
     // --- makeHexMap();
     // --- makeTable();
     // --- makeGamePlay();
-    // --- makeAllPlayers();
-    // --- layoutTable(); --> table.layoutTable2();
+    // --- makeAllPlayers(); --> new Faction(facId)
+    // --- layoutTable();
+    // --- --- table.layoutTable2();
+    // --- --- --- table.makeNeutralPanel
     // --- --- table.makePerPlayer()
     // --- --- --- table.makePlayerPanel(this, player, high, wide, row, col, dir); -> new PlayerPanel(...)
     // --- --- --- table.makePlayerBits();

@@ -74,7 +74,7 @@ export class Player extends PlayerLib {
     const facId = gamePlay.gameSetup.facIds[index];     // Aname and HTML color should be aligned with facId
     this.facId = facId;
     // Or: make subclass for each Faction; map from facId --> Constructor<Faction>; new facClass()
-    this.faction = Faction.factionById.get(facId) ?? new Faction(facId);
+    this.faction = Faction.factionById.get(facId) ?? new Faction(facId, this);
     this.facName = this.faction.name;
     const cname = playerColors[this.facId];
     ;(this as any).Aname = `P${index}:${cname}`
@@ -128,6 +128,7 @@ export class Player extends PlayerLib {
     gc.x = cc.wide + 3 * gap; gc.y = cc.high / 2 + 2 * gap;
     gc.boxAlign('left');
     this.panel.addChild(gc);
+    this.faction.initializeResearchLevels();
   }
 
   /** count gems for this player */
@@ -308,11 +309,12 @@ export class Panel extends PlayerPanel {
     const dy = wh * this.rowh;
     const dx = wh * 1.35;
     pricePhases.forEach((pName, i) => {
+      const row = ResearchCell.researchCells[i] = [] as ResearchCell[];
       const resSpecs = ResGrid[pName];
       resSpecs.forEach((rs, j) => {
-        rs[3] ||=  (j == 4);
-        // const gl =
+        rs[3] ||=  (j == 4);   // add gemLock to level-4
         const cell = new ResearchCell(`RC${pName}_${j}`, rs, { width: wh * 1.2, height: wh * 1.2 })
+        row.push(cell);        // cell into next column
         cell.x = j * dx;
         cell.y = i * dy;
         rls.addChild(cell);
@@ -621,9 +623,9 @@ export class Panel extends PlayerPanel {
 
   // maybe a super-class of CardPanel? *any* mapCont? see game-setup where we Panel.mixin(HexMap2, PlayerPanel)
   /**
-   * array of colN hexes across the width of mapCont (CardPanel is the mapCont of ChaosPlayerPanel);
+   * array[colN] of newHex2 across the width of mapCont (CardPanel is the mapCont of ChaosPlayerPanel);
    *
-   * Uses mapCont.getBounds(), to that must be set.
+   * Uses mapCont.getBounds(), so that must be set.
    *
    * cPanel: panel to hold the row of hexes (this as HexMap).mapCont
    *

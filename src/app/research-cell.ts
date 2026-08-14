@@ -2,7 +2,8 @@ import { C, F, type WH } from "@thegraid/common-lib";
 import { CenterText, EllipseShape, NamedContainer, RectShape } from "@thegraid/easeljs-lib";
 import type { DisplayObject } from "@thegraid/easeljs-module";
 import { bonusIcon, type HARVEST } from "./chaos-tile";
-import type { PricePhase } from "./game-state";
+import { type Faction } from "./factions";
+import { pricePhases, type PricePhase } from "./game-state";
 import { TP } from "./table-params";
 
 
@@ -39,16 +40,37 @@ export const ResGrid: ResGrid = {
   Move: [['M2', 'E5:U'], ['M3', 'E5:U'], ['M4', 'E4:U', '', true], ['M5', 'E4:U', 'R2 | C'], ['M6', 'E4:U']],
 }
 
+/** Level with Graphic indicator */
+export class ResearchLevel extends RectShape {
+  level = 0;
+  constructor(fColor: string) {
+    const dx = TP.hexRad * .9/5-2, dy = dx;
+    super({x: -dx/2, y: -dy/2, w: dx, h: dy}, fColor);
+  }
+}
+
 export class ResearchCell extends NamedContainer {
+  /** all the ResearchCells: [row=phase][col=level] */
+  static researchCells: ResearchCell[][] = [];
 
-  ps: string;
-  as: string;
-  is?: string;
+  static initializeResearchCells(faction: Faction) {
+    const cells = ResearchCell.researchCells;
+    const cubes = [] as ResearchLevel[];
+    pricePhases.forEach((pn, ndx) => {
+      const rl = cells[ndx][0].addCube(faction);
+      cubes.push(rl);
+    })
+    return cubes;
+  }
 
-  fs = 10;
-  font: string;
+  ps: string;      // primary
+  as: string;      // auxilliary
+  is?: string;     // immediate (middle row)
 
-  gemlock = false;
+  fs = 10;         // fontsize
+  font: string;    // fontSpec
+
+  gemlock = false; // true if gemLock req'd to achieve
   gemlockIcon?: DisplayObject;
 
   constructor(Aname: string, spec: ResSpec, public wh: WH = { width: TP.hexRad * .8, height: TP.hexRad*1 }) {
@@ -58,7 +80,7 @@ export class ResearchCell extends NamedContainer {
     this.as = a;
     this.is = i;
 
-    const fs = this.fs = Math.round(this.wh.height/5);
+    const fs = this.fs = Math.round(this.wh.height*.2);
     this.font = F.fontSpec(fs); // TODO: font family & weight
 
     const w = this.wh.width, h = this.wh.height;
@@ -69,6 +91,7 @@ export class ResearchCell extends NamedContainer {
       this.gemlock = true;
       const gl = this.gemlockIcon = gemlockIcon();
       gl.x = -wh.width * .55; // addResearchLines.dx / 2
+      gl.y = wh.height * .15; // aligned with text for immediat effects (see: fs above)
       this.addChild(gl)
     }
   }
@@ -87,6 +110,15 @@ export class ResearchCell extends NamedContainer {
       const mlh = l3.getMeasuredLineHeight();
       this.addText(this.is, pdy - mlh * 1.2)
     }
+  }
+
+  addCube(faction: Faction) {
+    const rl = new ResearchLevel(faction.player.color);
+    const { width, height } = rl.getBounds()
+    rl.x = (faction.player.index-(TP.numPlayers-1)/2) * width;
+    rl.y = - height * .5;
+    this.addChild(rl);
+    return rl
   }
 
   arrive() {

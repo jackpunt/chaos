@@ -2,7 +2,8 @@ import { AliasLoader } from "@thegraid/easeljs-lib";
 import type { Phase } from "@thegraid/hexlib";
 import { ChaosTile, type BONUS, type FAME_BONUS, type HARVEST } from "./chaos-tile";
 import type { LeaderName, PriceToken } from "./meeples";
-import { type Player } from "./player";
+import { Player } from "./player";
+import { ResearchCell, ResearchLevel } from "./research-cell";
 import { TP } from "./table-params";
 //
 function expandArray<T>(rec: Record<number, T>): (T | undefined)[] {
@@ -111,7 +112,7 @@ export class Faction {
   /** r3: trade R3 for BONUS resource. */
   r3!: BONUS;
 
-  constructor(facId: FactionId) {
+  constructor(facId: FactionId, public player: Player) {
     this.facId = facId;
     const facSpec = Faction.facSpecs[facId] ?? { name: 'Neutral', bh: '-' };
     Object.assign(this, facSpec);
@@ -119,7 +120,12 @@ export class Faction {
     this.fameTrack = Faction.fameTracks[facId]
   }
 
-  player!: Player;
+  initializeResearchLevels() {
+    this.researchLevels = ResearchCell.initializeResearchCells(this);
+  }
+
+  researchLevels: ResearchLevel[] = [];
+
   // PricingTokens available to play
   pTokens: PriceToken[] = [];
 
@@ -132,7 +138,6 @@ export class Faction {
   set gems(v) { this.player.coinCounter?.updateValue(v); }
 
   facId!: FactionId;
-  fColor = factionColors[this.facId];
   facName: FactionName = this.name;
 
   _fame = 0;

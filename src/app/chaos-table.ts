@@ -114,7 +114,7 @@ export class ChaosTable extends Table {
     return [locs[0][0], (locs[0][1] + locs[3][1])/2, +1];
   }
 
-  neutralPanel!: PlayerPanel;
+  neutralPanel!: Panel;
   makeNeutralPanel() {
     const [row, col, dir] = this.neutralPanelLoc();
     const nPlayer = this.gamePlay.neutralPlayer;
@@ -125,7 +125,7 @@ export class ChaosTable extends Table {
   priceHex = [] as TokenHex[];
 
   // constructor does: { mapCont.backCont.addChild(playerPanel); setToRowCol(this, row, col); ... }
-  override makePlayerPanel(table: Table, player: PlayerLib, high: number, wide: number, row: number, col: number, dir = -1): PlayerPanel {
+  override makePlayerPanel(table: Table, player: PlayerLib, high: number, wide: number, row: number, col: number, dir = -1) {
     if (player.index === undefined) debugger;
     if (col > 0) col -= 1;  // inset Panels on the right-hand side
     const playerPanel = new Panel(table as ChaosTable, player as Player, high, wide, row - high / 2, col - wide / 2, dir);
