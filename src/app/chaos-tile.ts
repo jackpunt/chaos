@@ -1,8 +1,8 @@
-import { C, permute } from "@thegraid/common-lib";
+import { C, permute, S, stime } from "@thegraid/common-lib";
 import { CenterText, CircleShape, NamedContainer, PaintableShape, RectShape } from "@thegraid/easeljs-lib";
 import { Container } from "@thegraid/easeljs-module";
 import { type DragContext, type HexDir, HexShape, type IHex2, MapTile, Player as PlayerLib, type Table, TP } from "@thegraid/hexlib";
-import { type ChaosHex2 as Hex2, type HexMap2 } from "./chaos-hex";
+import { PairTarget, type ChaosHex2 as Hex2, type HexMap2 } from "./chaos-hex";
 import { type ChaosTable } from "./chaos-table";
 import { Foundation } from "./foundation";
 import type { GamePlay } from "./game-play";
@@ -295,6 +295,7 @@ export class ChaosTile extends MapTile {
   override dragStart(ctx: DragContext): void {
     super.dragStart(ctx); // --> cantBeMovedBy()
     if (this.DragData) {
+      PairTarget.removeTargets();
       // unlink base & remove baseFoundations! (because shiftkey-move)
       this.rmBaseFoundationsAndUnlink(ctx); // if is dragging...
     }
@@ -316,7 +317,7 @@ export class ChaosTile extends MapTile {
     }
     super.dropFunc(targetHex, ctx);
     // TODO: choose hexes for base foundations
-    this.addBaseFoundationsAndLink(targetHex, ctx)
+    this.addBaseFoundationsAndLink(targetHex, ctx); // TODO: not if tile not moved
   }
 
   /**
@@ -327,26 +328,18 @@ export class ChaosTile extends MapTile {
    * Then place faction's bf on the two Regions.
    */
   addBaseFoundationsAndLink(hex: Hex2, ctx: DragContext) {
-    // link base to adjacent non-Mtn Hexes
+    // link base hex to adjacent non-Mtn Hexes
     const map = this.hex!.map as HexMap2;
-    map.link(hex);                                         // link to all adjacent hexes (Mtn & Lake!)
-    const pairs = this.getAdjacentPairs(hex);              // find each pair of adjacent regions
-    if (pairs.length > 1) {
-      // and edge(s) to place mountain(s) to block other(s)
-      // put GUI selector on each pair; on(click) -->
-      // --> place mountains on other side(s) of Base
-      // --> placeFactionBaseFoundations(pairs[n])
-      const cb = (ndx: number) => {
-        const pair = pairs[ndx];
-        const xpairs = pairs.filter((p, n) => n != ndx);
-        xpairs.forEach(hexes => hexes.filter(hex => !pair.includes(hex)).forEach(hex2 => map.placeMtn(hex, hex2)))
-        this.placeFactionBaseFoundations(pair); hex.map.update()
-      }
-      setTimeout(cb, 300, 1);
-      return;
+    map.link(hex);      // link to all adjacent hexes
+    map.unlink(hex, (nHex) => nHex.tile?.terrain == 'Mtn'); // rm links to Mtn tiles
+    const pairs = this.getAdjacentPairs(hex);  // find each pair of adjacent regions
+    if (pairs.length == 0) {
+      // on player panel; do nothing
+    } else if (pairs.length == 1) {
+      this.placeFactionBaseFoundations(pairs[0]);
+    } else {
+      this.chooseAdjacentPair(hex, pairs);
     }
-    // map.unlink(hex, (hex) => hex.tile?.terrain == 'Mtn');  // unlink from Mtn
-    this.placeFactionBaseFoundations(pairs[0]);
   }
 
   getAdjacentPairs(hex: Hex2) {
@@ -366,26 +359,45 @@ export class ChaosTile extends MapTile {
   }
 
   // Base must choose which pair of Hexes to use & add mountains
-  chooseAdjacentPair(hex: Hex2) {
-    const pairs = this.getAdjacentPairs(hex);
-
+  chooseAdjacentPair(hex: Hex2, pairs: [Hex2, Hex2][]) {
+    const map = this.hex!.map as HexMap2;
+    // and to place mountain(s) to block other(s)
+    // put GUI selector on each pair; on(click) -->
+    // --> place mountains on other side(s) of Base
+    // --> placeFactionBaseFoundations(pairs[n])
+    const cb = (pairTarget: PairTarget) => {
+      PairTarget.removeTargets();
+      const pair = pairTarget.pair;
+      const hexes = pairs.flat();
+      hexes.forEach(hex2 => pair.includes(hex2) || map.placeMtn(hex, hex2));
+      this.placeFactionBaseFoundations(pair); hex.map.update()
+    }
+    pairs.forEach(pair => {
+      try {
+        const pairTarget = new PairTarget(pair);
+        pairTarget.on(S.click, (evt) => cb(pairTarget))
+      } catch (msg) {
+        console.warn(stime(this, `.addBaseFoundataionsAndLink: ${msg}`))
+      }
+    });
   }
 
   // ASSERT: adjRegions.length == 2
-  placeFactionBaseFoundations(adjRegions: Hex2[]) {
+  placeFactionBaseFoundations(adjRegions: [Hex2, Hex2]) {
     const faction = this.player!.faction;
     const founds = permute(faction.bf).map((bonus, i) => new Foundation(`${faction.name}bf${i}`, bonus))
-    adjRegions.slice(0, 2).forEach((hex, n) => hex.tile?.addFoundation(founds[n]))
+    adjRegions.forEach((hex, n) => hex.tile?.addFoundation(founds[n]))
   }
 
-  /** on this.dragStart() */
+  /** on this.dragStart(); undo previous placement */
   rmBaseFoundationsAndUnlink(ctx: DragContext) {
     const hex = this.fromHex, map = hex.map as HexMap2;
-    hex.forEachLinkHex((nHex: Hex2) => {
+    if (!hex.isOnMap) return;
+    hex.forEachLinkHex((nHex, dir) => {
       // remove any Mtn between hex and nHex:
       map.removeMtn(hex, nHex);
       // remove any foundation in nHex:
-      nHex?.tile?.foundations.forEach((elt, n, ary) => {
+      nHex.tile?.foundations.forEach((elt, n, ary) => {
         elt?.parent?.removeChild(elt);
         ary[n] = undefined;
       })

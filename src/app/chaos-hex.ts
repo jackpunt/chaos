@@ -4,6 +4,7 @@ import type { DisplayObject } from "@thegraid/easeljs-module";
 import { H, Hex1 as Hex1Lib, Hex2Mixin, HexMap, HexMark, HexShape, TileSource, TP, type HexDir, type HexM, type IdHex, type IHex2, type Tile } from "@thegraid/hexlib";
 import { ChaosTile, type HARVEST, type TERRAIN } from "./chaos-tile";
 import { Fighter } from "./meeples";
+import { CO } from "./research-cell";
 import type { TacticsCard } from "./tactics-card";
 
 
@@ -67,8 +68,8 @@ export class ChaosHex2 extends ChaosHex2Lib {
   // declare meep: ChaosCard | undefined;
 
   // type transmission from HexMixin
-  override forEachHexDir(func: (hex: this, dir: HexDir, hex0: this) => unknown) {
-    super.forEachHexDir(func);
+  override forEachLinkHex(func: (hex: this, dir: HexDir, hex0: this)=> unknown): void {
+    super.forEachLinkHex(func)
   }
 
   // enlarge to remove dead-zone between hexes:
@@ -89,23 +90,51 @@ export class TokenHex extends ChaosHex2 {
 
 class Mountain extends RectShape {
   constructor(public hex0: IHex2, public hex1: IHex2) {
-    const dx = TP.hexRad * .9, dy = dx/11;
-    super({x: -dx/2, y: -dy/2, w: dx, h: dy}, C.PURPLE, '');
-    const map = this.hex1.map as HexMap2;
+    const map = hex0.map as HexMap2;
     const dir01 = hex0.findLinkHex(hex => (hex == hex1));
     if (!dir01) {
       throw(`new Mountain: hexes ${hex0} & ${hex1} are not adjacent`);
     }
 
+    const dx = TP.hexRad * .9, dy = dx/11;
+    super({x: -dx/2, y: -dy/2, w: dx, h: dy}, C.PURPLE, ''); // or dmauve?
+
     map.mountains.push(this);
     this.rotation = (H.dirRot[dir01]);
-    hex0.edgePoint(dir01, 1, this);      // set mountain on edge of Hex
-    map.mapCont.overCont.addChild(this); // mtn piece on top of other tiles
+    hex0.edgePoint(dir01, 1, this);      // set RectShape on edge of Hex
+    map.mapCont.overCont.addChild(this); // place on top of other tiles
     // remove adjacency links:
+    console.log(stime(this, `.new Mountain: ${hex0} -- ${hex1}`))
     delete hex0.links[dir01];
     delete hex1.links[H.dirRev[dir01]];
   }
 };
+
+/** Graphic target to indicate which Region Pair user wants for base foundations */
+export class PairTarget extends RectShape {
+  static targets: PairTarget[] = [];
+  static removeTargets() {
+    PairTarget.targets.forEach(pt => pt.parent.removeChild(pt));
+    PairTarget.targets.length = 0;
+  }
+
+  /** create PairTarget and add to PairTarget.targets; and show on overCont. */
+  constructor(public pair: [ChaosHex2, ChaosHex2]) {
+    const map = pair[0].map as HexMap2;
+    const dir01 = pair[0].findLinkHex(hex => (hex == pair[1]));
+    if (!dir01) {
+      throw(`new PairTarget: hexes ${pair} are not adjacent`);
+    }
+
+    const dx = TP.hexRad * .3, dy = dx*2;
+    super({ x: -dx/2, y: -dy/2, w: dx, h: dy }, CO.mauve, '');
+    PairTarget.targets.push(this);
+
+    this.rotation = (H.dirRot[dir01]);
+    pair[0].edgePoint(dir01, 1, this);      // set RectShape on edge of Hex
+    map.mapCont.overCont.addChild(this); // place on top of other tiles
+  }
+}
 
 /////////////////////////////////// HexMap2 ///////////////////////////////////////////////
 
@@ -124,33 +153,13 @@ export class HexMap2 extends HexMap<ChaosHex2> {
   }
 
   // TODO: types for headless/non-GUI HexMap<ChaosHex>
-  /** remove given hex from Stage */
-  rmHex2(hex: ChaosHex2) {
-    hex.cont?.parent.removeChild(hex.cont); // fine even if no hex.cont
-  }
 
   rmHex(hexMap: HexMap<ChaosHex2>, row: number, col: number) {
-    this.rmHex2(hexMap[row][col] as ChaosHex2); // remove hex.cont from display list
+    const hex = hexMap[row][col] as ChaosHex2;
+    hex.cont?.parent?.removeChild(hex.cont); // remove hex.cont from display list
+    this.unlink(hex);
     delete hexMap[row][col];       // remove hex element from hexMap
   }
-
-  /**
-   * Remove links to the hexes indicated by the given predicate.
-   *
-   * HexMap.link links all the phyically adjacent hexes; without considering mountains.
-   * @param hex a ChaosHex2 to be unlinked
-   * @param pred (nextHex) if true: break adjacency between this hex and nextHex.
-   */
-  override_unlink<T extends ChaosHex2>(hex: T, pred: (nHex: T) => boolean ) {
-    // check each direction for a Hex with pred(nHex)
-    hex.forEachHexDir((nHex, dir) => {
-      // const nHex = hex.links[dir]; // = hex.nextHex(dir)
-      if (nHex && pred(nHex)) {
-        hex.links[dir] = undefined;
-        nHex.links[H.dirRev[dir]] = undefined;
-      }
-    })
-  };
 
   /** remove each hex not used by Chaos map */
   sculptMap(hexMap = this) {
@@ -193,7 +202,7 @@ export class HexMap2 extends HexMap<ChaosHex2> {
     try {
       new Mountain(hex0, hex1);
     } catch (msg) {
-      console.log(stime(this, `.placeMtn: ${msg}`))
+      console.warn(stime(this, `.placeMtn: ${msg}`))
     }
   }
 
@@ -318,7 +327,7 @@ export class HexMap2 extends HexMap<ChaosHex2> {
     map.forEachHex(hex => {
       const tile = hex.tile as ChaosTile;
       if (tile?.terrain == 'Mtn' || tile?.terrain == 'Base') {
-        hex.forEachLinkHex((hex2: ChaosHex2, dir, hex0: ChaosHex2) => {
+        hex.forEachLinkHex((hex2, dir, hex0) => {
           delete hex0.links[dir!]
           delete hex2.links[H.dirRev[dir!]]
         })
