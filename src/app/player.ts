@@ -603,6 +603,9 @@ export class Panel extends PlayerPanel {
   priceTokens = [] as PriceToken[];
   /**
    * A row of 6 PricingToken with a home on this Panel
+   * @param table (not used)
+   * @param row vertical offset on this panel
+   * @param pids PriceToken ids (1--6) or subset for neutralPlayer
    */
   addPriceTokens(table: Table, row = 0, pids = arrayN(6, (i)=>i+1)) {
     const np = this.player.gamePlay.allPlayers.length;

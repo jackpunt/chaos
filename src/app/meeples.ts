@@ -447,6 +447,7 @@ export class PriceToken extends ChaosMeeple {
     this.bTexts = ((np == 2) ? PriceToken.bonus_2 : PriceToken.bonus35)[this.vid-1];
     this.fillCont(this);
     this.status = ['avail', 'invault', 'avail', 'avail', 'avail', 'invault'][vid-1] as PT_Status;
+    if (facId == 5 + 1) this.status = 'avail';
     if (this.status == 'avail') { this.setAvailable() } else { this.moveToVault() }
     // TODO: implement expiration, and (%) and retrieve(^) and card(C)
     this.effect = () => {};
