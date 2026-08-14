@@ -386,7 +386,12 @@ export class ChaosTile extends MapTile {
   placeFactionBaseFoundations(adjRegions: [Hex2, Hex2]) {
     const faction = this.player!.faction;
     const founds = permute(faction.bf).map((bonus, i) => new Foundation(`${faction.name}bf${i}`, bonus))
-    adjRegions.forEach((hex, n) => hex.tile?.addFoundation(founds[n]))
+    adjRegions.forEach((hex, n) => hex.tile?.addFoundation(founds[n]));
+    // block Oxataya from any adjacent Lake:
+    if (this.player?.facId == 5) {
+      const hex0 = this.hex as Hex2, map = hex0.map as HexMap2;
+      hex0.forEachLinkHex(hex1 => hex1.tile.terrain == 'Lake' && map.placeMtn(hex0, hex1))
+    }
   }
 
   /** on this.dragStart(); undo previous placement */
