@@ -8,7 +8,7 @@ import { Faction, factionColors, type FactionId, type FactionName } from "./fact
 import { BgFound, Foundation } from "./foundation";
 import { type GamePlay } from "./game-play";
 import { pricePhases, type PlayerId } from "./game-state";
-import { ChaosPresence, Factory, Outposts, PricingToken, PTokenShape, Stronghold, type ChaosUnitType, type Fighter, type Leader, type PriceId } from "./meeples";
+import { ChaosPresence, Factory, Outposts, PriceToken, PTokenShape, Stronghold, type ChaosUnitType, type Fighter, type Leader, type PriceId } from "./meeples";
 import { CO, ResearchCell, ResGrid } from "./research-cell";
 import { CardBack, CardPanel, type CardHex } from "./tactics-card";
 
@@ -598,7 +598,7 @@ export class Panel extends PlayerPanel {
     return cardPanel;
   }
 
-  priceTokens = [] as PricingToken[];
+  priceTokens = [] as PriceToken[];
   /**
    * A row of 6 PricingToken with a home on this Panel
    */
@@ -613,7 +613,7 @@ export class Panel extends PlayerPanel {
     this.priceTokens.length = 0;
     pids.forEach(i => {
       const xy = { x: x + i * (w/2 + gap), y };
-      const pt = new PricingToken(i as PriceId, xy, this.player);
+      const pt = new PriceToken(i as PriceId, xy, this.player);
       pt.sendHome()
       this.priceTokens[i] = pt;
     })

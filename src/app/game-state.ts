@@ -3,7 +3,7 @@ import { GameState as GameStateLib, type Phase } from "@thegraid/hexlib";
 import type { ChaosTable as Table } from "./chaos-table";
 import { factionNames, type FactionId } from "./factions";
 import type { GamePlay } from "./game-play";
-import type { PricingToken } from "./meeples";
+import type { PriceToken } from "./meeples";
 import type { Player } from "./player";
 
 export const phaseNames = ['SetPrices', 'Discovery', 'Build', 'Harvest', 'Recruit', 'Move', 'Combat', 'Income', 'Relics'] as const;
@@ -14,7 +14,7 @@ export const pricePhases = ['Discovery', 'Build', 'Harvest', 'Recruit', 'Move'] 
 export type PricePhase = typeof pricePhases[number];
 
 // Never stop/state a END of a phase, always proceed to next Phase, so curPlayer is the next to take Action.
-type SaveState = [ phase: Phase, cpndx: FactionId, prices: PricingToken[] ];
+type SaveState = [ phase: Phase, cpndx: FactionId, prices: PriceToken[] ];
 
 /** 0 -- maxPlayers; is index into allPlayers[pid]; represents Table Order! */
 export type PlayerId = 0 | 1 | 2 | 3 | 4; // index into allPlayers
@@ -64,7 +64,7 @@ export class GameState extends GameStateLib {
   /** simple map from facId to Player */
   playerByFacId: (Player|undefined)[] = [];
 
-  phasePrices: Partial<Record<PriceName, PricingToken>> = {};
+  phasePrices: Partial<Record<PriceName, PriceToken>> = {};
 
   constructor(gamePlay: GamePlay) {
     super(gamePlay)

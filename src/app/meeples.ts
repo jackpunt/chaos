@@ -376,7 +376,7 @@ class PTMark extends RectShape {
 }
 
 
-export class PricingToken extends ChaosMeeple {
+export class PriceToken extends ChaosMeeple {
   bColor = 'rgb(150, 70, 0)';
   nColor = 'rgb(255, 140, 0)'; // neutral color
 
@@ -440,11 +440,11 @@ export class PricingToken extends ChaosMeeple {
     this.facId = facId;
     const np = TP.numPlayers
     if (facId <= 5) {
-      this.vdist = (np == 2 ? PricingToken.dist2 : PricingToken.dist35)[vid-1] as VDIST;
+      this.vdist = (np == 2 ? PriceToken.dist2 : PriceToken.dist35)[vid-1] as VDIST;
     } else {
-      this.vdist = (PricingToken.neutral)[vid-1] as VDIST;
+      this.vdist = (PriceToken.neutral)[vid-1] as VDIST;
     }
-    this.bTexts = ((np == 2) ? PricingToken.bonus_2 : PricingToken.bonus35)[this.vid-1];
+    this.bTexts = ((np == 2) ? PriceToken.bonus_2 : PriceToken.bonus35)[this.vid-1];
     this.fillCont(this);
     this.status = ['avail', 'invault', 'avail', 'avail', 'avail', 'invault'][vid-1] as PT_Status;
     if (this.status == 'avail') { this.setAvailable() } else { this.moveToVault() }
@@ -510,8 +510,8 @@ export class PricingToken extends ChaosMeeple {
 
   override showTargetMark(hex: IHex2 | undefined, ctx: DragContext): void {
     const map = (ctx.targetHex ? ctx.targetHex.map : this.gamePlay.hexMap) as HexMap2;
-    map?.showMark(ctx.targetHex, PricingToken.mark);
-    map?.mapCont.overCont?.addChild(PricingToken.mark); // move to overCont
+    map?.showMark(ctx.targetHex, PriceToken.mark);
+    map?.mapCont.overCont?.addChild(PriceToken.mark); // move to overCont
   }
 
   override isLegalTarget(toHex: Hex2, ctx?: DragContext): boolean {

@@ -1,7 +1,7 @@
 import { AliasLoader } from "@thegraid/easeljs-lib";
 import type { Phase } from "@thegraid/hexlib";
 import { ChaosTile, type BONUS, type FAME_BONUS, type HARVEST } from "./chaos-tile";
-import type { LeaderName, PricingToken } from "./meeples";
+import type { LeaderName, PriceToken } from "./meeples";
 import { type Player } from "./player";
 import { TP } from "./table-params";
 //
@@ -121,7 +121,7 @@ export class Faction {
 
   player!: Player;
   // PricingTokens available to play
-  pTokens: PricingToken[] = [];
+  pTokens: PriceToken[] = [];
 
   leaders: LeaderName[] = [];
 
