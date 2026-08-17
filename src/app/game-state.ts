@@ -1,5 +1,5 @@
 import { arrayN } from "@thegraid/common-lib";
-import { GameState as GameStateLib, type Phase } from "@thegraid/hexlib";
+import { GameState as GameStateLib, TP, type Phase } from "@thegraid/hexlib";
 import type { ChaosTable as Table } from "./chaos-table";
 import { factionNames, type FactionId } from "./factions";
 import type { GamePlay } from "./game-play";
@@ -116,7 +116,7 @@ export class GameState extends GameStateLib {
           this.doneButton(`PlaceBase: ${plyr.Aname}`);
         } else {
           this.gunPlayer = this.gamePlay.allPlayers[pid];  // last to place Base is first with the Gun.
-          this.phase('BeginRound', 1); // begin with Round = 1
+          this.phase('PlaceRelic');
         }
       },
       // done(this.player.index)
@@ -124,6 +124,22 @@ export class GameState extends GameStateLib {
         this.state.start(pid); // loop for each player
       }
     },
+    // In reverse table order, place a Relic on Region not adjacent to Factions starting foundations (>2-Moves from Base)
+    PlaceRelic: {
+      start: (index = TP.numPlayers) => {
+        if (index > 0) {
+          this.setCurPlayerNdx(index - 1 as PlayerId);
+          this.doneButton(`PlaceRelic: ${this.curPlayer.Aname}`);
+        } else {
+          this.gamePlay.placeInitialRelics();
+          this.phase('BeginRound', 1); // begin with Round = 1
+        }
+      },
+      done: (pid = this.curPlayer.index) => {
+        this.state.start(pid); // loop for each player
+      }
+    },
+
 
     BeginRound: {
       // start(1)

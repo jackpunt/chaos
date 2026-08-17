@@ -268,18 +268,20 @@ export class ChaosBuilding extends ChaosPresence {
   }
 
   override dropFunc(targetHex: Hex2, ctx: DragContext): void {
+    this.placeBuilding(targetHex);
+  }
+
+  placeBuilding(targetHex?: Hex2) {
     if (!targetHex) {
       this.sendHome();
-      return;
-    }
-    // on targetHex (on map), place on Foundation
-    if (targetHex) {
-      this.scaleX = this.scaleY = Foundation.mapScale
+    } else {
+      // ASSERT: there is a Foundation! from isLegalTarget()
+      // on targetHex (on map), place on Foundation.
       const f = this.findFoundation(targetHex)
       f.bldg = this;   // mark Foundation occupied
+      this.scaleX = this.scaleY = Foundation.mapScale
       this.x = f.x; this.y = f.y;
       f.parent.addChild(this);
-      return;
     }
   }
   // invoke before super.dropFunc -> moveTo(hex)
@@ -324,6 +326,8 @@ export class Stronghold extends ChaosBuilding {
 export class Relic extends ChaosMeeple {
   static bonus = ['E2', 'G1', 'C', '%', '%', '-'] as BONUS[];
 
+  static allRelics: Relic[] = [];
+
   bText = '%' as BONUS;   // placeholder
   override makeShape(size = TP.meepleRad): Paintable {
     return new RectShape({ x: -size/2, y: -size/2, w: size, h: size }, C.grey32);
@@ -337,12 +341,19 @@ export class Relic extends ChaosMeeple {
     const fs = this.baseShape.getBounds().height*.9;
     this.addChild(new CenterText(`${n}`, F.fontSpec(fs, 'Arial Rounded MT Bold'), C.WHITE));
     this.foundation = new BgFound(`RF_${n}`, Relic.bonus[n]);
+    Relic.allRelics.push(this);
   }
 
   override sendHome(): void {
+    const f = this.foundation;
+    if (f.onTile) {
+      f.parent?.removeChild(f);
+      delete f.onTile.foundations[f.onTile.foundations.indexOf(f)];
+    }
     this.player.panel.addChild(this);
     this.scaleX = this.scaleY = 1;
     this.x = this.homeXY.x; this.y = this.homeXY.y;
+    this.fromHex = undefined!;
   }
 
   isAdjacentCurPlayerBaseFoundations(toHex: Hex2) {
@@ -351,27 +362,41 @@ export class Relic extends ChaosMeeple {
     return cpbf[0].linkHexes.includes(toHex) || cpbf[1].linkHexes.includes(toHex);
   }
 
+  override cantBeMovedBy(player: Player, ctx: DragContext): string | boolean | undefined {
+    if (ctx.lastShift) return false;
+    if (this.foundation.onTile) {
+      this.fromHex = this.foundation.onTile.chex; // table.stopDragging() will drop this on this.fromHex!
+      return 'already in place';
+    }
+    if (ctx.gameState.isPhase('PlaceRelic') && ctx.gameState.curPlayer == player) return false;
+    return 'only move in PlaceRelic phase';
+  }
+
   override isLegalTarget(toHex: Hex2, ctx: DragContext): boolean {
-    if (toHex == this.fromHex) return true;
+    if (toHex == this.foundation.onTile?.chex) return true; // Relic is not 'on' a Hex or Tile; is on its Foundation.
     if ((['Base', 'Mtn', 'Lake'] as TERRAIN[]).includes(toHex.ctile?.terrain ?? 'Base')) return false;
     return !!toHex.tile && !toHex.tile.foundations[1] && !this.isAdjacentCurPlayerBaseFoundations(toHex);
   }
 
   override dropFunc(targetHex: Hex2, ctx: DragContext): void {
+    this.placeRelic(targetHex);
+    if (!targetHex) this.gamePlay.hexMap.showMark();
+  }
+
+  // on targetHex (on map), place on Foundation
+  placeRelic(targetHex: Hex2)  {
+    const f = this.foundation;
     if (!targetHex) {
       this.sendHome();
-      return;
-    }
-    // on targetHex (on map), place on Foundation
-    if (targetHex) {
-      this.scaleX = this.scaleY = Foundation.mapScale
-      const f = this.foundation;
+    } else {
+      // move foundation to new mapTile:
       if (f.onTile !== targetHex.ctile) {
         if (f.onTile) {
           delete f.onTile.foundations[f.onTile.foundations.indexOf(f)];
         }
-        targetHex.ctile?.addFoundation(this.foundation); // may set scaleX, scaleY
+        targetHex.ctile?.addFoundation(f); // sets f.scaleX, f.scaleY
       }
+      this.scaleX = this.scaleY = Foundation.mapScale;
       this.x = f.x; this.y = f.y;
       f.parent.addChild(this);
       return;

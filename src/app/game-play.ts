@@ -1,10 +1,13 @@
-import { stime } from "@thegraid/common-lib";
+import { permute, stime } from "@thegraid/common-lib";
 import { KeyBinder } from "@thegraid/easeljs-lib";
 import { GamePlay as GamePlayLib, SetupElt, TP as TPLib } from "@thegraid/hexlib";
 import type { HexMap2 } from "./chaos-hex";
 import type { ChaosTable } from "./chaos-table";
+import type { BONUS, TERRAIN } from "./chaos-tile";
+import { BgFound } from "./foundation";
 import type { GameSetup } from "./game-setup";
 import { GameState, priceNames, type PlayerId, type PriceName } from "./game-state";
+import { Relic } from "./meeples";
 import type { Player } from "./player";
 import { ScenarioParser } from "./scenario-parser";
 import { TP } from "./table-params";
@@ -89,6 +92,23 @@ export class GamePlay extends GamePlayLib {
   /** parseScenario() makes a new ScenarioParser for each invocation */
   override makeScenarioParser(hexMap = this.hexMap): ScenarioParser {
     return new ScenarioParser(hexMap, this);
+  }
+  // Note: at this point foundations[1] indicates 'ctile has a Relic OR baseFoundation'
+  placeInitialRelics() {
+    const map = this.hexMap;
+    const relics = Relic.allRelics.filter(rel => !rel.foundation.onTile);
+    const terr: TERRAIN[] = ['Hills', 'Swamp', 'Plains'];
+    const hexes = map.filterEachHex(hex => terr.includes(hex.ctile?.terrain ?? 'Mtn') && (!hex.ctile!.foundations[1]) )
+    permute(hexes);
+    const empty = permute(['E2', 'G1', 'C'] as BONUS[]).map(b => new BgFound(`noR_${b}`, b));
+    hexes.forEach(hex => {
+      const relic = relics.pop();
+      if (relic) {
+        relic.placeRelic(hex);
+      } else {
+        hex.ctile?.addFoundation(empty.pop()!, true);
+      }
+    })
   }
 
   // TODO:
