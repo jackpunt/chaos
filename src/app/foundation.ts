@@ -30,7 +30,7 @@ export class Foundation extends Tile {
       b.x = this.x; b.y = this.y;
       b.found = this;
       b.scaleX = b.scaleY = this.scaleX;
-      this.parent.addChild(b);
+      this.parent?.addChild(b);
     }
   }
   // panel Foundations ('-'); other startup & Relic Foundations have a BONUS with icon
@@ -119,7 +119,7 @@ export class Foundation extends Tile {
   }
 }
 
-/** background Foundation on Panel; marking homeXY position. */
+/** background Foundation on Panel; marking homeXY position. [not Dragable] */
 export class BgFound extends Foundation {
   /** not draggable */
   override makeDragable(table: Table): void {  }

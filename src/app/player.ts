@@ -8,7 +8,7 @@ import { Faction, factionColors, type FactionId, type FactionName } from "./fact
 import { BgFound, Foundation } from "./foundation";
 import { type GamePlay } from "./game-play";
 import { pricePhases, type PlayerId } from "./game-state";
-import { ChaosPresence, Factory, Outposts, PriceToken, PTokenShape, Stronghold, type ChaosUnitType, type Fighter, type Leader, type PriceId } from "./meeples";
+import { ChaosBuilding, ChaosPresence, Factory, Outposts, PriceToken, PTokenShape, Stronghold, type ChaosUnitType, type Fighter, type Leader, type PriceId } from "./meeples";
 import { CO, ResearchCell, ResGrid } from "./research-cell";
 import { CardBack, CardPanel, type CardHex } from "./tactics-card";
 
@@ -362,9 +362,9 @@ export class Panel extends PlayerPanel {
     img.y = y;
     this.addChild(img);
   }
-  /** a row of icon pairs: [ % bonus ] */
+  /** a row of icon pairs: [ % bonus ] */  // TODO: create Foundations for the Relic targets on Panel
   addRelics(spec: Faction) {
-    const { x, y, width, height } = this.getBounds();
+    const { x, y } = this.getBounds();
     const h = this.wh, w = h * 2, gap = h * .15;
     const x0 = x + w * 1.76, y0 = y + h * .65;
     const sp = spec.rb;
@@ -389,7 +389,7 @@ export class Panel extends PlayerPanel {
   // FacSpec.bg: number[][] building w/gemlock (index per type); // indicates number of slots for each type
   /** 10 Foundations and 9 Buildings */
   addBuildings(spec: Faction) {
-    const wh = this.wh, x0 = wh * 2.95, y0 = wh * 1.65, fs = wh * .2;
+    const wh = this.wh, x0 = wh * 2.95, y0 = wh * 1.65, fs = wh * .2; // fs = foundation size
     const inx = wh * .54, iny = wh * 1.32;
     const stripe = new RectShape({ x: inx, y: iny, w: this.getBounds().width - wh, h: wh * .6 }, CO.orange, '')
     const circ = new CircleShape(CO.orange, wh/2, ''); circ.x = inx; circ.y = iny + wh/4;
@@ -432,7 +432,7 @@ export class Panel extends PlayerPanel {
   /**
    * turned out we do not re-use this...
    * @param fxy Panel location of bg & fg
-   * @param produce { bg, fg }
+   * @param produce { bg: Foundation, fg: Tile }
    * @returns
    */
   makePair(fxy: XY, maker: (fs: number) => { bg: Foundation, fg: Tile & { homeXY?: XY} }) {
@@ -458,7 +458,7 @@ export class Panel extends PlayerPanel {
     }
     const wh = this.wh, x0 = wh * .55, y0 = wh * .55, s1 = wh * 1.1;
     foundationIds.forEach((fid, ndx) => {
-      const bText = fn[fid] as BONUS;
+      const bText = fn[fid];
       const x = x0 + s1 * c[ndx];
       const y = y0 + s1 * r[ndx];
       const maker = (fs: number) => {

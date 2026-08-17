@@ -1,12 +1,12 @@
-import { C, stime, type XY, type XYWH } from "@thegraid/common-lib";
-import { NamedContainer, PathShape, RectShape, TextInRect, type Paintable } from "@thegraid/easeljs-lib";
+import { C, F, stime, type XY, type XYWH } from "@thegraid/common-lib";
+import { CenterText, NamedContainer, PathShape, RectShape, TextInRect, type Paintable } from "@thegraid/easeljs-lib";
 import type { Rectangle } from "@thegraid/easeljs-module";
 import { Graphics } from "@thegraid/easeljs-module";
 import { Meeple, MeepleShape, Tile, TP, type DragContext, type Hex, type HexM, type IHex2 } from "@thegraid/hexlib";
 import { TokenHex, type ChaosHex2 as Hex2, type HexMap2 } from "./chaos-hex";
-import { type BONUS } from "./chaos-tile";
+import { type BONUS, type TERRAIN } from "./chaos-tile";
 import { factionNeutral, type FactionId } from "./factions";
-import { Foundation } from "./foundation";
+import { BgFound, Foundation } from "./foundation";
 import type { GamePlay } from "./game-play";
 import { priceNames, type PriceName } from "./game-state";
 import type { Player } from "./player";
@@ -175,6 +175,8 @@ export class Leader extends ChaosUnit {
 }
 
 // methods in common to Buildings
+// TerraMystica-like filling of homeAry
+//
 // player moves during Build phase, auto-move during Combat phase
 // subtypes may contribute Strength
 //
@@ -317,6 +319,66 @@ export class Stronghold extends ChaosBuilding {
   }
 }
 
+// Player moves only during initial game startup;
+// Auto moves during Relics phase
+export class Relic extends ChaosMeeple {
+  static bonus = ['E2', 'G1', 'C', '%', '%', '-'] as BONUS[];
+
+  bText = '%' as BONUS;   // placeholder
+  override makeShape(size = TP.meepleRad): Paintable {
+    return new RectShape({ x: -size/2, y: -size/2, w: size, h: size }, C.grey32);
+  }
+  foundation: Foundation; // placed on map hex by placeRelic(hex)
+
+  constructor(n: number, player: Player, homeXY: XY) {
+    const Aname = `Relic${n}`;
+    super(Aname, player);
+    this.homeXY = homeXY;
+    const fs = this.baseShape.getBounds().height*.9;
+    this.addChild(new CenterText(`${n}`, F.fontSpec(fs, 'Arial Rounded MT Bold'), C.WHITE));
+    this.foundation = new BgFound(`RF_${n}`, Relic.bonus[n]);
+  }
+
+  override sendHome(): void {
+    this.player.panel.addChild(this);
+    this.scaleX = this.scaleY = 1;
+    this.x = this.homeXY.x; this.y = this.homeXY.y;
+  }
+
+  isAdjacentCurPlayerBaseFoundations(toHex: Hex2) {
+    const cpbf = this.player.gamePlay.curPlayer?.panel.baseTile.baseRegions;
+    if (!cpbf) return false;
+    return cpbf[0].linkHexes.includes(toHex) || cpbf[1].linkHexes.includes(toHex);
+  }
+
+  override isLegalTarget(toHex: Hex2, ctx: DragContext): boolean {
+    if (toHex == this.fromHex) return true;
+    if ((['Base', 'Mtn', 'Lake'] as TERRAIN[]).includes(toHex.ctile?.terrain ?? 'Base')) return false;
+    return !!toHex.tile && !toHex.tile.foundations[1] && !this.isAdjacentCurPlayerBaseFoundations(toHex);
+  }
+
+  override dropFunc(targetHex: Hex2, ctx: DragContext): void {
+    if (!targetHex) {
+      this.sendHome();
+      return;
+    }
+    // on targetHex (on map), place on Foundation
+    if (targetHex) {
+      this.scaleX = this.scaleY = Foundation.mapScale
+      const f = this.foundation;
+      if (f.onTile !== targetHex.ctile) {
+        if (f.onTile) {
+          delete f.onTile.foundations[f.onTile.foundations.indexOf(f)];
+        }
+        targetHex.ctile?.addFoundation(this.foundation); // may set scaleX, scaleY
+      }
+      this.x = f.x; this.y = f.y;
+      f.parent.addChild(this);
+      return;
+    }
+  }
+}
+
 // Meeple has unMove & faceUp
 
 // These are more Tile-like: See also: Foundation (TODO: merge)
@@ -325,12 +387,6 @@ class ChaosToken extends Tile {
   declare gamePlay: GamePlay;
   declare player: Player;
   homeXY!: XY;                // sendHome location, if needed
-
-}
-
-// Player moves only during initial game startup;
-// Auto moves during Relics phase
-export class Relic extends ChaosToken {
 
 }
 

@@ -1,12 +1,12 @@
-import { C, type Constructor, type XY, type XYWH } from "@thegraid/common-lib";
+import { arrayN, C, type Constructor, type XY, type XYWH } from "@thegraid/common-lib";
 import { AliasLoader, NamedContainer, ParamGUI, type DragInfo, type NamedObject, type ParamItem, type RectShape } from "@thegraid/easeljs-lib";
 import { Stage, type Container, type DisplayObject } from "@thegraid/easeljs-module";
-import { Hex2, PlayerPanel, Table, Tile, TileSource, TP, type DragContext, type IHex2, type MapCont, type Player as PlayerLib } from "@thegraid/hexlib";
+import { Hex2, Table, Tile, TileSource, TP, type IHex2, type MapCont, type Player as PlayerLib } from "@thegraid/hexlib";
 import { TokenHex, type ChaosHex2, type HexMap2 } from "./chaos-hex";
 import { ChaosTile } from "./chaos-tile";
 import { factionColors, factionNames } from "./factions";
 import type { GamePlay } from "./game-play";
-import { PTokenShape } from "./meeples";
+import { PTokenShape, Relic } from "./meeples";
 import { Panel, Player } from "./player";
 import { TacticsCard, type CardBack } from "./tactics-card";
 
@@ -79,6 +79,7 @@ export class ChaosTable extends Table {
 
     this.makeNeutralPanel();    // See also: Panel.layoutNeutralPanel()
     this.makeTokenVault();
+    this.makeRelics();
     return;
   }
 
@@ -229,6 +230,19 @@ export class ChaosTable extends Table {
       fcont.visible = false;   // until a PlayerPanel picks it up
       const fImage = AliasLoader.loader.getBitmap(fn, {x: wh, y: wh});
       fcont.addChild(fImage)
+    })
+  }
+
+  /** make 6 numbered Relic buildings, place above the neutralPanel; D&D & auto-place on map */
+  makeRelics() {
+    const player = this.gamePlay.neutralPlayer;
+    const panel = player.panel, wh = panel.wh, x0 = wh * 1.85, y0 = wh * 1.55, s1 = wh * 1.1;;
+    arrayN(6).forEach(ndx => {
+      const n = ndx+1;
+      const fxy = { x: x0 + n * s1, y: y0 + 6 * wh }
+      const relic = new Relic(n, player, fxy);
+      relic.sendHome()
+      panel.addChild(relic);
     })
   }
 

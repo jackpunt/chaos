@@ -274,7 +274,7 @@ export class ChaosTile extends MapTile {
     const ndx = this.ndxForFoundation();
     if (commit && ndx != undefined) {
       this.foundations[ndx] = f;
-      f.onTile = this;
+      f.onTile = this;   // record Foundation is onTile on the map.
       // Graphically above this.hex:
       const hex = this.chex, dx = f.radius * 1.03, dy = f.radius * 1.25;
       f.scaleX = f.scaleY = Foundation.mapScale;  // scale down when drop on map
