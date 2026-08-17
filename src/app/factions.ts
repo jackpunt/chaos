@@ -1,10 +1,8 @@
-import { AliasLoader } from "@thegraid/easeljs-lib";
 import type { Phase } from "@thegraid/hexlib";
-import { ChaosTile, type BONUS, type FAME_BONUS, type HARVEST } from "./chaos-tile";
+import { BaseTile, type BONUS, type FAME_BONUS, type HARVEST } from "./chaos-tile";
 import type { LeaderName, PriceToken } from "./meeples";
 import { Player } from "./player";
 import { ResearchCell, ResearchLevel } from "./research-cell";
-import { TP } from "./table-params";
 //
 function expandArray<T>(rec: Record<number, T>): (T | undefined)[] {
   const length = Math.max(-1, ...Object.keys(rec).map(Number)) + 1; // .filter(k ->!isNan(k))
@@ -175,15 +173,7 @@ export class Faction {
   }
 
   makeBaseTile(player: Player) {
-    const bh = this.bh!;
-    const base = new ChaosTile(`${this.name}Base`, 'Base', bh, player); // we really should be subclassing for Neutral... (& Circadian)
-    const image = AliasLoader.loader.getBitmap(this.name);
-    const si = .8;
-    image.scaleX *= si;
-    image.scaleY *= si;
-    image.y  -= TP.hexRad * .4;
-    base.addChild(image)
-    return base;
+    return new BaseTile(this);
   }
 
   /** override for phase specific checks; Faction attributes */

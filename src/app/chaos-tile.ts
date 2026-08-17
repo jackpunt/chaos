@@ -1,9 +1,10 @@
 import { C, permute, S, stime } from "@thegraid/common-lib";
-import { CenterText, CircleShape, NamedContainer, PaintableShape, RectShape } from "@thegraid/easeljs-lib";
+import { AliasLoader, CenterText, CircleShape, NamedContainer, PaintableShape, RectShape } from "@thegraid/easeljs-lib";
 import { Container } from "@thegraid/easeljs-module";
 import { type DragContext, type HexDir, HexShape, type IHex2, MapTile, Player as PlayerLib, type Table, TP } from "@thegraid/hexlib";
-import { PairTarget, type ChaosHex2 as Hex2, type HexMap2 } from "./chaos-hex";
+import { type ChaosHex2 as Hex2, type HexMap2, PairTarget } from "./chaos-hex";
 import { type ChaosTable } from "./chaos-table";
+import type { Faction } from "./factions";
 import { Foundation } from "./foundation";
 import type { GamePlay } from "./game-play";
 import type { AI_Trap, Factory, Leader, Morale, Outposts, PriceBonus, Relic, Stronghold } from "./meeples";
@@ -251,15 +252,7 @@ export class ChaosTile extends MapTile {
     // make a Tile for each AfHex.
   }
 
-  // The only draggable ChaosTile will be the BaseTiles;
-  // Leaving this code for when we build them
-  // Also drag Building (as meeps) to Build and self-drop
-  override cantBeMovedBy(player: PlayerLib, ctx: DragContext): string | boolean | undefined {
-    if (this.hex?.isOnMap && !ctx.lastShift) return 'tile on map';
-    return super.cantBeMovedBy(player, ctx);
-  }
-
-  // Note: Foundations are never removed
+  // Note: Foundations are ~never removed.
   ndxForFoundation() {
     return [1, 2, 0].find(ndx => this.foundations[ndx] == undefined);
   }
@@ -288,8 +281,51 @@ export class ChaosTile extends MapTile {
     return ndx;
   }
 
+  /** for Relic Foundations when Relic is D&D moved: */
+  removeFoundation(f: Foundation) {
+    f.parent?.removeChild(f);
+    delete this.foundations[this.foundations.indexOf(f)];
+  }
+
   override isDragable(ctx?: DragContext): boolean {
-    return !this.hex?.isOnMap || this.terrain == 'Base';
+    return false;   // User/GUI cannot rearrange MapTile
+  }
+}
+
+export class BaseTile extends ChaosTile {
+  constructor(faction: Faction) {
+    super(`${faction.name}Base`, 'Base', faction.bh, faction.player);
+
+    const image = AliasLoader.loader.getBitmap(faction.name);
+    const si = .8;
+    image.scaleX *= si;
+    image.scaleY *= si;
+    image.x -= TP.hexRad * .15;
+    image.y += TP.hexRad * .4;
+    this.addChild(image)
+  }
+ override addHarvest() {
+    const icon = bonusIcon(this.harvest)!;
+    icon.x = this.radius * .37;
+    icon.y = this.radius * .37;
+    this.addChild(icon);
+  }
+
+  // no Foundations allowed in Base
+  override ndxForFoundation() {
+    return undefined;
+  }
+
+  // The only draggable ChaosTile will be the BaseTiles;
+  // Leaving this code for when we build them
+  // Also drag Building (as meeps) to Build and self-drop
+  override cantBeMovedBy(player: PlayerLib, ctx: DragContext): string | boolean | undefined {
+    if (this.hex?.isOnMap && !ctx.lastShift) return 'Base is on map';
+    return super.cantBeMovedBy(player, ctx);
+  }
+
+  override isDragable(ctx?: DragContext): boolean {
+    return true;
   }
 
   override dragStart(ctx: DragContext): void {

@@ -3,12 +3,12 @@ import { AliasLoader, CenterText, CircleShape, NamedContainer, RectShape, TextIn
 import { HexMap, newPlanner, NumCounter, Player as PlayerLib, PlayerPanel, TP, type IHex2, type MapCont, type Tile, type TileSource } from "@thegraid/hexlib";
 import { ChaosHex2 as Hex2, type ChaosHex2 } from "./chaos-hex";
 import { type ChaosTable, type ChaosTable as Table } from "./chaos-table";
-import { bonusIcon, ChaosTile, type BONUS, type HARVEST } from "./chaos-tile";
+import { BaseTile, bonusIcon, type BONUS, type HARVEST } from "./chaos-tile";
 import { Faction, factionColors, type FactionId, type FactionName } from "./factions";
 import { BgFound, Foundation } from "./foundation";
 import { type GamePlay } from "./game-play";
 import { pricePhases, type PlayerId } from "./game-state";
-import { ChaosBuilding, ChaosPresence, Factory, Outposts, PriceToken, PTokenShape, Stronghold, type ChaosUnitType, type Fighter, type Leader, type PriceId } from "./meeples";
+import { ChaosPresence, Factory, Outposts, PriceToken, PTokenShape, Stronghold, type ChaosUnitType, type Fighter, type Leader, type PriceId } from "./meeples";
 import { CO, ResearchCell, ResGrid } from "./research-cell";
 import { CardBack, CardPanel, type CardHex } from "./tactics-card";
 
@@ -556,10 +556,10 @@ export class Panel extends PlayerPanel {
   /** place for baseTile on panel */
   baseHex!: IHex2;
   /** Faction's baseTile */
-  baseTile!: ChaosTile;
+  baseTile!: BaseTile;
   // make ChaosTile, set color, set Harvest token
   setupBase(faction: Faction) {
-    const baseTile = this.baseTile = faction.makeBaseTile(this.player);
+    const baseTile = this.baseTile = new BaseTile(faction);
     const color = C.nameToRgbaString(CO.mauve, .4); // this.pColor; '#d0a53b';
     baseTile.paint(color);                          // color TBD;
     const hex = this.baseHex = this.table.newHex2(0, 0, `${this.faction.name}Base`);

@@ -346,10 +346,7 @@ export class Relic extends ChaosMeeple {
 
   override sendHome(): void {
     const f = this.foundation;
-    if (f.onTile) {
-      f.parent?.removeChild(f);
-      delete f.onTile.foundations[f.onTile.foundations.indexOf(f)];
-    }
+    f.onTile?.removeFoundation(f);
     this.player.panel.addChild(this);
     this.scaleX = this.scaleY = 1;
     this.x = this.homeXY.x; this.y = this.homeXY.y;
@@ -391,9 +388,7 @@ export class Relic extends ChaosMeeple {
     } else {
       // move foundation to new mapTile:
       if (f.onTile !== targetHex.ctile) {
-        if (f.onTile) {
-          delete f.onTile.foundations[f.onTile.foundations.indexOf(f)];
-        }
+        f.onTile?.removeFoundation(f);
         targetHex.ctile?.addFoundation(f); // sets f.scaleX, f.scaleY
       }
       this.scaleX = this.scaleY = Foundation.mapScale;
