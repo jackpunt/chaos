@@ -294,7 +294,7 @@ export class ChaosTile extends MapTile {
 
   override dragStart(ctx: DragContext): void {
     super.dragStart(ctx); // --> cantBeMovedBy()
-    if (this.DragData) {
+    {
       PairTarget.removeTargets();
       // unlink base & remove baseFoundations! (because shiftkey-move)
       this.rmBaseFoundationsAndUnlink(ctx); // if is dragging...
@@ -382,8 +382,10 @@ export class ChaosTile extends MapTile {
     });
   }
 
+  baseRegions?: [Hex2, Hex2];  // Note: only used by ChaosTile('Base')
   // ASSERT: adjRegions.length == 2
   placeFactionBaseFoundations(adjRegions: [Hex2, Hex2]) {
+    this.baseRegions = adjRegions;
     const faction = this.player!.faction;
     const founds = permute(faction.bf).map((bonus, i) => new Foundation(`${faction.name}bf${i}`, bonus))
     adjRegions.forEach((hex, n) => hex.tile?.addFoundation(founds[n]));
@@ -398,15 +400,21 @@ export class ChaosTile extends MapTile {
   rmBaseFoundationsAndUnlink(ctx: DragContext) {
     const hex = this.fromHex, map = hex.map as HexMap2;
     if (!hex.isOnMap) return;
-    hex.forEachLinkHex((nHex, dir) => {
-      // remove any Mtn between hex and nHex:
-      map.removeMtn(hex, nHex);
+    // remove any Mtn between hex and nHex; link thru Mtn is already removed...
+    map.linkDirs.forEach(dir => {
+      const nHex = map.getHex(map.nextRowCol(hex, dir));
+      if (nHex) map.removeMtn(hex, nHex)
+    })
+    // remove Foundations that were placed adjacent to Base;
+    this.baseRegions?.forEach(nHex => {
       // remove any foundation in nHex:
       nHex.tile?.foundations.forEach((elt, n, ary) => {
         elt?.parent?.removeChild(elt);
         ary[n] = undefined;
       })
     });
-    map.unlink(hex, nh => true);
+    this.baseRegions = undefined; // remove historical references
+    map.unlink(hex);
+    map.update();
   }
 }

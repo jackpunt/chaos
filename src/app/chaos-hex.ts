@@ -79,7 +79,8 @@ export class ChaosHex2 extends ChaosHex2Lib {
     return hs;
   }
 }
-
+/** the way code typically imports ChaosHex2 */
+type Hex2 = ChaosHex2;
 export class TokenHex extends ChaosHex2 {
   override makeHexShape(colorn?: string): Paintable {
     const wh = TP.meepleRad;
@@ -189,7 +190,7 @@ export class HexMap2 extends HexMap<ChaosHex2> {
     return this.findMtnIndex(hex0, hex1) >= 0;
   }
 
-  removeMtn(hex0: IHex2, hex1: IHex2) {
+  removeMtn(hex0: Hex2, hex1: Hex2) {
     const ndx = this.findMtnIndex(hex0, hex1);
     if (ndx < 0) return;
     this.mapCont.overCont.removeChild(this.mountains[ndx]);
