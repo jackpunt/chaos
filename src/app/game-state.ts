@@ -5,13 +5,8 @@ import { factionNames, type FactionId } from "./factions";
 import type { GamePlay } from "./game-play";
 import type { PriceToken } from "./meeples";
 import type { Player } from "./player";
+import { priceNames, pricePhases, type PriceName } from "./table-params";
 
-export const phaseNames = ['SetPrices', 'Discovery', 'Build', 'Harvest', 'Recruit', 'Move', 'Combat', 'Income', 'Relics'] as const;
-export type PhaseName = typeof phaseNames[number];
-export const priceNames = ['Discovery', 'Build', 'Harvest', 'Recruit', 'MoveFirst', 'MoveLast'] as const;
-export type PriceName = typeof priceNames[number];
-export const pricePhases = ['Discovery', 'Build', 'Harvest', 'Recruit', 'Move'] as const;
-export type PricePhase = typeof pricePhases[number];
 
 // Never stop/state a END of a phase, always proceed to next Phase, so curPlayer is the next to take Action.
 type SaveState = [ phase: Phase, cpndx: FactionId, prices: PriceToken[] ];

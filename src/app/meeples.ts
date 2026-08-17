@@ -8,8 +8,8 @@ import { type BONUS, type TERRAIN } from "./chaos-tile";
 import { factionNeutral, type FactionId } from "./factions";
 import { BgFound, Foundation } from "./foundation";
 import type { GamePlay } from "./game-play";
-import { priceNames, type PriceName } from "./game-state";
 import type { Player } from "./player";
+import { priceNames, type PriceName } from "./table-params";
 
 
 type XYp = [x: number, y: number];

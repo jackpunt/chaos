@@ -6,11 +6,11 @@ import type { ChaosTable } from "./chaos-table";
 import type { BONUS, TERRAIN } from "./chaos-tile";
 import { BgFound } from "./foundation";
 import type { GameSetup } from "./game-setup";
-import { GameState, priceNames, type PlayerId, type PriceName } from "./game-state";
+import { GameState, type PlayerId } from "./game-state";
 import { Relic } from "./meeples";
 import type { Player } from "./player";
 import { ScenarioParser } from "./scenario-parser";
-import { TP } from "./table-params";
+import { priceNames, type PriceName, TP } from "./table-params";
 
 
 export class GamePlay extends GamePlayLib {

@@ -9,6 +9,7 @@ import { GamePlay } from './game-play';
 import { mixins } from './mixins';
 import { Panel, Player } from './player';
 import { TacticsCard } from './tactics-card';
+import { ChaosTile } from './chaos-tile';
 
 // TODO: you can run a tool like dpdm or madge from your terminal window
 // (npx madge --circular --extensions ts .) to map the dependency graph layout
@@ -205,7 +206,7 @@ class NullGameSetup extends GameSetupLib {
   override makeGamePlay(startElt: SetupElt): GamePlay {
     const gp = new GamePlay(this, startElt);
     Tile.gamePlay = gp;
-    this.hexMap.setupMapTiles();   // TODO: move this to ScenarioParser.parseScenario()
+    this.hexMap.setupMapTiles(ChaosTile);   // TODO: move this to ScenarioParser.parseScenario()
     return gp;
   }
 

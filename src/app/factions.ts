@@ -2,7 +2,7 @@ import type { Phase } from "@thegraid/hexlib";
 import { BaseTile, type BONUS, type FAME_BONUS, type HARVEST } from "./chaos-tile";
 import type { LeaderName, PriceToken } from "./meeples";
 import { Player } from "./player";
-import { ResearchCell, ResearchLevel } from "./research-cell";
+import { type ResearchLevel } from "./research-cell";
 //
 function expandArray<T>(rec: Record<number, T>): (T | undefined)[] {
   const length = Math.max(-1, ...Object.keys(rec).map(Number)) + 1; // .filter(k ->!isNan(k))
@@ -118,9 +118,9 @@ export class Faction {
     this.fameTrack = Faction.fameTracks[facId]
   }
 
-  initializeResearchLevels() {
-    this.researchLevels = ResearchCell.initializeResearchCells(this);
-  }
+  // initializeResearchLevels() {
+  //   this.researchLevels = ResearchCell.initializeResearchCells(this);
+  // }
 
   researchLevels: ResearchLevel[] = [];
 

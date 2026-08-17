@@ -3,13 +3,14 @@ import { AliasLoader, CenterText, CircleShape, NamedContainer, RectShape, TextIn
 import { HexMap, newPlanner, NumCounter, Player as PlayerLib, PlayerPanel, TP, type IHex2, type MapCont, type Tile, type TileSource } from "@thegraid/hexlib";
 import { ChaosHex2 as Hex2, type ChaosHex2 } from "./chaos-hex";
 import { type ChaosTable, type ChaosTable as Table } from "./chaos-table";
-import { BaseTile, bonusIcon, type BONUS, type HARVEST } from "./chaos-tile";
+import { BaseTile, type BONUS, type HARVEST } from "./chaos-tile";
 import { Faction, factionColors, type FactionId, type FactionName } from "./factions";
-import { BgFound, Foundation } from "./foundation";
+import { BgFound, bonusIcon, Foundation } from "./foundation";
 import { type GamePlay } from "./game-play";
-import { pricePhases, type PlayerId } from "./game-state";
+import { type PlayerId } from "./game-state";
 import { ChaosPresence, Factory, Outposts, PriceToken, PTokenShape, Stronghold, type ChaosUnitType, type Fighter, type Leader, type PriceId } from "./meeples";
 import { CO, ResearchCell, ResGrid } from "./research-cell";
+import { pricePhases } from "./table-params";
 import { CardBack, CardPanel, type CardHex } from "./tactics-card";
 
 /** Canonical Faction colors, aligned with gameSetup.factionNames.
@@ -128,7 +129,8 @@ export class Player extends PlayerLib {
     gc.x = cc.wide + 3 * gap; gc.y = cc.high / 2 + 2 * gap;
     gc.boxAlign('left');
     this.panel.addChild(gc);
-    this.faction.initializeResearchLevels();
+    // this.faction.initializeResearchLevels();
+    this.faction.researchLevels = ResearchCell.initializeResearchCells(this.faction)
   }
 
   /** count gems for this player */

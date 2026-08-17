@@ -1,10 +1,8 @@
 import { C, Random, stime, type Constructor } from "@thegraid/common-lib";
 import { NamedContainer, PathShape, RectShape, type Paintable } from "@thegraid/easeljs-lib";
 import type { DisplayObject } from "@thegraid/easeljs-module";
-import { H, Hex1 as Hex1Lib, Hex2Mixin, HexMap, HexMark, HexShape, TileSource, TP, type HexDir, type HexM, type IdHex, type IHex2, type Tile } from "@thegraid/hexlib";
-import { ChaosTile, type HARVEST, type TERRAIN } from "./chaos-tile";
-import { Fighter } from "./meeples";
-import { CO } from "./research-cell";
+import { H, Hex1 as Hex1Lib, Hex2Mixin, HexMap, HexMark, HexShape, TP, type HexDir, type HexM, type IdHex, type IHex2, type Tile } from "@thegraid/hexlib";
+import { type ChaosTile, type HARVEST, type TERRAIN } from "./chaos-tile";
 import type { TacticsCard } from "./tactics-card";
 
 
@@ -20,22 +18,22 @@ export class ChaosHex extends Hex1Lib {
   // each dropFunc override to inc unit counter for the Faction.
   //
   override setUnit(unit?: Tile, isMeep?: boolean | undefined): void {
-    if (unit instanceof Fighter) {
-      super.setUnit(unit, isMeep);
-    } else {
+    // if (unit instanceof Fighter) {
+    //   super.setUnit(unit, isMeep);
+    // } else {
       super.setUnit(unit, isMeep);   // TODO handle ChaosMeeple & PlayerBitsOnHex
-    }
+    // }
   }
   // all the Fighters on this Hex;
   // Fighters.source[ndx] is the recruitHex for player[ndx] (hospital on player board)
 
-  FightersSources!: TileSource<Fighter>[];  // initialized in parseScenario
+  // FightersSources!: TileSource<Fighter>[];  // initialized in parseScenario
 
   override unitCollision(this_unit: Tile, unit: Tile, isMeep = false) {
-    if (unit instanceof Fighter && this_unit instanceof Fighter) {
-      this.FightersSources[unit.player!.index].availUnit(this_unit);
-      return; // continue with setUnit(): this.meep = unit;
-    }
+    // if (unit instanceof Fighter && this_unit instanceof Fighter) {
+    //   this.FightersSources[unit.player!.index].availUnit(this_unit);
+    //   return; // continue with setUnit(): this.meep = unit;
+    // }
     super.unitCollision(this_unit, unit, isMeep); // fall through
     // if (this === this_unit.source?.hex && this === unit.source?.hex) {
     //   this_unit.source.availUnit(this_unit);
@@ -110,32 +108,6 @@ class Mountain extends RectShape {
     delete hex1.links[H.dirRev[dir01]];
   }
 };
-
-/** Graphic target to indicate which Region Pair user wants for base foundations */
-export class PairTarget extends RectShape {
-  static targets: PairTarget[] = [];
-  static removeTargets() {
-    PairTarget.targets.forEach(pt => pt.parent.removeChild(pt));
-    PairTarget.targets.length = 0;
-  }
-
-  /** create PairTarget and add to PairTarget.targets; and show on overCont. */
-  constructor(public pair: [ChaosHex2, ChaosHex2]) {
-    const map = pair[0].map as HexMap2;
-    const dir01 = pair[0].findLinkHex(hex => (hex == pair[1]));
-    if (!dir01) {
-      throw(`new PairTarget: hexes ${pair} are not adjacent`);
-    }
-
-    const dx = TP.hexRad * .3, dy = dx*2;
-    super({ x: -dx/2, y: -dy/2, w: dx, h: dy }, CO.mauve, '');
-    PairTarget.targets.push(this);
-
-    this.rotation = (H.dirRot[dir01]);
-    pair[0].edgePoint(dir01, 1, this);      // set RectShape on edge of Hex
-    map.mapCont.overCont.addChild(this); // place on top of other tiles
-  }
-}
 
 /////////////////////////////////// HexMap2 ///////////////////////////////////////////////
 
@@ -221,7 +193,7 @@ export class HexMap2 extends HexMap<ChaosHex2> {
    * @param p6ary permutation for xtraTiles for (3, 4, 5)-players; set by ScenarioParser
    * @param np = TP.numPlayers 2..5
    */
-  setupMapTiles(p6ary = [-1, -1, -1], np = TP.numPlayers) {
+  setupMapTiles(chaosTile: Constructor<ChaosTile>, p6ary = [-1, -1, -1], np = TP.numPlayers) {
     const map = this;
     /** return the Nth (of 6) permutation of a 3 element array*/
     const permute6 = (ary3: any[], ndx: number) => {
@@ -303,7 +275,7 @@ export class HexMap2 extends HexMap<ChaosHex2> {
 
     const placeTile = (tileSpec: TileSpec) => {
       const { row, col, ter, h } = tileSpec;
-      const tile = new ChaosTile(`T${row},${col}:${ter.slice(0,1)}:${h}`, ter, h); // player = undefined
+      const tile = new chaosTile(`T${row},${col}:${ter.slice(0,1)}:${h}`, ter, h); // player = undefined
       tile.mouseEnabled = false;
       map.replaceTile(tile, row, col);
     }

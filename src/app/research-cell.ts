@@ -1,10 +1,10 @@
 import { C, F, type WH } from "@thegraid/common-lib";
 import { CenterText, EllipseShape, NamedContainer, RectShape } from "@thegraid/easeljs-lib";
 import type { DisplayObject } from "@thegraid/easeljs-module";
-import { bonusIcon, type HARVEST } from "./chaos-tile";
+import { type HARVEST } from "./chaos-tile";
 import { type Faction } from "./factions";
-import { pricePhases, type PricePhase } from "./game-state";
-import { TP } from "./table-params";
+import { bonusIcon } from "./foundation";
+import { pricePhases, TP, type PricePhase } from "./table-params";
 
 
 /** colors for ChaosOrder */

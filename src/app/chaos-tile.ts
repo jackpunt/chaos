@@ -1,14 +1,14 @@
 import { C, permute, S, stime } from "@thegraid/common-lib";
-import { AliasLoader, CenterText, CircleShape, NamedContainer, PaintableShape, RectShape } from "@thegraid/easeljs-lib";
-import { Container } from "@thegraid/easeljs-module";
-import { type DragContext, type HexDir, HexShape, type IHex2, MapTile, Player as PlayerLib, type Table, TP } from "@thegraid/hexlib";
-import { type ChaosHex2 as Hex2, type HexMap2, PairTarget } from "./chaos-hex";
+import { AliasLoader, NamedContainer, PaintableShape, RectShape } from "@thegraid/easeljs-lib";
+import { type DragContext, H, type HexDir, HexShape, type IHex2, MapTile, Player as PlayerLib, type Table, TP } from "@thegraid/hexlib";
+import { type ChaosHex2, type ChaosHex2 as Hex2, type HexMap2 } from "./chaos-hex";
 import { type ChaosTable } from "./chaos-table";
-import type { Faction } from "./factions";
-import { Foundation } from "./foundation";
+import { type Faction } from "./factions";
+import { bonusIcon, Foundation } from "./foundation";
 import type { GamePlay } from "./game-play";
-import type { AI_Trap, Factory, Leader, Morale, Outposts, PriceBonus, Relic, Stronghold } from "./meeples";
+import type { AI_Trap, Factory, Leader, Morale, Outposts, Relic, Stronghold } from "./meeples";
 import type { Player } from "./player";
+import { CO } from "./research-cell";
 import type { FactionOnTileState } from "./scenario-parser";
 
 declare module '@thegraid/easeljs-module' {
@@ -30,6 +30,33 @@ declare module '@thegraid/easeljs-module' {
     drawPolygon(points: [number, number][], close: boolean): void;
     /** short form of drawPolygon */
     pg(points: [number, number][], close: boolean): void;
+  }
+}
+
+
+/** Graphic target to indicate which Region Pair user wants for base foundations */
+class PairTarget extends RectShape {
+  static targets: PairTarget[] = [];
+  static removeTargets() {
+    PairTarget.targets.forEach(pt => pt.parent.removeChild(pt));
+    PairTarget.targets.length = 0;
+  }
+
+  /** create PairTarget and add to PairTarget.targets; and show on overCont. */
+  constructor(public pair: [ChaosHex2, ChaosHex2]) {
+    const map = pair[0].map as HexMap2;
+    const dir01 = pair[0].findLinkHex(hex => (hex == pair[1]));
+    if (!dir01) {
+      throw(`new PairTarget: hexes ${pair} are not adjacent`);
+    }
+
+    const dx = TP.hexRad * .3, dy = dx*2;
+    super({ x: -dx/2, y: -dy/2, w: dx, h: dy }, CO.mauve, '');
+    PairTarget.targets.push(this);
+
+    this.rotation = (H.dirRot[dir01]);
+    pair[0].edgePoint(dir01, 1, this);      // set RectShape on edge of Hex
+    map.mapCont.overCont.addChild(this); // place on top of other tiles
   }
 }
 
@@ -98,31 +125,6 @@ const flipBuff: Partial<Record<PROD_TOKEN, string>> = {
   Bm1: 'BG0',
 };
 
-
-// TODO: maybe use TextTweaks to place the glyphs?
-/** Foundation bonus; also use for Income icons */
-/** E: energy, G: gem, C: card, R: recruit, U: upgrade(gold), *: gemlock */
-export function bonusIcon(harv?: HARVEST | PriceBonus, fs = TP.hexRad * .15, tc?: string ) {
-    if (!harv || harv.length > 3) return undefined;
-    const spotmap = { E: 'yellow', G: 'red', C: 'white', R: 'orange', U: 'gold', '.': 'grey' };
-    const cardRot = 12;
-    const miniCard = () => {
-      const cardRect = { x: -w / 2, y: -h / 2, w, h, r: 2, s: 1 }; // maybe use TextInRect?
-      const card = new RectShape(cardRect, cHarv, 'grey');
-      card.scaleX = card.scaleY = Math.cos(cardRot * Math.PI/180);
-      return card;
-    }
-    const icon = new Container();
-    const h0 = harv[0] as keyof typeof spotmap;
-    const cHarv = spotmap[h0] ?? C.transparent;
-    const w = fs * .22/.15, h = w * 2.5/1.75;// 1.4;
-    const shape = (h0 == 'C' || h0 == 'U' ) ? miniCard() : new CircleShape(cHarv, fs, '');
-    const tColor = tc ?? C.pickTextColor(cHarv, ['black', 'white']);
-    const iText = new CenterText(h0 == 'C' ? '+' : harv, fs, tColor);
-    if (harv !== '-') icon.addChild(shape, iText);
-    if (h0 == 'C') icon.rotation = cardRot;
-    return icon
-  }
 
 const colorOfTerrain: Record<TERRAIN, string> = {
   Mtn: C.grey64,
