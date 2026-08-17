@@ -91,6 +91,32 @@ export class GamePlay extends GamePlayLib {
     return new ScenarioParser(hexMap, this);
   }
 
+  // TODO:
+  // Setup: Ciradian Base
+  // Setup: place Relics on Foundations; player choice?
+  // Setup: place Fighters & place Leaders
+  // SetPrices: Move --> FlareGun (gunPlayer)
+  // SetPrices: Recurit, Build --> Energy & Gem
+  // Each Phase: start with Pricer (or Neutral --> gunPlayer)
+  // Each Phses: player to pay or pass
+  // Discover: advancement bonus; give E,G,C; Move(3) R2;
+  // Discover: present Production Tokens, allow selection & placement for Harvest(2); Build(1,3) Foundation
+  // Discover: click to select Primary & Auxillary Research. (inc ResearchLevel)
+  // Build: D&D a Foundation; D&D a Building; w/gemLocks
+  // Harvest: click-to-Harvest (enable eligble Regions)
+  // Recruit: click-to-Recruit (Oxataya: option to move Fighters to Strongholds)
+  // Recruit: select Leader
+  // Move: select warriors & Leaders, Drag to next Region.
+  // Move: select Leader card to upgrade.
+  // Combat: choose opponent; choose wheel, card; commit --> reveal, (Ochara!)
+  // Combat: auto resolve, remove casualties/buildings, assign Fame (AI, Zcharo, JReyak, Oxataya)
+  // Combat: GUI for Retreat/Redeploy
+  // Income: choose E/C, E/%;
+  // Income: compute/choose Region Count (AI, Circadian); enable Redeploy,
+  // Income: Attribute Upgrade (various effects)
+  // Income: Faction specific Income: Ley,
+  // Relics: Win?; assign Relic do Bonus (Research, Upgrade-Circadian)
+  // ... next round
 
   brake = false; // for debugger
   /** for conditional breakpoints while dragging; inject into any object. */
