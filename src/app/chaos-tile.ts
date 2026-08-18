@@ -163,11 +163,11 @@ class FactionOnTile extends NamedContainer {
   // methods to add/remove elements
   addLeader(ldr: Leader, add = true) {
     if (add) {
-      this.leaders.push(ldr); // ASSERT gamePlay ensures leader not currently in leaders
-      this.addChild(ldr.icon)
+      !this.leaders.includes(ldr) && this.leaders.push(ldr);
+      this.addChild(ldr); // move to top...
     } else {
       removeEltFromArray(ldr, this.leaders);
-      this.removeChild(ldr.icon)
+      this.removeChild(ldr)
     }
     this.update()
   }
@@ -242,8 +242,8 @@ class FactionOnTile extends NamedContainer {
       const gap = lineWidth/this.leaders.length;
       const xl = gap/2 - lineWidth/2;
       this.leaders.forEach((ldr, n) => {
-        ldr.icon.x = xl + n * gap;
-        ldr.icon.y = yl;
+        ldr.x = xl + n * gap;
+        ldr.y = yl;
       })
     }
     this.stage.update();

@@ -167,26 +167,20 @@ export class Leader extends ChaosUnit {
   onBoard = false;
   placeGem = 0;
   upgradeGem = 0;
-  isRhyzu = false;
-
-  icon!: DisplayObject
+  isRhyzu = false;   // maybe subclass...
 
   constructor(Aname: string, player: Player) {
     super(Aname, player); // TODO: inject Player/Faction
     Leader.allLeadersByName.set(Aname, this);
-    this.icon = this.makeIcon(this)
   }
 
-  // temp make a graphic for each Leader;
   // TODO: image & click to popup
-  // Use the actual ChaosUnit as a Tile!
-  makeIcon(leader: Leader) {
-    const cont = new NamedContainer(`${this.Aname}_icon`);
-    const text = `${leader.Aname.substring(0,2)}`, fontSize = TP.hexRad * .2;
+  override makeShape(size?: number): Paintable {
+    const cont = new PaintableCont(`${this.Aname}_icon`);
+    const text = `${this.Aname.substring(0,2)}`, fontSize = TP.hexRad * .2;
     const temp1 = new TextInRect(text, { bgColor: this.player.color, fontSize, border: .2, corner: .1 })
     temp1.borders = [0, 0, .15, 0];
-    temp1.setBounds(undefined, 0, 0, 0); // TODO: push this code into TextInRect: set borders()
-    temp1.paint(undefined, true);
+    temp1.label_text = temp1.label_text;
     cont.addChild(temp1);
     return cont;
   }
