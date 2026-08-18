@@ -1,6 +1,6 @@
 import { C, F, stime, type XY, type XYWH } from "@thegraid/common-lib";
 import { CenterText, NamedContainer, PathShape, RectShape, TextInRect, type Paintable } from "@thegraid/easeljs-lib";
-import type { Rectangle } from "@thegraid/easeljs-module";
+import type { DisplayObject, Rectangle } from "@thegraid/easeljs-module";
 import { Graphics } from "@thegraid/easeljs-module";
 import { Meeple, MeepleShape, Tile, TP, type DragContext, type Hex, type HexM, type IHex2 } from "@thegraid/hexlib";
 import { TokenHex, type ChaosHex2 as Hex2, type HexMap2 } from "./chaos-hex";
@@ -162,15 +162,33 @@ export interface ILeader {
 
 export class Leader extends ChaosUnit {
   static allLeadersByName = new Map<LeaderName, Leader>();
+
   upgraded = false;  // set true when upgraded
   onBoard = false;
   placeGem = 0;
   upgradeGem = 0;
   isRhyzu = false;
 
-  constructor(Aname: string) {
-    super(Aname); // TODO: inject Player/Faction
+  icon!: DisplayObject
+
+  constructor(Aname: string, player: Player) {
+    super(Aname, player); // TODO: inject Player/Faction
     Leader.allLeadersByName.set(Aname, this);
+    this.icon = this.makeIcon(this)
+  }
+
+  // temp make a graphic for each Leader;
+  // TODO: image & click to popup
+  // Use the actual ChaosUnit as a Tile!
+  makeIcon(leader: Leader) {
+    const cont = new NamedContainer(`${this.Aname}_icon`);
+    const text = `${leader.Aname.substring(0,2)}`, fontSize = TP.hexRad * .2;
+    const temp1 = new TextInRect(text, { bgColor: this.player.color, fontSize, border: .2, corner: .1 })
+    temp1.borders = [0, 0, .15, 0];
+    temp1.setBounds(undefined, 0, 0, 0); // TODO: push this code into TextInRect: set borders()
+    temp1.paint(undefined, true);
+    cont.addChild(temp1);
+    return cont;
   }
 }
 

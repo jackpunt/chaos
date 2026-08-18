@@ -1,6 +1,6 @@
 import type { Phase } from "@thegraid/hexlib";
 import type { BONUS, FAME_BONUS, HARVEST } from "./chaos-tile";
-import type { LeaderName, PriceToken } from "./meeples";
+import type { Leader, PriceToken } from "./meeples";
 import type { Player } from "./player";
 import type { ResearchLevel } from "./research-cell";
 //
@@ -127,7 +127,8 @@ export class Faction {
   // PricingTokens available to play
   pTokens: PriceToken[] = [];
 
-  leaders: LeaderName[] = [];
+  /** available Leaders */
+  leaders: Leader[] = [];
 
   get coins() { return this.player.coinCounter?.value; }
   set coins(v) { this.player.coinCounter?.updateValue(v); }

@@ -1,12 +1,12 @@
-import { C, permute, S, stime } from "@thegraid/common-lib";
-import { AliasLoader, NamedContainer, PaintableShape, RectShape } from "@thegraid/easeljs-lib";
+import { C, permute, removeEltFromArray, S, stime } from "@thegraid/common-lib";
+import { AliasLoader, NamedContainer, PaintableShape, RectShape, TextInRect } from "@thegraid/easeljs-lib";
 import { type DragContext, H, type HexDir, HexShape, type IHex2, MapTile, Player as PlayerLib, type Table, TP } from "@thegraid/hexlib";
 import { type ChaosHex2, type ChaosHex2 as Hex2, type HexMap2 } from "./chaos-hex";
 import { type ChaosTable } from "./chaos-table";
 import { type Faction } from "./factions";
 import { bonusIcon, Foundation } from "./foundation";
 import type { GamePlay } from "./game-play";
-import type { AI_Trap, Factory, Leader, Morale, Outposts, Relic, Stronghold } from "./meeples";
+import { AI_Trap, ChaosBuilding, Factory, Leader, Morale, Outposts, Relic, Stronghold } from "./meeples";
 import type { Player } from "./player";
 import { CO } from "./research-cell";
 import type { FactionOnTileState } from "./scenario-parser";
@@ -138,15 +138,116 @@ const colorOfTerrain: Record<TERRAIN, string> = {
 
 /** per-Player bits on map Tile/Hex; add one for each Faction, in apprpriate place */
 class FactionOnTile extends NamedContainer {
-  constructor(public player: Player, public tile: ChaosTile) {
-    super(`fac-${player.facId}`);
-  }
+
   leaders: Leader[] = [ ];              // 2+ slots (own + Rhyzu), Zcharo: 4, Oxytaya: 4
   fighters = 0;                         // number of fighters in slot, followed by Leader(s)
   strength = 0;                         // Apparent strength of Faction
   pins = 0;
-  buildings: ('F'|'P'|'S')[] = [];      // if this Faction has buildings on tile, ordered by foundation index
-  // TODO: methods to add/remove elements
+  buildings: ChaosBuilding[] = [];      // if this Faction has buildings on tile
+
+  get facId() { return this.player.facId; }
+  get index() { return this.player.index; }
+
+  fighterIcon: TextInRect;
+
+  constructor(public player: Player, public tile: ChaosTile) {
+    super(`FoT-${player.facId}`);
+    const fontSize = tile.radius * .2;
+    this.fighterIcon = new TextInRect('0', { bgColor: this.player.color, fontSize, border: .2, corner: .1 } )
+    this.fighterIcon.borders = [.2, .2, .2, 0];
+    this.addChild(this.fighterIcon); // at (0, 0)
+    this.tile.addChild(this);
+    this.update();
+  }
+
+  // methods to add/remove elements
+  addLeader(ldr: Leader, add = true) {
+    if (add) {
+      this.leaders.push(ldr); // ASSERT gamePlay ensures leader not currently in leaders
+      this.addChild(ldr.icon)
+    } else {
+      removeEltFromArray(ldr, this.leaders);
+      this.removeChild(ldr.icon)
+    }
+    this.update()
+  }
+
+  addFighter(n = 1) {
+    this.fighters = Math.max(0, this.fighters + n);
+    this.fighterIcon.label_text = `${this.fighters}`;
+    this.update();
+  }
+
+  addBuilding(bldg: ChaosBuilding, add = true) {
+    // building graphics handled by ctile.foundations
+    if (add) {
+      this.buildings.push(bldg);
+    } else {
+      removeEltFromArray(bldg, this.buildings);
+    }
+  }
+
+  //  L1 L2 L3 .. LN
+  //    ------
+  //      FC
+
+
+  //  2 -- 4 Players:
+  //     11            22
+  //    1111          2222
+  //  11111111      22222222
+  //
+  //  44444444      33333333
+  //    4444          3333
+  //     44            33
+  //
+  //  5 Players:
+  //     11  22222222  33
+  //    1111   2222   3333
+  //  11111111  22  33333333
+  //
+  //  55555555      44444444
+  //    5555          4444
+  //     55            44
+  //
+  //                2  3  4  5
+  static invert = [[2, 2, 2, 2],
+                   [2, 2, 2, 0],
+                   [0, 0, 0, 2],
+                   [0, 0, 0, 0],
+                   [0, 0, 0, 0],
+                  ];
+  static offset = [[0, 0, 0, 0],
+                   [2, 2, 2, 1],
+                   [0, 2, 2, 2],
+                   [0, 0, 0, 2],
+                   [0, 0, 0, 0],
+                  ];
+  get invert() { return +1 - (FactionOnTile.invert[this.index][TP.numPlayers] ?? 0)};
+  get offset() { return -1 + (FactionOnTile.invert[this.index][TP.numPlayers] ?? 0)};
+  get isBase() { return this.tile.terrain == 'Base' }
+
+  /** update graphics */
+  update() {
+    // invert: 1 --> leaders on top;  -1 --> leaders on bottom;
+    const x0 = (this.isBase ?  0 : this.offset) * TP.hexRad;
+    const y0 = (this.isBase ? -1 : this.invert) * TP.hexRad;
+    this.x = x0/2;  this.y = y0/2;
+    this.fighterIcon.y = y0 * -.1;
+    this.fighterIcon.visible = (this.fighters > 0);
+    if (this.leaders.length > 0) {
+      // location of leader line:
+      const yl = y0 * (.25 * H.sqrt3_2); // assuming 2 of 5 orientation == Base!
+      const lineWidth = TP.hexRad * 1.1; // (allocate width for several Leader Icons)
+      const gap = lineWidth/this.leaders.length;
+      const xl = gap/2 - lineWidth/2;
+      this.leaders.forEach((ldr, n) => {
+        ldr.icon.x = xl + n * gap;
+        ldr.icon.y = yl;
+      })
+    }
+    this.stage.update();
+  }
 
   /** maybe/beginning what we need to saveState of Map.
    *
@@ -292,6 +393,20 @@ export class ChaosTile extends MapTile {
   override isDragable(ctx?: DragContext): boolean {
     return false;   // User/GUI cannot rearrange MapTile
   }
+
+  // Delegate FoT actions to the associated FoT:
+  getFoT(player: Player) {
+    return this.factions[player.index] || (this.factions[player.index] = new FactionOnTile(player, this));
+  }
+  addLeader(player: Player, ldr: Leader, add?: boolean) {
+    this.getFoT(player).addLeader(ldr, add)
+  }
+  addFighter(player: Player, n = 1 ) {
+    this.getFoT(player).addFighter(n)
+  }
+  addBuilding(player: Player, bldg: ChaosBuilding, add?: boolean) {
+    this.getFoT(player).addBuilding(bldg, add)
+  }
 }
 
 export class BaseTile extends ChaosTile {
@@ -350,12 +465,10 @@ export class BaseTile extends ChaosTile {
   }
 
   override dropFunc(targetHex: Hex2, ctx: DragContext): void {
-    if (targetHex.tile) {
-      targetHex.tile.sendHome();
-    }
+    if (targetHex == this.hex) return;
     super.dropFunc(targetHex, ctx);
     // TODO: choose hexes for base foundations
-    this.addBaseFoundationsAndLink(targetHex, ctx); // TODO: not if tile not moved
+    this.addBaseFoundationsAndLink(targetHex, ctx);
   }
 
   /**

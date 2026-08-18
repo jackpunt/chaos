@@ -8,7 +8,7 @@ import { Faction, factionColors, type FactionId, type FactionName } from "./fact
 import { BgFound, bonusIcon, Foundation } from "./foundation";
 import { type GamePlay } from "./game-play";
 import { type PlayerId } from "./game-state";
-import { ChaosPresence, Factory, Outposts, PriceToken, PTokenShape, Stronghold, type ChaosUnitType, type Fighter, type Leader, type PriceId } from "./meeples";
+import { ChaosPresence, Factory, Leader, Outposts, PriceToken, PTokenShape, Stronghold, type ChaosUnitType, type Fighter, type PriceId } from "./meeples";
 import { CO, ResearchCell, ResGrid } from "./research-cell";
 import { pricePhases } from "./table-params";
 import { CardBack, CardPanel, type CardHex } from "./tactics-card";
@@ -129,7 +129,6 @@ export class Player extends PlayerLib {
     gc.x = cc.wide + 3 * gap; gc.y = cc.high / 2 + 2 * gap;
     gc.boxAlign('left');
     this.panel.addChild(gc);
-    // this.faction.initializeResearchLevels();
     this.faction.researchLevels = ResearchCell.initializeResearchCells(this.faction)
   }
 
@@ -551,8 +550,10 @@ export class Panel extends PlayerPanel {
 
   // increase fighters in Base by n (presumably also decrement some recruit counter)
   // override for Circadians, also for Oxytaya: allow recruit to Stronghold
-  moveToBase(n = this.recruits[this.recruits.length - 1].value) {
-      this.baseTile.factions[this.factionId].fighters += n;
+  // at end of Recruit phase/action
+  recruitToBase(n = this.recruits[this.recruits.length - 1].value) {
+    this.baseTile.addFighter(this.player, n);
+    this.recruits[this.recruits.length - 1].setValue(0);
   }
 
   /** place for baseTile on panel */
@@ -568,6 +569,18 @@ export class Panel extends PlayerPanel {
     // move hex to center-right of this Panel:
     this.localToLocal(11.3*this.wh, 3.7*this.wh, hex.cont.parent, hex.cont)
     baseTile.moveTo(hex);
+    this.recruitToBase(); // the left-over fighters
+
+    // temp code to test spacing on FoT
+    const aLeader = new Leader('Demo', this.player);
+    const bLeader = new Leader('Ochara', this.player);
+    const cLeader = new Leader('Melvin', this.player);
+    const dLeader = new Leader('Tzaro', this.player);
+    faction.leaders.push(aLeader, bLeader, cLeader);
+    this.baseTile.addLeader(this.player, aLeader);
+    // this.baseTile.addLeader(this.player, bLeader);
+    // this.baseTile.addLeader(this.player, cLeader);
+    // this.baseTile.addLeader(this.player, dLeader);
   }
 
   /** a sub-panel that holds the hand of TacticsCards */

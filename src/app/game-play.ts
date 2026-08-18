@@ -113,8 +113,11 @@ export class GamePlay extends GamePlayLib {
 
   // TODO:
   // Setup: Ciradian Base
-  // Setup: place Relics on Foundations; player choice?
-  // Setup: place Fighters & place Leaders
+  // Setup: place Relics on Foundations; player choice? [8/17]
+  // Setup: layout FactionOnTile (v & ^)
+  // Setup: choose Leaders & starting Leader
+  // Setup: place Leader & Fighters in Base (Fighters as Counter, leader w/hovertext? w/clicktext?)
+  // Setup: place Fighters & Leader on Map (on base Foundation Regions)
   // SetPrices: Move --> FlareGun (gunPlayer)
   // SetPrices: Recurit, Build --> Energy & Gem
   // Each Phase: start with Pricer (or Neutral --> gunPlayer)

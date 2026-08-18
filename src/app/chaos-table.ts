@@ -161,11 +161,6 @@ export class ChaosTable extends Table {
     this.gamePlay.gameState.start();   // gamePlay.phase(startPhase); enable GUI to drive game
   }
 
-  // debug copy; do not keep [default dragFunc for makeDragable()]
-  override dragFunc(tile: Tile, info: DragInfo) {
-    const hex = this.hexUnderObj(tile); // clickToDrag 'snaps' to non-original hex!
-    this.dragFunc0(tile, info, hex);
-  }
 
   override makeParamGUI(parent: Container, x = 0, y = 0) {
     const gui = new ParamGUI(TP, { textAlign: 'right' });
