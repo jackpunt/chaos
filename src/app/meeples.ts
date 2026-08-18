@@ -111,16 +111,18 @@ class StrongholdShape extends PathShapeMeeple {
 // put a TileSource<Fighter> on each hex? then .get & .put & .available
 // if !!meep.hex;  sourceHexUnit is the only one actually *on* the hex.
 // the others are stacked on 'available'
-
+// Plan B: Fighters are just a 'count' of units on that FactionOnTile
 
 // most ChaosMeeples have a TileSource<ChaosMeeple>
 // homeHex = TileSource.hex
 // other have unitary homeHex (LeaderCard)
 
-/** ChaosMeeple comprises:
- * - ChaosUnit(Leader, Fighter) &
- * - Building(Factory, Outposts, Stronghold) &
- * - ChaosToken(Trap, Morale, Foundation, PricingToken, 'Relic', )
+/** ChaosMeeple [moveable/dragable objects] comprises:
+ * - ChaosPresence: ChaosUnit(Leader, Fighter) & ChaosBuilding(Factory, Outposts, Stronghold)
+ * - Relic
+ * - PriceToken
+ *
+ * Note: ChaosToken (Trap, Morale, Foundation), PriceToken, 'Relic', is NOT Presence
  */
 export class ChaosMeeple extends Meeple {
   declare gamePlay: GamePlay;
@@ -436,16 +438,12 @@ export class AI_Trap extends ChaosToken {
 
 // -------- not on a usual hex ---------
 
-// Drop the Rhy-zu leader on a Base and game can handle the token.
-// move it to JReyek player board in correct orientation.
+// Drop the Rhy-zu leader on a Faction's Base|Panel and game can handle the token.
+// move it to JReyek Panel in correct orientation (faceUp)
 export class RhyzuToken extends ChaosToken {
 
 }
 
-// Auto-move during Discovery phase (just click on track, players marker advances)
-export class DiscoveryMark extends ChaosToken {
-
-}
 
 export type PriceId = 1 | 2 | 3 | 4 | 5 | 6;
 export type PriceBonus = '^'|'C'|'>'|'%';

@@ -42,10 +42,21 @@ export const ResGrid: ResGrid = {
 
 /** Level with Graphic indicator */
 export class ResearchLevel extends RectShape {
-  level = 0;
-  constructor(fColor: string) {
+  _level = 0;
+  get level() { return this._level }
+  set level(level: number) {
+    this._level = level;
+    this.cellRow[level].addChild(this);
+  }
+
+  constructor(faction: Faction, public cellRow: ResearchCell[]) {
     const dx = TP.hexRad * .9/5-2, dy = dx;
-    super({x: -dx/2, y: -dy/2, w: dx, h: dy}, fColor);
+    super({x: -dx/2, y: -dy/2, w: dx, h: dy}, faction.player.color);
+    this.level = 0;
+    // set location within ResearchCell:
+    const { width, height } = this.getBounds()
+    this.x = (faction.player.index - (TP.numPlayers-1)/2) * width;
+    this.y = - height * .5;
   }
 }
 
@@ -54,13 +65,8 @@ export class ResearchCell extends NamedContainer {
   static researchCells: ResearchCell[][] = [];
 
   static initializeResearchCells(faction: Faction) {
-    const cells = ResearchCell.researchCells;
-    const cubes = [] as ResearchLevel[];
-    pricePhases.forEach((pn, ndx) => {
-      const rl = cells[ndx][0].addCube(faction);
-      cubes.push(rl);
-    })
-    return cubes;
+    const cells = ResearchCell.researchCells; // initialized in [neutral] Panel.addResearchLines()
+    return cells.map(cellrow => new ResearchLevel(faction, cellrow)) // start at level 0
   }
 
   ps: string;      // primary
@@ -112,14 +118,6 @@ export class ResearchCell extends NamedContainer {
     }
   }
 
-  addCube(faction: Faction) {
-    const rl = new ResearchLevel(faction.player.color);
-    const { width, height } = rl.getBounds()
-    rl.x = (faction.player.index-(TP.numPlayers-1)/2) * width;
-    rl.y = - height * .5;
-    this.addChild(rl);
-    return rl
-  }
 
   arrive() {
     // detect and do from this.is
