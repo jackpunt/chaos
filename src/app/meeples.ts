@@ -1,10 +1,10 @@
 import { C, F, stime, type XY, type XYWH } from "@thegraid/common-lib";
 import { CenterText, NamedContainer, PathShape, RectShape, TextInRect, type Paintable } from "@thegraid/easeljs-lib";
-import type { DisplayObject, Rectangle } from "@thegraid/easeljs-module";
+import type { Rectangle } from "@thegraid/easeljs-module";
 import { Graphics } from "@thegraid/easeljs-module";
 import { Meeple, MeepleShape, Tile, TP, type DragContext, type Hex, type HexM, type IHex2 } from "@thegraid/hexlib";
 import { TokenHex, type ChaosHex2 as Hex2, type HexMap2 } from "./chaos-hex";
-import { type BONUS, type TERRAIN } from "./chaos-tile";
+import { type BONUS, type FactionOnTile, type TERRAIN } from "./chaos-tile";
 import { factionNeutral, type FactionId } from "./factions";
 import { BgFound, Foundation } from "./foundation";
 import type { GamePlay } from "./game-play";
@@ -131,7 +131,7 @@ export class ChaosMeeple extends Meeple {
 
   /** invoke from startDrag() to prevent movement */
   stopDrag() {
-    this.player.gamePlay.table.dragger.stopDrag()
+    this.player.gamePlay.table.stopDragging()
   }
 
 }
@@ -149,31 +149,97 @@ export class Fighter extends ChaosUnit {
 /** maybe someday itemize them */
 export type LeaderName = string;
 
-type CombatStats = { str: number, atk: number, shield: number };
-export interface ILeader {
+type CombatStats = [ str: number, atk: number, shield: number ];
+
+interface LeaderSpec {
+  facId: FactionId;
   name: string;
-  onBoard: boolean;     // false: not recruited/deployed
+  stats0: CombatStats; // initial
+  stats2: CombatStats; // ugraded
+  isRhyzu?: boolean;
+  plGem?: number;        // default: 0, isRhyzu --> 0
+  upGem?: number;        // default: 0
+  upPlace?: number;      // upPlace: 1 (except: Injura = 2, Demo = 0, isRhyzu = 0)
+}
+export interface ILeader extends LeaderSpec {
+  stats: CombatStats;    // current/actual
   upgraded: boolean;
-  stats: CombatStats[]; // [0]: initial, [1]: upgraded
-  isRhyzu: boolean;
-  placeGem: number;
-  upgradeGem: number;
+  onBoard: boolean;     // false: not recruited/deployed
   special: () => CombatStats; // also effects before-during-after combat, or move or recruit or ...
   // specialByPhase: Map<phase, function>
 }
 
-export class Leader extends ChaosUnit {
+export class Leader extends ChaosUnit implements LeaderSpec {
+
+  static leaderSpecs: LeaderSpec[] = [
+    // Circadian
+    { facId: 0, name: 'Sable', stats0: [2, 0, 1], stats2: [4, 2, 1], }, // reveal combat
+    { facId: 0, name: 'Akira', stats0: [2, 0, 2], stats2: [4, 0, 4], upGem: 1}, // E1->G1, G1
+    { facId: 0, name: 'Renzo', stats0: [3, 2, 0], stats2: [5, 3, 0], upGem: 1}, // pins 3, 5
+    { facId: 0, name: 'Zoey',  stats0: [2, 2, 0], stats2: [3, 3, 0]}, // retreat w/Fighters to non-adjacent region
+    { facId: 0, name: 'Melvan', stats0: [2, 0, 0], stats2: [3, 1, 1]}, // 2,3 str when non-adjacent to ship
+    // AI
+    { facId: 1, name: 'Adecai', stats0: [3, 0, 0], stats2: [5, 0, 0], plGem: 1},  // wound 1 if victory (un-blockable, limit 4)
+    { facId: 1, name: 'Injura', stats0: [-2, 3, 0], stats2: [2, 4, 0], plGem: 1, upGem: 1}, // 1 atk if victory (blockable, limit 4)
+    { facId: 1, name: 'Xiao',   stats0: [2, 1, 1], stats2: [3, 3, 1], upGem: 1},    // 1,2 % if no wounds
+    { facId: 1, name: 'Phoros', stats0: [-2, 3, 0], stats2: [2, 4, 0], plGem: 1},   // use ** on battle wheel
+    { facId: 1, name: 'Demo', stats0: [2, 1, 0], stats2: [4, 2, 0], upGem: 2},      // upPl: 0 (never dies!)
+    // Zcharo
+    { facId: 2, name: 'Oachra', stats0: [2, 2, 0], stats2: [3, 3, 0], plGem: 1, }, // resolve attacks before strength
+    { facId: 2, name: 'Cahzor', stats0: [2, 0, 0], stats2: [4, 0, 0],  },  // +1 str (if, per) opposing building
+    { facId: 2, name: 'Zucalah', stats0: [3, 0, 0], stats2: [6, 0, 0], },  // (E1, -) --> gain Card
+    { facId: 2, name: 'Ejax', stats0: [1, 1, 0], stats2: [2, 1, 2],  },    // +str per Round
+    { facId: 2, name: 'Urzo', stats0: [3, 0, 0], stats2: [5, 0, 0], plGem: 1, }, // gain oppo Card (unless Urzo retreats)
+    // Leyrien
+    { facId: 3, name: 'Niruveh', stats0: [2, 0, 1], stats2: [3, 0, 3], }, // Build: double found rewards, no found req'd
+    { facId: 3, name: 'Eeyla', stats0: [2, 2, 0], stats2: [4, 3, 0], plGem: 1, }, // 1 Fame after Victory
+    { facId: 3, name: 'Vehlac', stats0: [3, 0, 0], stats2: [6, 0, 0], plGem: 1, }, // Move: Free move w/o other Units
+    { facId: 3, name: 'Ivi', stats0: [2, 0, 0], stats2: [3, 1, 1], }, // Move: (& attack) with Allied Leader
+    { facId: 3, name: 'Rylach', stats0: [1, 0, 1], stats2: [3, 0, 2], plGem: 1, }, // Move: Boost Morale if end on Cliff/Plains
+    // Jrayek
+    { facId: 4, name: 'Jayen', stats0: [4, 0, 1], stats2: [7, 0, 2], plGem: 1}, // Lose half after victory (before atk v shields)
+    { facId: 4, name: 'Ikryla', stats0: [2, 0, 0], stats2: [4, 2, 0], }, // G1|C in Relic Region
+    { facId: 4, name: 'Lynke', stats0: [1, 2, 0], stats2: [3, 4, 0], upGem: 1}, // 1 str per atk
+    { facId: 4, name: 'Vahla', stats0: [2, 0, 0], stats2: [2, 0, 2], upGem: 2},  // +4 str against, (or with) a Rhyzu
+    { facId: 4, name: 'Kajali', stats0: [2, 1, 0], stats2: [4, 2, 0], plGem: 1}, // no oppo initiative in this region
+    // Rhyzu
+    { facId: 4, name: 'Uryk', stats0: [2, 2, 0], stats2: [3, 3, 0], isRhyzu: true },   // PriceToken: 1
+    { facId: 4, name: 'Halke', stats0: [2, 0, 2], stats2: [3, 0, 3], isRhyzu: true },  // PriceToken: 3
+    { facId: 4, name: 'Katarin', stats0: [3, 0, 0], stats2: [5, 0, 0], isRhyzu: true }, // PriceToken: 6
+    // Oxataya
+    { facId: 5, name: 'Tovati', stats0: [1, 2, 0], stats2: [3, 3, 0], upGem: 1}, // +2 str if no other Leader/Rhyzu
+    { facId: 5, name: 'Azaru', stats0: [2, 0, 0], stats2: [3, 0, 0], plGem: 1}, // card (, & gem) before each battle
+    { facId: 5, name: 'Xanya', stats0: [2, 0, 1], stats2: [4, 0, 2], }, // Recruit[end]: free move without (, with) Units
+    { facId: 5, name: 'Rhan', stats0: [2, 0, 2], stats2: [3, 0, 2], plGem: 1, upGem: 1}, // 2, 3 str per other Oxataya Leader
+    { facId: 5, name: 'Onari', stats0: [1, 1, 0], stats2: [3, 2, 1], plGem: 1}, // Move: off lakes w/Units is Free Move
+    { facId: 5, name: 'Latanja', stats0: [2, 0, 0], stats2: [3, 1, 0], upGem: 1}, // may redploy 4, 10 fighters when victorious
+  ];
+
   static allLeadersByName = new Map<LeaderName, Leader>();
 
+  facId!: FactionId;
+  get stats() { return this.upgraded ? this.stats2 : this.stats0 }
+  stats0: CombatStats;
+  stats2: CombatStats;
   upgraded = false;  // set true when upgraded
   onBoard = false;
-  placeGem = 0;
-  upgradeGem = 0;
+  plGem = 0;
+  upGem = 0;
+  upPlace = 0;
   isRhyzu = false;   // maybe subclass...
 
   constructor(Aname: string, player: Player) {
     super(Aname, player); // TODO: inject Player/Faction
     Leader.allLeadersByName.set(Aname, this);
+
+    const lspec = Leader.leaderSpecs.find(spec => spec.name == Aname)!
+    const { name, stats0, stats2, isRhyzu, plGem, upGem } = lspec;
+    this.stats0 = stats0;
+    this.stats2 = stats2;
+    this.isRhyzu = isRhyzu ?? false;
+    this.plGem = plGem ?? 0;
+    this.upGem = upGem ?? 0;
+    this.upPlace = (name == 'Injura' ? 2 : name == 'Demo' ? 0 : isRhyzu ? 0 : 1);
   }
 
   // TODO: image & click to popup
@@ -185,6 +251,26 @@ export class Leader extends ChaosUnit {
     temp1.label_text = temp1.label_text;
     cont.addChild(temp1);
     return cont;
+  }
+
+  /** the ChaosTile the was holding Leader before dragStart. */
+  ctxCtile(ctx?: DragContext) {
+    return (ctx?.info.srcCont as FactionOnTile).tile;
+  }
+
+  override isLegalTarget(toHex: Hex2, ctx?: DragContext): boolean {
+    if (toHex == this.ctxCtile(ctx).hex) return true;
+    return !!toHex.ctile && (toHex.ctile.terrain !== 'Mtn') && super.isLegalTarget(toHex, ctx)
+  }
+
+  override dragStart(ctx: DragContext): void {
+    super.dragStart(ctx);
+    this.ctxCtile(ctx)?.addLeader(this, false);
+  }
+
+  override dropFunc(targetHex: Hex2, ctx: DragContext): void {
+    const ctile = targetHex?.ctile ?? this.ctxCtile(ctx);
+    ctile.getFoT(this.player).addLeader(this);
   }
 }
 
@@ -613,7 +699,7 @@ export class PriceToken extends ChaosMeeple {
   }
 
   override dragStart(ctx: DragContext): void {
-    if (this.status !== 'avail' && !ctx.lastShift) this.gamePlay.table.dragger.stopDrag();
+    if (this.status !== 'avail' && !ctx.lastShift) this.stopDrag();
   }
 
   // For unknown reason, the PricingToken.mark interferes with normal hexUnderObj()

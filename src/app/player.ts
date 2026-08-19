@@ -572,15 +572,17 @@ export class Panel extends PlayerPanel {
     this.recruitToBase(); // the left-over fighters
 
     // temp code to test spacing on FoT
-    const aLeader = new Leader('Demo', this.player);
-    const bLeader = new Leader('Ochara', this.player);
-    const cLeader = new Leader('Melvin', this.player);
-    const dLeader = new Leader('Renzo', this.player);
-    faction.leaders.push(aLeader, bLeader, cLeader, dLeader);
-    this.baseTile.addLeader(this.player, aLeader);
-    this.baseTile.addLeader(this.player, bLeader);
-    // this.baseTile.addLeader(this.player, cLeader);
-    // this.baseTile.addLeader(this.player, dLeader);
+    const leaders = this.makeLeaders();
+    this.baseTile.addLeader(leaders[0]);
+    this.baseTile.addLeader(leaders[1]);
+    this.baseTile.addLeader(leaders[2]);
+  }
+
+  makeLeaders() {
+    const player = this.player, facId = player.facId;
+    const leaders = Leader.leaderSpecs.filter(lspec => lspec.facId == facId)
+    this.faction.leaders = leaders.map(lspec => new Leader(lspec.name, player));
+    return this.faction.leaders
   }
 
   /** a sub-panel that holds the hand of TacticsCards */
