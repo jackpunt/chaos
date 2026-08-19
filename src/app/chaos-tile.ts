@@ -137,7 +137,7 @@ const colorOfTerrain: Record<TERRAIN, string> = {
 
 
 /** per-Player bits on map Tile/Hex; add one for each Faction, in apprpriate place */
-class FactionOnTile extends NamedContainer {
+export class FactionOnTile extends NamedContainer {
 
   leaders: Leader[] = [ ];              // 2+ slots (own + Rhyzu), Zcharo: 4, Oxytaya: 4
   fighters = 0;                         // number of fighters in slot, followed by Leader(s)
@@ -223,21 +223,28 @@ class FactionOnTile extends NamedContainer {
                    [0, 0, 0, 2],
                    [0, 0, 0, 0],
                   ];
-  get invert() { return +1 - (FactionOnTile.invert[this.index][TP.numPlayers] ?? 0)};
-  get offset() { return -1 + (FactionOnTile.invert[this.index][TP.numPlayers] ?? 0)};
+  // y orientation within the sector:
+  get invert() { return -1 + (FactionOnTile.invert[this.index][TP.numPlayers - 2] ?? 0)};
+  // x-offset of sector:
+  get offset() { return -1 + (FactionOnTile.offset[this.index][TP.numPlayers - 2] ?? 0)};
   get isBase() { return this.tile.terrain == 'Base' }
 
   /** update graphics */
   update() {
+    const index = this.index;
+    // sx, sy: sector placement;
+    const sx = (this.isBase ?  0 : this.offset) * TP.hexRad; // -1: left side; offset[][] = 0
+    const sy = (this.isBase ? -1 : [0, 1].includes(index) ? -1 : [4, 5].includes(index) ? 1 : TP.numPlayers == 5 ? -1 : 1);
+    this.x = sx/2;
+    this.y = sy * TP.hexRad * H.sqrt3_2/2;
+
     // invert: 1 --> leaders on top;  -1 --> leaders on bottom;
-    const x0 = (this.isBase ?  0 : this.offset) * TP.hexRad;
-    const y0 = (this.isBase ? -1 : this.invert) * TP.hexRad;
-    this.x = x0/2;  this.y = y0/2;
-    this.fighterIcon.y = y0 * -.1;
+    const yh = (this.isBase ? -1 : this.invert) * TP.hexRad * H.sqrt3_2;
+    this.fighterIcon.y = yh * 0;
     this.fighterIcon.visible = (this.fighters > 0);
     if (this.leaders.length > 0) {
       // location of leader line:
-      const yl = y0 * (.25 * H.sqrt3_2); // assuming 2 of 5 orientation == Base!
+      const yl = yh * .33; // assuming 2 of 5 orientation == Base!
       const lineWidth = TP.hexRad * 1.1; // (allocate width for several Leader Icons)
       const gap = lineWidth/this.leaders.length;
       const xl = gap/2 - lineWidth/2;
@@ -246,6 +253,7 @@ class FactionOnTile extends NamedContainer {
         ldr.y = yl;
       })
     }
+    this.tile.cacheID && this.tile.updateCache();
     this.stage.update();
   }
 
@@ -398,14 +406,14 @@ export class ChaosTile extends MapTile {
   getFoT(player: Player) {
     return this.factions[player.index] || (this.factions[player.index] = new FactionOnTile(player, this));
   }
-  addLeader(player: Player, ldr: Leader, add?: boolean) {
-    this.getFoT(player).addLeader(ldr, add)
+  addLeader(ldr: Leader, add?: boolean) {
+    this.getFoT(ldr.player).addLeader(ldr, add)
   }
   addFighter(player: Player, n = 1 ) {
     this.getFoT(player).addFighter(n)
   }
-  addBuilding(player: Player, bldg: ChaosBuilding, add?: boolean) {
-    this.getFoT(player).addBuilding(bldg, add)
+  addBuilding(bldg: ChaosBuilding, add?: boolean) {
+    this.getFoT(bldg.player).addBuilding(bldg, add)
   }
 }
 
