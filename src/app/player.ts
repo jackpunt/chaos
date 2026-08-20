@@ -568,6 +568,7 @@ export class Panel extends PlayerPanel {
     const hex = this.baseHex = this.table.newHex2(0, 0, `${this.faction.name}Base`);
     // move hex to center-right of this Panel:
     this.localToLocal(11.3*this.wh, 3.7*this.wh, hex.cont.parent, hex.cont)
+    hex.legalMark.setOnHex(hex);
     baseTile.moveTo(hex);
     this.recruitToBase(); // the left-over fighters
 

@@ -217,7 +217,10 @@ export class Leader extends ChaosUnit implements LeaderSpec {
 
   static allLeadersByName = new Map<LeaderName, Leader>();
 
-  facId!: FactionId;
+  /** src & dst for D&D */
+  factOnTile?: FactionOnTile; // TODO: construct on a newHex2(the Leader card on Panel)
+
+  facId: FactionId;
   get stats() { return this.upgraded ? this.stats2 : this.stats0 }
   stats0: CombatStats;
   stats2: CombatStats;
@@ -233,7 +236,8 @@ export class Leader extends ChaosUnit implements LeaderSpec {
     Leader.allLeadersByName.set(Aname, this);
 
     const lspec = Leader.leaderSpecs.find(spec => spec.name == Aname)!
-    const { name, stats0, stats2, isRhyzu, plGem, upGem } = lspec;
+    const { name, facId, stats0, stats2, isRhyzu, plGem, upGem } = lspec;
+    this.facId = facId;
     this.stats0 = stats0;
     this.stats2 = stats2;
     this.isRhyzu = isRhyzu ?? false;
@@ -255,7 +259,7 @@ export class Leader extends ChaosUnit implements LeaderSpec {
 
   /** the ChaosTile the was holding Leader before dragStart. */
   ctxCtile(ctx?: DragContext) {
-    return (ctx?.info.srcCont as FactionOnTile).tile;
+    return this.factOnTile?.tile ?? (ctx?.info.srcCont as FactionOnTile).tile;
   }
 
   override isLegalTarget(toHex: Hex2, ctx?: DragContext): boolean {
@@ -270,7 +274,8 @@ export class Leader extends ChaosUnit implements LeaderSpec {
 
   override dropFunc(targetHex: Hex2, ctx: DragContext): void {
     const ctile = targetHex?.ctile ?? this.ctxCtile(ctx);
-    ctile.getFoT(this.player).addLeader(this);
+    this.factOnTile = ctile.getFoT(this.player);
+    this.factOnTile.addLeader(this);
   }
 }
 

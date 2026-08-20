@@ -87,6 +87,8 @@ export class TokenHex extends ChaosHex2 {
   }
 }
 
+
+/** mauve Mountain that breaks adjacency between 2 ChaosHex2. */
 class Mountain extends RectShape {
   constructor(public hex0: IHex2, public hex1: IHex2) {
     const map = hex0.map as HexMap2;

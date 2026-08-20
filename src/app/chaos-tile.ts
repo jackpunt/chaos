@@ -231,7 +231,7 @@ export class FactionOnTile extends NamedContainer {
 
   /** update graphics */
   update() {
-    const index = this.index;
+    const index = this.index, overCont = this.tile.hex!.map.mapCont.overCont;
     // sx, sy: sector placement;
     const sx = (this.isBase ?  0 : this.offset) * TP.hexRad; // -1: left side; offset[][] = 0
     const sy = (this.isBase ? -1 : [0, 1].includes(index) ? -1 : [4, 5].includes(index) ? 1 : TP.numPlayers == 5 ? -1 : 1);
@@ -251,6 +251,11 @@ export class FactionOnTile extends NamedContainer {
       this.leaders.forEach((ldr, n) => {
         ldr.x = xl + n * gap;
         ldr.y = yl;
+        if (this.tile.terrain != 'Base') {
+          // re-parent from non-dragable mapTile to overCont:
+          this.localToLocal(ldr.x, ldr.y, overCont, ldr);
+          overCont.addChild(ldr);
+        } // during setup: Base is movable & we want Leaders to move with it
       })
     }
     this.tile.cacheID && this.tile.updateCache();
@@ -404,7 +409,7 @@ export class ChaosTile extends MapTile {
 
   // Delegate FoT actions to the associated FoT:
   getFoT(player: Player) {
-    return this.factions[player.index] || (this.factions[player.index] = new FactionOnTile(player, this));
+    return this.factions[player.index] ?? (this.factions[player.index] = new FactionOnTile(player, this));
   }
   addLeader(ldr: Leader, add?: boolean) {
     this.getFoT(ldr.player).addLeader(ldr, add)
