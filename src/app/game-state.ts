@@ -74,7 +74,7 @@ export class GameState extends GameStateLib {
   }
 
   override startPhase = 'PlaceBase';
-  override startArgs: any[] = [-1];
+  override startArgs: any[] = [];
 
   // this.gamePlay.curPlayer
   override get curPlayer() { return super.curPlayer as Player }

@@ -114,7 +114,7 @@ export class GamePlay extends GamePlayLib {
   // TODO:
   // Setup: Ciradian Base
   // Setup: place Relics on Foundations; player choice? [8/17]
-  // Setup: layout FactionOnTile (v & ^)
+  // Setup: layout FactionOnTile (v & ^) [8/20]
   // Setup: choose Leaders & starting Leader
   // Setup: place Leader & Fighters in Base (Fighters as Counter, leader w/hovertext? w/clicktext?)
   // Setup: place Fighters & Leader on Map (on base Foundation Regions)

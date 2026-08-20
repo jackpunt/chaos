@@ -480,8 +480,15 @@ export class Relic extends ChaosMeeple {
     return !!toHex.tile && !toHex.tile.foundations[1] && !this.isAdjacentCurPlayerBaseFoundations(toHex);
   }
 
+  override dragStart(ctx: DragContext): void {
+    super.dragStart(ctx)
+    this.rescaleDrag(2);
+    this.scaleX = this.scaleY = 1;
+  }
+
   override dropFunc(targetHex: Hex2, ctx: DragContext): void {
     this.placeRelic(targetHex);
+    this.rescaleDrag(1);
     if (!targetHex) this.gamePlay.hexMap.showMark();
   }
 
@@ -501,6 +508,14 @@ export class Relic extends ChaosMeeple {
       f.parent.addChild(this);
       return;
     }
+  }
+
+  rescaleDrag(sf = 2) {
+    Relic.allRelics.forEach(rel => {
+      if (!!rel.foundation.parent) {
+        rel.scaleX = rel.scaleY = sf * Foundation.mapScale;
+      }
+    })
   }
 }
 
