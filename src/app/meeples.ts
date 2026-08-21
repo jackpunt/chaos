@@ -1,6 +1,6 @@
 import { C, F, stime, type XY, type XYWH } from "@thegraid/common-lib";
 import { CenterText, NamedContainer, PathShape, RectShape, TextInRect, type Paintable } from "@thegraid/easeljs-lib";
-import type { Rectangle } from "@thegraid/easeljs-module";
+import type { MouseEvent, Rectangle } from "@thegraid/easeljs-module";
 import { Graphics } from "@thegraid/easeljs-module";
 import { Meeple, MeepleShape, Tile, TP, type DragContext, type Hex, type HexM, type IHex2 } from "@thegraid/hexlib";
 import { TokenHex, type ChaosHex2 as Hex2, type HexMap2 } from "./chaos-hex";
@@ -244,6 +244,13 @@ export class Leader extends ChaosUnit implements LeaderSpec {
     this.plGem = plGem ?? 0;
     this.upGem = upGem ?? 0;
     this.upPlace = (name == 'Injura' ? 2 : name == 'Demo' ? 0 : isRhyzu ? 0 : 1);
+    this.rightClickable()
+  }
+
+  override onRightClick(evt: MouseEvent) {
+    super.onRightClick(evt);
+    // TODO: show all properties of this Leader
+
   }
 
   // TODO: image & click to popup
@@ -563,8 +570,6 @@ class PTMark extends RectShape {
     this.name = 'TargetMark';
     this.visible = false;
   }
-
-  get inUse() { return this.visible && this.parent }
 }
 
 
@@ -715,7 +720,7 @@ export class PriceToken extends ChaosMeeple {
   override sendHome(): void {
     this.x = this.homeXY.x;
     this.y = this.homeXY.y;
-    this.player!.panel.addChild(this);
+    this.player!.panel.avail.addChild(this);
   }
 
   override dragStart(ctx: DragContext): void {

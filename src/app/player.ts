@@ -215,7 +215,8 @@ export class Panel extends PlayerPanel {
   /** the 'hand' of TacticsCards */
   readonly cardRack: CardHex[] = [];
   cardPanel!: CardPanel;
-  vault!: NamedContainer;
+  avail: NamedContainer;
+  vault: NamedContainer;
 
   constructor(table: Table, player: Player, high: number, wide: number, row: number, col: number, dir?: number) {
     const hexMap = table.hexMap;
@@ -226,6 +227,8 @@ export class Panel extends PlayerPanel {
     const faction = this.faction = this.player.faction;
     console.log(stime(this, `.constructor: factionId=${this.factionId} cname=${this.player.cname} ${faction.name}`))
     player.panel = this;       // set it so layout can easily find the Player
+    this.avail = new NamedContainer('PT_avail');
+    this.addChild(this.avail)
     this.vault = table.tokenVault[faction.facId];
     if (this.vault) this.vault.visible = true;
     if (faction.name == 'Neutral' as FactionName) {
@@ -478,10 +481,11 @@ export class Panel extends PlayerPanel {
   /** fighters available in each stage of recruiting; [0] is fast-trackable; [lim] is in Base */
   recruits = [] as NumCounter[];
   /** a Counters & Buttons to move recruits into Base */
-  addRecruits(spec: Faction, tw = this.wh * 5) {
+  addRecruits(spec: Faction, tw = this.wh * 4) {
     const wh = this.wh, x0 = wh * .55, y0 = wh * .55, s1 = wh * 1.1;
     const nr = spec.nr, ft = spec.ft, c = this.pColor, fs = wh * .5, bfs = wh * .25;
-    const dx = tw / nr.length, base = nr.length - 1;
+    const dx = tw / (nr.length - 1), base = nr.length - 1;
+    const by = - wh * .6;
     const cont = new NamedContainer(`recruits`, x0 + s1 * 3, y0 + s1 * 3);
     this.addChild(cont);     // A black bar to hold the recruit counters & buttons:
     cont.addChild(new RectShape({ x: -wh/2, y: -y0, w: tw + wh, h: 2 * y0 }, 'black', ''))
@@ -496,11 +500,11 @@ export class Panel extends PlayerPanel {
     const ravail = new NumCounter(`ravail`, 0, C.white, fs)
     ravail.clickToInc();
     ravail.x += 0;
-    ravail.y -= wh * .6;
+    ravail.y = by;
     cont.addChild(ravail)
 
     // Exchange 3 recruits for a Card:
-    const r3button = addButton(`R3->${spec.r3}`, wh, -wh * .6);
+    const r3button = addButton(`R3->${spec.r3}`, wh, by);
     r3button.on('click', () => {
       if (ravail.value >= 3) {
         ravail.incValue(-3);
@@ -516,7 +520,7 @@ export class Panel extends PlayerPanel {
     })
     // Fast track:
     if (ft > 0) { // AI does not have a FT button.
-    const ft_button = addButton(`FT:${ft}`, wh * 2, -wh * .6);
+    const ft_button = addButton(`FT:${ft}`, wh * 2, by);
     const ftc = spec.ft;      // fast track cost
     ft_button.on('click', () => {
       if (ravail.value > 0 && this.player.coins >= ftc) {
@@ -535,7 +539,7 @@ export class Panel extends PlayerPanel {
       rc.x = i * dx;
       cont.addChild(rc);
       if (i == base) {
-        rc.x += dx;
+        rc.x += 0;
       } else {
         const rcb = addButton(`->`, rc.x + dx/2, 0);
         rcb.on('click', () => {
@@ -567,7 +571,7 @@ export class Panel extends PlayerPanel {
     baseTile.paint(color);                          // color TBD;
     const hex = this.baseHex = this.table.newHex2(0, 0, `${this.faction.name}Base`);
     // move hex to center-right of this Panel:
-    this.localToLocal(11.3*this.wh, 3.7*this.wh, hex.cont.parent, hex.cont)
+    this.localToLocal(11.6*this.wh, 6.7*this.wh, hex.cont.parent, hex.cont)
     hex.legalMark.setOnHex(hex);
     baseTile.moveTo(hex);
     this.recruitToBase(); // the left-over fighters
@@ -596,6 +600,7 @@ export class Panel extends PlayerPanel {
    */
   addCardPanel(table: Table, row = 0, ncols = 6) {
     // ChaosPlayerPanel { this.mapCont = new CardPanel(table); this.addChild(this.mapCont); }
+    const wh = this.wh, x0 = wh * .55, y0 = wh * .55, s1 = wh * 1.1;
     const { dydr, dxdc } = table.hexMap.xywh();
     const cardH = CardBack.bounds.height;
     const { width, height } = this.getBounds();
@@ -610,32 +615,37 @@ export class Panel extends PlayerPanel {
     cardPanel.fillAryWithCardHex(this, this.cardRack, high/2, ncols)
     cardPanel.visible = false;
     // a Button to toggle visibility:
-    const cButton = new UtilButton('CCCC', { active: true, corner: .1, fontSize: dxdc * .2 });
-    cButton.x = dxdc * .5;
-    cButton.y = height - 1.7 * dydr;
+    const cButton = new UtilButton('Cards', { active: true, corner: .1, fontSize: dxdc * .2, border: .2 });
+    cButton.borders = [.1, .1, .2, 0]; cButton.label_text = cButton.label_text;
+    cButton.x = x0 + s1 * 1;
+    cButton.y = y0 + s1 * 3.8; //height - 1.7 * dydr;
     this.addChild(cButton);
-    cButton.on('click', () => { cardPanel.visible = !cardPanel.visible; this.stage.update() })
+    cButton.on('click', () => {
+      cardPanel.visible = !cardPanel.visible;  // toggle visibility
+      this.avail.visible = !cardPanel.visible; // cardPanel & avail mutually exclusive
+      this.stage.update()
+    })
     return cardPanel;
   }
 
   priceTokens = [] as PriceToken[];
   /**
-   * A row of 6 PricingToken with a home on this Panel
+   * A row of 6 PricingToken with a home on this Panel.avail
    * @param table (not used)
    * @param row vertical offset on this panel
    * @param pids PriceToken ids (1--6) or subset for neutralPlayer
    */
   addPriceTokens(table: Table, row = 0, pids = arrayN(6, (i)=>i+1)) {
-    const np = this.player.gamePlay.allPlayers.length;
     const { x: x0, y: y0 } = this.getBounds();
     const { dydr } = this.metrics
     const h = this.wh, w = h * 2, gap = h * .25;
     const x = x0 + w * 0.76 - gap;
     const y = y0 + row * dydr;
+    this.avail.x = x; this.avail.y = y;
 
     this.priceTokens.length = 0;
     pids.forEach(i => {
-      const xy = { x: x + i * (w/2 + gap), y };
+      const xy = { x: i * (w/2 + gap), y: 0 };
       const pt = new PriceToken(i as PriceId, xy, this.player);
       pt.sendHome()
       this.priceTokens[i] = pt;
