@@ -1,39 +1,12 @@
-import { C, type XY } from "@thegraid/common-lib";
-import { CenterText, CircleShape, RectShape, type Paintable } from "@thegraid/easeljs-lib";
+import { type XY } from "@thegraid/common-lib";
+import { CenterText, RectShape, type Paintable } from "@thegraid/easeljs-lib";
 import type { DisplayObject } from "@thegraid/easeljs-module";
-import { Container } from "@thegraid/easeljs-module";
 import { Tile, TP, type DragContext, type Table } from "@thegraid/hexlib";
 import { ChaosHex2 as Hex2 } from "./chaos-hex";
-import { type BONUS, type ChaosTile, type HARVEST } from "./chaos-tile";
-import type { ChaosBuilding, PriceBonus } from "./meeples";
-import { gemlockIcon } from "./research-cell";
-import { CO } from "./table-params";
+import { type BONUS, type ChaosTile } from "./chaos-tile";
+import type { ChaosBuilding } from "./meeples";
+import { bonusIcon, gemlockIcon } from "./table-params";
 
-
-// TODO: maybe use TextTweaks to place the glyphs?
-/** Foundation bonus; also use for Income icons */
-/** E: energy, G: gem, C: card, R: recruit, U: upgrade(gold), *: gemlock */
-export function bonusIcon(harv?: HARVEST | PriceBonus, fs = TP.hexRad * .15, tc?: string ) {
-    if (!harv || harv.length > 3) return undefined;
-    const spotmap = { E: 'yellow', G: CO.gColor, C: 'white', R: 'orange', U: 'gold', '.': 'grey' };
-    const cardRot = 12;
-    const miniCard = () => {
-      const cardRect = { x: -w / 2, y: -h / 2, w, h, r: 2, s: 1 }; // maybe use TextInRect?
-      const card = new RectShape(cardRect, cHarv, 'grey');
-      card.scaleX = card.scaleY = Math.cos(cardRot * Math.PI/180);
-      return card;
-    }
-    const icon = new Container();
-    const h0 = harv[0] as keyof typeof spotmap;
-    const cHarv = spotmap[h0] ?? C.transparent;
-    const w = fs * .22/.15, h = w * 2.5/1.75;// 1.4;
-    const shape = (h0 == 'C' || h0 == 'U' ) ? miniCard() : new CircleShape(cHarv, fs, '');
-    const tColor = tc ?? C.pickTextColor(cHarv, ['black', 'white']);
-    const iText = new CenterText(h0 == 'C' ? '+' : harv, fs, tColor);
-    if (harv !== '-') icon.addChild(shape, iText);
-    if (h0 == 'C') icon.rotation = cardRot;
-    return icon
-  }
 
 // the Relic Foundations & extra non-Relic Foundations
 // the per-player starter Foundations,

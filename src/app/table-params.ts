@@ -1,5 +1,9 @@
-import { PaintableShape } from "@thegraid/easeljs-lib";
+import { C } from "@thegraid/common-lib";
+import { CenterText, CircleShape, EllipseShape, PaintableShape, PathShape, RectShape } from "@thegraid/easeljs-lib";
+import { Container } from "@thegraid/easeljs-module";
 import { TP as TPLib, } from "@thegraid/hexlib";
+import type { HARVEST } from "./chaos-tile";
+import type { PriceBonus } from "./meeples";
 
 // some types & constants moved out of GameState:
 export const phaseNames = ['SetPrices', 'Discovery', 'Build', 'Harvest', 'Recruit', 'Move', 'Combat', 'Income', 'Relics'] as const;
@@ -35,5 +39,60 @@ export namespace CO {
   export const dColor = 'rgb(150, 70, 0)'; // default background color? for PTokenShape
   export const gColor = 'rgb(240, 30, 0)'; // gem Color
 
+}
+
+/** A PathShape: pentagon with a right-angle point */
+export function pentagon (xs: number, ys: number, fillc: string, tilt = 0, strokec = '') {
+  const points = [
+      [-xs/2, ys/2],
+      [ xs/2, ys/2],
+      [ xs/2, 0],
+      [ 0, -ys/2],
+      [-xs/2, 0 ],
+      [-xs/2, ys/2],
+    ] as [x: number, y: number][];
+
+  const pent = new PathShape({ points, fillc, strokec});
+  pent.rotation = tilt;
+  pent.mouseEnabled = false;
+  return pent;
+};
+
+// TODO: maybe use TextTweaks to place the glyphs?
+/** Foundation bonus; also use for Income icons */
+/** E: energy, G: gem, C: card, R: recruit, U: upgrade(gold), *: gemlock */
+export function bonusIcon(harv?: HARVEST | PriceBonus, fs = TP.hexRad * .15, tc?: string ) {
+    if (!harv || harv.length > 3) return undefined;
+    const spotmap = { E: 'yellow', G: CO.gColor, C: 'white', R: 'orange', U: 'gold', '.': 'grey' };
+    const cardRot = 12;
+    const miniCard = () => {
+      const cardRect = { x: -w / 2, y: -h / 2, w, h, r: 2, s: 1 }; // maybe use TextInRect?
+      const card = new RectShape(cardRect, cHarv, 'grey');
+      card.scaleX = card.scaleY = Math.cos(cardRot * Math.PI/180);
+      return card;
+    }
+    const icon = new Container();
+    const h0 = harv[0] as keyof typeof spotmap;
+    const cHarv = spotmap[h0] ?? C.transparent;
+    const w = fs * .22/.15, h = w * 2.5/1.75;// 1.4;
+    const shape = (h0 == 'C' || h0 == 'U' ) ? miniCard() : new CircleShape(cHarv, fs, '');
+    const tColor = tc ?? C.pickTextColor(cHarv, ['black', 'white']);
+    const iText = new CenterText(h0 == 'C' ? '+' : harv, fs, tColor);
+    if (harv !== '-') icon.addChild(shape, iText);
+    if (h0 == 'C') icon.rotation = cardRot;
+    return icon
+  }
+
+
+export function gemlockIcon(dx = .35, dy = 0) {
+  const rad = TP.hexRad * .1
+  const bi = bonusIcon('.' as HARVEST, rad, CO.gColor)!;  // grey dot
+  const gem = new EllipseShape(CO.gColor, rad * .5, rad * .7, ''); // elongated gem
+  gem.x += rad * .45;
+  gem.y += rad * .25;
+  bi.addChild(gem)
+  bi.x = dx;
+  bi.y = dy;
+  return bi
 }
 

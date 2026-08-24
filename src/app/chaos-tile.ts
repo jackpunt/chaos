@@ -4,12 +4,12 @@ import { type DragContext, H, type HexDir, HexShape, type IHex2, MapTile, Player
 import { type ChaosHex2, type ChaosHex2 as Hex2, type HexMap2 } from "./chaos-hex";
 import { type ChaosTable } from "./chaos-table";
 import { type Faction } from "./factions";
-import { bonusIcon, Foundation } from "./foundation";
+import { Foundation } from "./foundation";
 import type { GamePlay } from "./game-play";
 import { AI_Trap, ChaosBuilding, Factory, Leader, Morale, Outposts, Relic, Stronghold } from "./meeples";
 import type { Player } from "./player";
 import type { FactionOnTileState } from "./scenario-parser";
-import { CO } from "./table-params";
+import { bonusIcon, CO } from "./table-params";
 
 declare module '@thegraid/easeljs-module' {
   interface Graphics {
@@ -248,7 +248,7 @@ export class FactionOnTile extends NamedContainer {
     if (this.leaders.length > 0) {
       // location of leader line:
       const yl = yh * .33; // assuming 2 of 5 orientation == Base!
-      const lineWidth = TP.hexRad * (this.leaders.length < 4 ? .9 : 1.1); // (allocate width for several Leader Icons)
+      const lineWidth = TP.hexRad * (this.leaders.length < 4 ? .9 : 1.2); // (allocate width for several Leader Icons)
       const gap = lineWidth/this.leaders.length;
       const xl = gap/2 - lineWidth/2;
       this.leaders.forEach((ldr, n) => {
@@ -560,6 +560,11 @@ export class BaseTile extends ChaosTile {
     if (this.player?.facId == 5) {
       const hex0 = this.hex as Hex2, map = hex0.map as HexMap2;
       hex0.forEachLinkHex(hex1 => hex1.tile.terrain == 'Lake' && map.placeMtn(hex0, hex1))
+    }
+    // block Circadians from all adjacent:
+    if (this.player?.facId == 0) {
+      const hex0 = this.hex as Hex2, map = hex0.map as HexMap2;
+      hex0.forEachLinkHex(hex1 => hex1.tile.terrain != 'Mtn' && map.placeMtn(hex0, hex1))
     }
   }
 

@@ -1,23 +1,9 @@
 import { C, F, type WH } from "@thegraid/common-lib";
-import { CenterText, EllipseShape, NamedContainer, RectShape } from "@thegraid/easeljs-lib";
+import { CenterText, NamedContainer, RectShape } from "@thegraid/easeljs-lib";
 import type { DisplayObject } from "@thegraid/easeljs-module";
-import { type HARVEST } from "./chaos-tile";
 import { type Faction } from "./factions";
-import { bonusIcon } from "./foundation";
-import { CO, TP, type PricePhase } from "./table-params";
+import { CO, gemlockIcon, TP, type PricePhase } from "./table-params";
 
-
-export function gemlockIcon(dx = .35, dy = 0) {
-  const rad = TP.hexRad * .1
-  const bi = bonusIcon('.' as HARVEST, rad, CO.gColor)!;  // grey dot
-  const gem = new EllipseShape(CO.gColor, rad * .5, rad * .7, ''); // elongated gem
-  gem.x += rad * .45;
-  gem.y += rad * .25;
-  bi.addChild(gem)
-  bi.x = dx;
-  bi.y = dy;
-  return bi
-}
 
 // %, Energy, Gem, Card, Build, Recruit, Leader, Harvest, Move,
 // Upgrade(leader), Attribute(upgrade), Token(place), Flip(token)

@@ -1,8 +1,9 @@
-import { C, Random, stime, type Constructor } from "@thegraid/common-lib";
-import { NamedContainer, PathShape, RectShape, type Paintable } from "@thegraid/easeljs-lib";
+import { C, Random, removeEltFromArray, stime, type Constructor } from "@thegraid/common-lib";
+import { RectShape, type NamedObject, type Paintable } from "@thegraid/easeljs-lib";
 import type { DisplayObject } from "@thegraid/easeljs-module";
 import { H, Hex1 as Hex1Lib, Hex2Mixin, HexMap, HexMark, HexShape, TP, type HexDir, type HexM, type IdHex, type IHex2, type Tile } from "@thegraid/hexlib";
 import { type ChaosTile, type HARVEST, type TERRAIN } from "./chaos-tile";
+import { pentagon } from "./table-params";
 import type { TacticsCard } from "./tactics-card";
 
 
@@ -103,7 +104,10 @@ class Mountain extends RectShape {
     map.mountains.push(this);
     this.rotation = (H.dirRot[dir01]);
     hex0.edgePoint(dir01, 1, this);      // set RectShape on edge of Hex
-    map.mapCont.overCont.addChild(this); // place on top of other tiles
+    // place Mtn above mapTiles but below BaseTiles:
+    const tiles = map.mapCont.tileCont.children;
+    const baseNdx = tiles.findIndex(tile => (tile as ChaosTile).terrain == 'Base');
+    map.mapCont.tileCont.addChildAt(this, baseNdx > 0 ? baseNdx : tiles.length);
     // remove adjacency links:
     console.log(stime(this, `.new Mountain: ${hex0} -- ${hex1}`))
     delete hex0.links[dir01];
@@ -155,25 +159,21 @@ export class HexMap2 extends HexMap<ChaosHex2> {
   /** list of mountains placed on this HexMap2 */
   mountains: Mountain[] = [];
 
-  findMtnIndex(hex0: IdHex, hex1: IdHex) {
+  findMtn(hex0: IdHex, hex1: IdHex) {
     const eq = (hex0: IdHex, hex1: IdHex) => (hex0.row == hex1.row) && (hex0.col == hex1.col);
-    return this.mountains.findIndex(elt => (eq(elt.hex0, hex0) && elt.hex1 == hex1) || (eq(elt.hex0, hex1) && eq(elt.hex1, hex0)))
-  }
-
-  isMtn(hex0: IdHex, hex1: IdHex) {
-    return this.findMtnIndex(hex0, hex1) >= 0;
+    return this.mountains.find(elt => (eq(elt.hex0, hex0) && elt.hex1 == hex1) || (eq(elt.hex0, hex1) && eq(elt.hex1, hex0)))
   }
 
   removeMtn(hex0: Hex2, hex1: Hex2) {
-    const ndx = this.findMtnIndex(hex0, hex1);
-    if (ndx < 0) return;
-    this.mapCont.overCont.removeChild(this.mountains[ndx]);
-    this.mountains.splice(ndx, 1);
+    const mtn = this.findMtn(hex0, hex1);
+    if (!mtn) return;
+    this.mapCont.tileCont.removeChild(mtn);
+    removeEltFromArray(mtn, this.mountains);
   }
 
   /* place a purple mountain between two Hexes */
   placeMtn(hex0: IHex2, hex1: IHex2) {
-    if (this.isMtn(hex0, hex1)) return;
+    if (this.findMtn(hex0, hex1)) return;
     try {
       new Mountain(hex0, hex1);
     } catch (msg) {
@@ -241,33 +241,15 @@ export class HexMap2 extends HexMap<ChaosHex2> {
     const tiles5: TileSpec[] = rct([
       [3, 1, xtile5[0]], [4, 1, xtile5[1]], [2, 3, xtile5[2]],
     ]);
-    const  xtraTileAry = [[], [], [], tiles3, tiles4, tiles5, []]
+    const xtraTileAry = [[], [], [], tiles3, tiles4, tiles5, []]
 
     const placeTunnel = (dir12: HexDir, hex1: IHex2, hex2: IHex2, fillc = C.BLUE) => {
-      const points = (xs = TP.hexRad * .33, ys = TP.hexRad * .4) => {
-        return [
-          [-xs/2, ys/2],
-          [ xs/2, ys/2],
-          [ xs/2, 0],
-          [ 0, -ys/2],
-          [-xs/2, 0 ],
-          [-xs/2, ys/2],
-        ] as [x: number, y: number][];
-      }
-      const pent = (rad: number, fillc: string, tilt = 0, strokec = '') => {
-        const cont = new NamedContainer('tunnel');
-        const pent = new PathShape({ points: points(rad), fillc, strokec});
-        cont.addChild(pent);
-        cont.mouseEnabled = false;
-        cont.rotation = tilt;
-        return cont;
-      };
 
       const tunnelFrom = (dir12: HexDir, hex1: IHex2, hex2: IHex2, fillc = C.BLUE) => {
         hex1.links[dir12] = hex2;
         hex2.links[H.dirRev[dir12]] = hex1;
-        const tilt = H.dirRot[dir12], rad = TP.hexRad/3;
-        const icon = pent(rad, fillc, tilt)
+        const tilt = H.dirRot[dir12], rx = TP.hexRad * .33, ry = TP.hexRad * .4;
+        const icon = pentagon(rx, ry, fillc, tilt); (icon as NamedObject).Aname = 'tunnel';
         hex1.edgePoint(dir12, 1.35, icon);
         map.mapCont.tileCont.addChild(icon); // QQQ: Is .tileCont the correct layer?
       }

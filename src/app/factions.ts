@@ -63,12 +63,12 @@ export class Faction {
   // Base harvest= bh?: E1, E2, G1, R1
   // Base foundations = bf: [string, string]
   static baseSpecs: BaseSpec[] = [
-    { name: 'Circadian', bh: '-', bf: ['%', 'E2'] }, // no base; ship can do 1 harvest without a building
-    { name: 'AI', bh: 'E1', bf: ['G1', 'E2'] },
-    { name: 'Zcharo', bh: 'E2', bf: ['C', 'G1'] },
-    { name: 'Leyrien', bh: 'E2', bf: ['C', 'E2'] },
-    { name: 'Jrayek', bh: 'G1', bf: ['G1', '%'] },
-    { name: 'Oxytaya', bh: 'R1', bf: ['C', 'C'] },
+    { name: 'Circadian', bh: '-',  bf: ['%', 'E2'] }, // no base; ship can do 1 harvest without a building
+    { name: 'AI',        bh: 'E1', bf: ['G1', 'E2'] },
+    { name: 'Zcharo',    bh: 'E2', bf: ['C', 'G1'] },
+    { name: 'Leyrien',   bh: 'E2', bf: ['C', 'E2'] },
+    { name: 'Jrayek',    bh: 'G1', bf: ['G1', '%'] },
+    { name: 'Oxytaya',   bh: 'R1', bf: ['C', 'C'] },
   ];
 
   /** identify bonuses awarded on each faction's fameTrack */

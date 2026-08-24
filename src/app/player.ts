@@ -5,12 +5,12 @@ import { ChaosHex2 as Hex2, type ChaosHex2 } from "./chaos-hex";
 import { type ChaosTable, type ChaosTable as Table } from "./chaos-table";
 import { BaseTile, type BONUS, type HARVEST } from "./chaos-tile";
 import { Faction, factionColors, type FactionId, type FactionName } from "./factions";
-import { BgFound, bonusIcon, Foundation } from "./foundation";
+import { BgFound, Foundation } from "./foundation";
 import { type GamePlay } from "./game-play";
 import { type PlayerId } from "./game-state";
 import { ChaosPresence, Factory, Leader, Outposts, PriceToken, PTokenShape, Stronghold, type ChaosUnitType, type Fighter, type PriceId } from "./meeples";
 import { ResearchCell, ResGrid } from "./research-cell";
-import { CO, pricePhases } from "./table-params";
+import { bonusIcon, CO, pricePhases } from "./table-params";
 import { CardBack, CardPanel, type CardHex } from "./tactics-card";
 
 /** Canonical Faction colors, aligned with gameSetup.factionNames.
@@ -568,8 +568,9 @@ export class Panel extends PlayerPanel {
   // make ChaosTile, set color, set Harvest token
   setupBase(faction: Faction) {
     const baseTile = this.baseTile = new BaseTile(faction);
-    const color = C.nameToRgbaString(CO.mauve, .4); // this.pColor; '#d0a53b';
-    baseTile.paint(color);                          // color TBD;
+    const bColor = faction.facId == 0 ? this.pColor : CO.mauve;
+    const color = C.nameToRgbaString(bColor, .6);
+    baseTile.paint(color);
     const hex = this.baseHex = this.table.newHex2(0, 0, `${this.faction.name}Base`);
     // move hex to center-right of this Panel:
     this.localToLocal(11.6*this.wh, 6.7*this.wh, hex.cont.parent, hex.cont)
@@ -582,6 +583,7 @@ export class Panel extends PlayerPanel {
     this.baseTile.addLeader(leaders[0]);
     this.baseTile.addLeader(leaders[1]);
     this.baseTile.addLeader(leaders[2]);
+    if (this.faction.facId == 5) this.baseTile.addLeader(leaders[3]);
     // TODO: show all on panel for selection
   }
 
