@@ -372,15 +372,15 @@ export class Panel extends PlayerPanel {
     const { x, y } = this.getBounds();
     const h = this.wh, w = h * 2, gap = h * .15;
     const x0 = x + w * 1.76, y0 = y + h * .65;
-    const sp = spec.rb;
+    const rb = spec.rb;
     arrayN(5).forEach(n => {
       const cont = new NamedContainer(`Relic${n}`)
       const foreColor = C.nameToRgbaString(this.player.color, .2);
       const bgrect = new RectShape({ x: -w/2, y: -h/2, w, h, s: 0 }, foreColor, '');
       const fs = h / 2, dx = w * .23;
-      const resIcon = new CenterText('%', fs, C.white);
+      const resIcon = bonusIcon('%', fs*.8)!;
       resIcon.x = - dx; resIcon.y = 0;
-      const specIcon = new CenterText(sp[n], fs, C.white);
+      const specIcon = bonusIcon(rb[n], fs*.8) ?? new CenterText(rb[n], fs, C.white);
       specIcon.x = + dx; specIcon.y = 0;
       cont.addChild(bgrect, resIcon, specIcon);
       cont.x = x0 + n * (w + gap);

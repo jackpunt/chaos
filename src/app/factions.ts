@@ -94,7 +94,7 @@ export class Faction {
   /** display name of Faction */
   name!: FactionName;
   /** Relic BONUS on Panel */
-  rb!: BONUS;
+  rb!: BONUS[];
   /** Panel Foundation with Gemlock (other than 0: Stronghold_Gem -> Research) */
   fg!: number;
   /** Foundations w/Gemlock (for the 5 Panel Foundations) */
