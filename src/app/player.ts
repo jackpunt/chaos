@@ -9,8 +9,8 @@ import { BgFound, bonusIcon, Foundation } from "./foundation";
 import { type GamePlay } from "./game-play";
 import { type PlayerId } from "./game-state";
 import { ChaosPresence, Factory, Leader, Outposts, PriceToken, PTokenShape, Stronghold, type ChaosUnitType, type Fighter, type PriceId } from "./meeples";
-import { CO, ResearchCell, ResGrid } from "./research-cell";
-import { pricePhases } from "./table-params";
+import { ResearchCell, ResGrid } from "./research-cell";
+import { CO, pricePhases } from "./table-params";
 import { CardBack, CardPanel, type CardHex } from "./tactics-card";
 
 /** Canonical Faction colors, aligned with gameSetup.factionNames.
@@ -399,10 +399,10 @@ export class Panel extends PlayerPanel {
     const stripe = new RectShape({ x: inx, y: iny, w: this.getBounds().width - wh, h: wh * .6 }, CO.orange, '')
     const circ = new CircleShape(CO.orange, wh/2, ''); circ.x = inx; circ.y = iny + wh/4;
     this.addChild(stripe, circ);
-    const specBg = spec.bg;
+    const specBg = spec.bg;      // buildings with gemLocks
     let x00 = x0;
-    specBg.forEach((spec, btype) => {  // btype: 0: Factory, 1: Outposts, 2: Stronghold
-      const nbldgs = spec.length;
+    specBg.forEach((bldgs, btype) => {  // btype: 0: Factory, 1: Outposts, 2: Stronghold
+      const nbldgs = bldgs.length;
       const homeAry = new Array<Foundation>(nbldgs); // each Factory instance shares the same homeAry
       const [BC, bText, bid] = [
         [Factory, 'E2', 'F'],    // Foundry
@@ -410,21 +410,21 @@ export class Panel extends PlayerPanel {
         [Stronghold, 'G1', 'S'], // Stronghold
       ][btype] as [typeof Factory|typeof Outposts|typeof Stronghold, BONUS, number]
 
-      spec.toReversed().forEach((gl, rndx) => {
+      bldgs.toReversed().forEach((bldg, rndx) => {
         const ndx = nbldgs - 1 - rndx; // actual ndx in homeAry
         const x = x00 + ndx * wh * 1.01; // place bg from left-to-right
         const y = y0;
         // TODO: use TextTweaks to convert E*, C, G* to glyphs?
-        const bonus = gl < 2 ? bText : [ 'E2  /    \n/\n    /  G1', 'E3'][gl-2] as BONUS;
+        const bonus = bldg < 2 ? bText : [ 'E2  /    \n/\n    /  G1', 'E3'][bldg-2] as BONUS;
         const Aname = `${bid}${this.player.facId}.${ndx}`;
-        const bg = homeAry[ndx] = new BgFound(Aname, bonus, fs);
-        if (gl == 1) bg.addGemLock(.35, .65);
-        this.addChild(bg); bg.x = x; bg.y = y;
-        if (gl == 2 || gl == 3) {
-          bg.reCache();
+        const bgf = homeAry[ndx] = new BgFound(Aname, bonus, fs); // background Foundation on Panel
+        if (bldg == 1) bgf.addGemLock(-.25, .65);
+        this.addChild(bgf); bgf.x = x; bgf.y = y;
+        if (bldg == 2 || bldg == 3) {
+          bgf.reCache();
           return; // no building in Factory slot 0
         }
-        const fg = new BC(Aname, this.player, bg, homeAry);
+        const fg = new BC(Aname, this.player, bgf, homeAry);
         fg.sendHome();
         fg.paint(this.pColor);
         const bs = fg.backSide;
@@ -470,7 +470,7 @@ export class Panel extends PlayerPanel {
         const bg = new BgFound(fid, bText as BONUS, fs);;
         const fg = new Foundation(fid, '-', fs);
         if (ndx == 0 || ndx == gl) {
-          fg.addGemLock();
+          fg.addGemLock(.35, 0);
         }
         return { bg, fg };
       }

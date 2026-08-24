@@ -6,6 +6,8 @@ import { Tile, TP, type DragContext, type Table } from "@thegraid/hexlib";
 import { ChaosHex2 as Hex2 } from "./chaos-hex";
 import { type BONUS, type ChaosTile, type HARVEST } from "./chaos-tile";
 import type { ChaosBuilding, PriceBonus } from "./meeples";
+import { gemlockIcon } from "./research-cell";
+import { CO } from "./table-params";
 
 
 // TODO: maybe use TextTweaks to place the glyphs?
@@ -13,7 +15,7 @@ import type { ChaosBuilding, PriceBonus } from "./meeples";
 /** E: energy, G: gem, C: card, R: recruit, U: upgrade(gold), *: gemlock */
 export function bonusIcon(harv?: HARVEST | PriceBonus, fs = TP.hexRad * .15, tc?: string ) {
     if (!harv || harv.length > 3) return undefined;
-    const spotmap = { E: 'yellow', G: 'red', C: 'white', R: 'orange', U: 'gold', '.': 'grey' };
+    const spotmap = { E: 'yellow', G: CO.gColor, C: 'white', R: 'orange', U: 'gold', '.': 'grey' };
     const cardRot = 12;
     const miniCard = () => {
       const cardRect = { x: -w / 2, y: -h / 2, w, h, r: 2, s: 1 }; // maybe use TextInRect?
@@ -96,10 +98,7 @@ export class Foundation extends Tile {
   }
 
   addGemLock(dx = .35, dy = 0) {
-    const rad = this.radius;
-    const gl = new CircleShape('red', rad * .09, '');
-    gl.x += rad * dx;
-    gl.y += rad * dy;
+    const gl = gemlockIcon(dx * this.radius, dy * this.radius);
     this.addChild(this.gemlock = gl)
     this.reCache();
   }

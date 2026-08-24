@@ -8,8 +8,8 @@ import { bonusIcon, Foundation } from "./foundation";
 import type { GamePlay } from "./game-play";
 import { AI_Trap, ChaosBuilding, Factory, Leader, Morale, Outposts, Relic, Stronghold } from "./meeples";
 import type { Player } from "./player";
-import { CO } from "./research-cell";
 import type { FactionOnTileState } from "./scenario-parser";
+import { CO } from "./table-params";
 
 declare module '@thegraid/easeljs-module' {
   interface Graphics {

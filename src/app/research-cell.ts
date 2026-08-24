@@ -4,23 +4,18 @@ import type { DisplayObject } from "@thegraid/easeljs-module";
 import { type HARVEST } from "./chaos-tile";
 import { type Faction } from "./factions";
 import { bonusIcon } from "./foundation";
-import { pricePhases, TP, type PricePhase } from "./table-params";
+import { CO, TP, type PricePhase } from "./table-params";
 
 
-/** colors for ChaosOrder */
-export namespace CO {
-  export const mauve = 'rgb(166, 78, 129)';   // bold mauve
-  export const dmauve = 'rgb(138, 105, 138)'; // dark mauve
-  export const orange = 'rgb(255, 140, 0)';   // color for phase Icons
-}
-
-export function gemlockIcon() {
-  const rad = TP.hexRad * .1;
-  const bi = bonusIcon('.' as HARVEST, rad, 'red')!;
-  const gem = new EllipseShape('red', rad * .5, rad * .7, '');
+export function gemlockIcon(dx = .35, dy = 0) {
+  const rad = TP.hexRad * .1
+  const bi = bonusIcon('.' as HARVEST, rad, CO.gColor)!;  // grey dot
+  const gem = new EllipseShape(CO.gColor, rad * .5, rad * .7, ''); // elongated gem
   gem.x += rad * .45;
   gem.y += rad * .25;
   bi.addChild(gem)
+  bi.x = dx;
+  bi.y = dy;
   return bi
 }
 
@@ -95,9 +90,7 @@ export class ResearchCell extends NamedContainer {
     this.fill();
     if (gl) {
       this.gemlock = true;
-      const gl = this.gemlockIcon = gemlockIcon();
-      gl.x = -wh.width * .55; // addResearchLines.dx / 2
-      gl.y = wh.height * .15; // aligned with text for immediat effects (see: fs above)
+      const gl = this.gemlockIcon = gemlockIcon(-.55 * wh.width, .15 * wh.height);
       this.addChild(gl)
     }
   }

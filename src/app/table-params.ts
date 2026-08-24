@@ -23,3 +23,17 @@ export class TP extends TPLib {
   // timeout: see also 'autoEvent'
   static stepDwell:  number = 150
 }
+
+
+/** colors for ChaosOrder */
+export namespace CO {
+  export const mauve = 'rgb(166, 78, 129)'; // bold mauve
+  export const dmauve = 'rgb(138, 105, 138)'; // dark mauve
+  export const orange = 'rgb(255, 140, 0)'; // color for phase Icons
+  export const nColor = 'rgb(255, 140, 0)'; // neutral color
+  export const bColor = 'rgb(255, 140, 0)'; // bank color
+  export const dColor = 'rgb(150, 70, 0)'; // default background color? for PTokenShape
+  export const gColor = 'rgb(240, 30, 0)'; // gem Color
+
+}
+

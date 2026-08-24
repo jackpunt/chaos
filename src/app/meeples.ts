@@ -10,7 +10,7 @@ import { factionNeutral, type FactionId } from "./factions";
 import { BgFound, Foundation } from "./foundation";
 import type { GamePlay } from "./game-play";
 import type { Player } from "./player";
-import { priceNames, type PhaseName, type PriceName } from "./table-params";
+import { CO, priceNames, type PhaseName, type PriceName } from "./table-params";
 
 
 type XYp = [x: number, y: number];
@@ -293,22 +293,28 @@ export class Leader extends ChaosUnit implements LeaderSpec {
     this.addStats(card, fontSize, 2 * fontSize + top);
     if (this.plGem) card.addChild(this.plGemIcon(fontSize, top, left))
     if (this.upGem) card.addChild(this.upGemIcon(fontSize, top, left))
-    const t1 = new CenterText(this.t1, fontSize * .5, C.WHITE);
-    t1.lineWidth = right * 1.8;
-    t1.textAlign = 'left';
-    t1.x = left + .3 * fontSize;
-    t1.y = .5 * fontSize;
-    card.addChild(t1);
+    this.addText(card, fontSize, top, left);
     card.scaleX = card.scaleY = 2;
     card.visible = false;
     card.on(S.click, () => { card.visible = false; card.stage.update(); })
     return card;
   }
 
+  addText(card: Container, fontSize = 16, top = -80, left = -55) {
+    const t1 = new CenterText(this.t1, fontSize * .5, C.WHITE);
+    t1.lineWidth = -left * 1.8;
+    t1.textAlign = 'left';
+    const { width, height } = t1.getBounds(), mlh = t1.getMeasuredLineHeight();
+    t1.x = left + .3 * fontSize;
+    t1.y = -top - Math.max(height, 3 * mlh) - .3 * fontSize;
+    card.addChild(t1);
+    const tphase = new CenterText(this.tp, fontSize * .6, CO.orange)
+  }
+
   plGemIcon(fontSize = 16, top = -80, left = -55) {
     const icon = new NamedContainer('plGem');
-    const gem = new CircleShape('red', fontSize*.33, '');
-    gem.y = (2 * fontSize + top); gem.x = left + fontSize/2;
+    const gem = new CircleShape(CO.gColor, fontSize*.33, '');
+    gem.y = (2 * fontSize + top); gem.x = left + fontSize * .7;
     const circ = new EllipseShape('grey', fontSize * .35, fontSize * .12 ,'white')
     const arr1 = new CenterText('v', fontSize * .55, 'white');
     const arr2 = new CenterText('V', fontSize * 1.0, 'white');
@@ -322,8 +328,8 @@ export class Leader extends ChaosUnit implements LeaderSpec {
 
   upGemIcon(fontSize = 16, top = -80, left = -55) {
     const icon = new NamedContainer('plGem');
-    const gem = new CircleShape('red', fontSize*.33, '');
-    gem.y = (3 * fontSize + top); gem.x = -(left + fontSize/2);
+    const gem = new CircleShape(CO.gColor, fontSize*.33, '');
+    gem.y = (3 * fontSize + top); gem.x = -(left + fontSize * .7);
     const arr2 = new CenterText('V', fontSize * 1.0, 'white');
     arr2.scaleY = -1;  // to get inverted V
     gem.y + fontSize * 1.3;
@@ -671,8 +677,6 @@ class PTMark extends RectShape {
 
 
 export class PriceToken extends ChaosMeeple {
-  bColor = 'rgb(150, 70, 0)';
-  nColor = 'rgb(255, 140, 0)'; // neutral color
 
   static bonus35 = [ ['^', 'C'], ['>', '%']] as PriceBonus[][];
   static bonus_2 = [ ['^'], ['^']] as PriceBonus[][];
@@ -775,13 +779,13 @@ export class PriceToken extends ChaosMeeple {
     if (toFac > 0 && toBank > 0) {
       const tf = new TextInRect(`${toFac}`, { bgColor: this.pColor, fontSize })
       setTR(tf, s*.45, x1, y1);
-      const tb = new TextInRect(`${toBank}`, { bgColor: PTokenShape.nColor, fontSize })
+      const tb = new TextInRect(`${toBank}`, { bgColor: CO.bColor, fontSize })
       setTR(tb, s*.45, x2, y1);
     } else if (toFac > 0) {  // single payment to Faction:
       const tf = new TextInRect(`${toFac}`, { bgColor: this.pColor, fontSize })
       setTR(tf, s*.7, 0, y1)
     } else if (toBank > 0) { // single payment to Bank
-      const tb = new TextInRect(`${toBank}`, { bgColor: PTokenShape.nColor, fontSize })
+      const tb = new TextInRect(`${toBank}`, { bgColor: CO.bColor, fontSize })
       setTR(tb, s*.7, 0, y1)
     }
     if (neutral && eject !== undefined) {
@@ -892,11 +896,9 @@ export class PriceToken extends ChaosMeeple {
 }
 
 export class PTokenShape extends RectShape {
-  static bColor = 'rgb(150, 70, 0)';
-  static nColor = 'rgb(255, 140, 0)'; // neutral color
 
   constructor(public size = 10, strokec = 'black', g0 = new Graphics) {
-    super({ x: -size/2, y: -size/2,  w: size, h: size }, PTokenShape.bColor, strokec, g0);
+    super({ x: -size/2, y: -size/2,  w: size, h: size }, CO.dColor, strokec, g0);
   }
   override paint(colorn?: string, force?: boolean): Graphics {
     return super.paint(colorn ?? this.colorn, force)
