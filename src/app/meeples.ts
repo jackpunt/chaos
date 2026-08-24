@@ -1,6 +1,6 @@
-import { C, F, stime, type XY, type XYWH } from "@thegraid/common-lib";
+import { C, F, S, stime, type XY, type XYWH } from "@thegraid/common-lib";
 import { CenterText, NamedContainer, PathShape, RectShape, TextInRect, type Paintable } from "@thegraid/easeljs-lib";
-import type { MouseEvent, Rectangle } from "@thegraid/easeljs-module";
+import type { DisplayObject, MouseEvent, Rectangle } from "@thegraid/easeljs-module";
 import { Graphics } from "@thegraid/easeljs-module";
 import { Meeple, MeepleShape, Tile, TP, type DragContext, type Hex, type HexM, type IHex2 } from "@thegraid/hexlib";
 import { TokenHex, type ChaosHex2 as Hex2, type HexMap2 } from "./chaos-hex";
@@ -231,6 +231,8 @@ export class Leader extends ChaosUnit implements LeaderSpec {
   upPlace = 0;
   isRhyzu = false;   // maybe subclass...
 
+  card: DisplayObject;
+
   constructor(Aname: string, player: Player) {
     super(Aname, player); // TODO: inject Player/Faction
     Leader.allLeadersByName.set(Aname, this);
@@ -244,22 +246,48 @@ export class Leader extends ChaosUnit implements LeaderSpec {
     this.plGem = plGem ?? 0;
     this.upGem = upGem ?? 0;
     this.upPlace = (name == 'Injura' ? 2 : name == 'Demo' ? 0 : isRhyzu ? 0 : 1);
+    this.card = this.makeCard();
     this.rightClickable()
   }
 
   override onRightClick(evt: MouseEvent) {
     super.onRightClick(evt);
     // TODO: show all properties of this Leader
+    const x = evt.localX, y = evt.localY;
+    const card = this.card;
+    this.parent.addChild(card);
+    card.visible = true;
+    card.stage.update();
+  }
 
+  /** Fill a container with the info from a Leader card.
+   *
+   * ILeader: facId/isRhyzu (bgColor), Name, stats, upgraded (border: gold),
+   *
+   * plGem, upGem, upPlace
+   *
+   * onboard: obvious from location of baseShape (baseShape on Card OR Card [popup] on baseShape)
+   */
+  makeCard() {
+    // Should probably use CardShape; and simple put Aname @ y = height-mlh
+    const card = new NamedContainer(this.Aname), fontSize = this.radius * .15;
+    const bg = new TextInRect(this.Aname, { border: [.1, .1, .2, 12], fontSize, corner: .3, })
+    const { width, height } = bg.getBounds(), mlh = bg.label.getMeasuredLineHeight();
+    const dx = (height * 2.5/3.5 - width)/(2 * mlh); // final width = height * 2.5/3.5
+    bg.borders = [dx, dx, undefined, undefined];
+    bg.paint(this.pColor); // repaint after set borders!
+    card.addChild(bg);
+    card.visible = false;
+    card.on(S.click, () => { card.visible = false; card.stage.update(); })
+    return card;
   }
 
   // TODO: image & click to popup
+  /** the small, D&D/on-map shape; it can expand to the larger leaderCard */
   override makeShape(size?: number): Paintable {
     const cont = new PaintableCont(`${this.Aname}_icon`);
     const text = `${this.Aname.substring(0,2)}`, fontSize = TP.hexRad * .2;
-    const temp1 = new TextInRect(text, { bgColor: this.player.color, fontSize, border: .2, corner: .1 })
-    temp1.borders = [0, 0, .15, 0];
-    temp1.label_text = temp1.label_text;
+    const temp1 = new TextInRect(text, { bgColor: this.player.color, fontSize, border: [0, 0, .15, 0], corner: .1 })
     cont.addChild(temp1);
     return cont;
   }

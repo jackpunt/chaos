@@ -66,7 +66,7 @@ export class ChaosTable extends Table {
     this.initialVis = false;
     super.layoutTable2();            // toggleText
 
-    const doneRow = 7.2, lefcol = 1.5; // position Panels near truncated hexMap
+    const doneRow = 7.4, lefcol = 1.8; // position Panels near truncated hexMap
 
     const [source, discard] = TacticsCard.makeCardSources(this, { row: doneRow + 1.2, col: lefcol })
     this.cardSource = source;
@@ -92,7 +92,7 @@ export class ChaosTable extends Table {
    * Do whatever when DoneButton is clicked; --> phaseDone()
    */
   override addDoneButton() {
-    const rv = super.addDoneButton(undefined, 0, 0); // table.doneButton('Done')
+    const rv = super.addDoneButton(undefined, 0, 0); // see: gameState.doneButton('Done')
     this.orig_doneClick = this.orig_doneClick ?? this.doneClicked; // override
     this.doneClicked = (evt) => {
       // insert advice to doneClicked here:
@@ -228,7 +228,7 @@ export class ChaosTable extends Table {
     })
   }
 
-  /** make 6 numbered Relic buildings, place above the neutralPanel; D&D & auto-place on map */
+  /** make 6 numbered Relic buildings, place on the neutralPanel; D&D & auto-place on map */
   makeRelics() {
     const player = this.gamePlay.neutralPlayer;
     const panel = player.panel, wh = panel.wh, x0 = wh * 1.85, y0 = wh * 1.55, s1 = wh * 1.1;;

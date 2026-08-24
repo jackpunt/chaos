@@ -153,8 +153,7 @@ export class FactionOnTile extends NamedContainer {
   constructor(public player: Player, public tile: ChaosTile) {
     super(`FoT-${player.facId}`);
     const fontSize = tile.radius * .2;
-    this.fighterIcon = new TextInRect('0', { bgColor: this.player.color, fontSize, border: .2, corner: .1 } )
-    this.fighterIcon.borders = [.2, .2, .2, 0];
+    this.fighterIcon = new TextInRect('0', { bgColor: this.player.color, fontSize, border: [.2, .2, .2, 0], corner: .1 } )
     this.addChild(this.fighterIcon); // at (0, 0)
     this.tile.addChild(this);
     this.update();

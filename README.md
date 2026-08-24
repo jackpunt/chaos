@@ -1,5 +1,10 @@
 # Chaos
 
+## Explainer
+
+[Choas Order](https://docs.google.com/document/d/1233l5BVtKD-KcAcVPqyA4bgy-h6HGWJapEH6uSzNb4E/) Google Docs
+
+
 This project was generated using [Angular CLI](https://github.com/angular/angular-cli) version 20.3.1.
 
 ## Development server
@@ -10,60 +15,14 @@ To start a local development server, run:
 ng serve
 ```
 
-Once the server is running, open your browser and navigate to `http://localhost:4200/`. The application will automatically reload whenever you modify any of the source files.
+Once the server is running, open your browser and navigate to `http://localhost:4215/`. The application will automatically reload whenever you modify any of the source files.
 
-still using webpack because [vite sourcemap problem](https://stackoverflow.com/questions/76750947/vite-dev-server-sourcemaps-dont-work-or-point-to-wrong-lines-files-in-vscode-de/79458228#79458228)
+Tell angular.json to use: architect.build.defaultConfiguration: "development"
 
-[vite bug 15047](https://github.com/vitejs/vite/issues/15047) closed as not reproduced
-
-## Code scaffolding
-
-Angular CLI includes powerful code scaffolding tools. To generate a new component, run:
-
-```bash
-ng generate component component-name
-```
-
-For a complete list of available schematics (such as `components`, `directives`, or `pipes`), run:
-
-```bash
-ng generate --help
-```
-
-## Building
-
-To build the project run:
-
-```bash
-ng build
-```
-
-This will compile your project and store the build artifacts in the `dist/` directory. By default, the production build optimizes your application for performance and speed.
-
-## Running unit tests
-
-To execute unit tests with the [Karma](https://karma-runner.github.io) test runner, use the following command:
-
-```bash
-ng test
-```
-
-## Running end-to-end tests
-
-For end-to-end (e2e) testing, run:
-
-```bash
-ng e2e
-```
-
-Angular CLI does not come with an end-to-end testing framework by default. You can choose one that suits your needs.
-
-## Additional Resources
-
-For more information on using the Angular CLI, including detailed command references, visit the [Angular CLI Overview and Command Reference](https://angular.dev/tools/cli) page.
+That gets optimization: "false" so vite will not rewrite & break the sourcemap.
 
 
-## Hack
+## Hack - multiple inheritance
 
 Gemini offered this usage of new Proxy() to add behavior of two unrelated instances.
 For each method 'this' is bound, so instances cannot access each other's state or methods.
@@ -102,3 +61,12 @@ function createDualProxy<T extends object, U extends object>(instanceA: T, insta
   }) as T & U;
 }
 ```
+
+That didn't work so we derived mixins.clonePrototypChain() and use it in gameSetup.ts:
+```
+  static {
+    // insert methods of HexMap2: Panel extends HexMap2 & PlayerPanel {...}
+    const bOverA1 = mixins.clonePrototypeChain(HexMap2, PlayerPanel.prototype);
+    Object.setPrototypeOf(Panel.prototype, bOverA1);   // now Panel ISA HexMap2 & PlayerPanel
+  }
+  ```

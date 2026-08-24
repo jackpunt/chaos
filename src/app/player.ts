@@ -247,7 +247,7 @@ export class Panel extends PlayerPanel {
     const np = table.gamePlay.allPlayers.length;
     const ptIds = [[],[], [5, 3], [5, 4, 3, 2], [5, 3], [], []][np];
     this.addPriceTokens(table, -.25, ptIds); // make the row, then stack them on the edge:
-    const x = this.wh * 1.1;  // stack the Neutral tiles above phase pricing slots
+    const x = this.wh * -.1;  // stack the Neutral tiles above phase pricing slots
     // stack in order (TODO: two stacks for 3-player)
     ptIds.forEach(pid => {
       const pt = this.priceTokens[pid];
@@ -590,6 +590,12 @@ export class Panel extends PlayerPanel {
     return this.faction.leaders
   }
 
+  /** discard 2; can supply indices of one or two to automate */
+  discardLeaders(disc: number[] = []) {
+    // TODO: make a leaderPanel, populate with (UtilButtons holding a) leaderCard, click to discard.
+    // move to panel with (3 or 4) newHex for each leader/leaderCard
+  }
+
   /** a sub-panel that holds the hand of TacticsCards */
   /**
    *
@@ -615,8 +621,7 @@ export class Panel extends PlayerPanel {
     cardPanel.fillAryWithCardHex(this, this.cardRack, high/2, ncols)
     cardPanel.visible = false;
     // a Button to toggle visibility:
-    const cButton = new UtilButton('Cards', { active: true, corner: .1, fontSize: dxdc * .2, border: .2 });
-    cButton.borders = [.1, .1, .2, 0]; cButton.label_text = cButton.label_text;
+    const cButton = new UtilButton('Cards', { active: true, corner: .1, fontSize: dxdc * .2, border: [.1, .1, .2, 0] });
     cButton.x = x0 + s1 * 1;
     cButton.y = y0 + s1 * 3.8; //height - 1.7 * dydr;
     this.addChild(cButton);
