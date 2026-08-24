@@ -1,15 +1,16 @@
 import { C, F, S, stime, type XY, type XYWH } from "@thegraid/common-lib";
-import { CenterText, NamedContainer, PathShape, RectShape, TextInRect, type Paintable } from "@thegraid/easeljs-lib";
-import type { DisplayObject, MouseEvent, Rectangle } from "@thegraid/easeljs-module";
+import { CenterText, CircleShape, EllipseShape, NamedContainer, PathShape, RectShape, TextInRect, type Paintable } from "@thegraid/easeljs-lib";
+import type { Container, MouseEvent, Rectangle } from "@thegraid/easeljs-module";
 import { Graphics } from "@thegraid/easeljs-module";
 import { Meeple, MeepleShape, Tile, TP, type DragContext, type Hex, type HexM, type IHex2 } from "@thegraid/hexlib";
+import { CardShape } from "./card-shape";
 import { TokenHex, type ChaosHex2 as Hex2, type HexMap2 } from "./chaos-hex";
 import { type BONUS, type FactionOnTile, type TERRAIN } from "./chaos-tile";
 import { factionNeutral, type FactionId } from "./factions";
 import { BgFound, Foundation } from "./foundation";
 import type { GamePlay } from "./game-play";
 import type { Player } from "./player";
-import { priceNames, type PriceName } from "./table-params";
+import { priceNames, type PhaseName, type PriceName } from "./table-params";
 
 
 type XYp = [x: number, y: number];
@@ -156,6 +157,9 @@ interface LeaderSpec {
   name: string;
   stats0: CombatStats; // initial
   stats2: CombatStats; // ugraded
+  t1?: string;         // Text on card
+  t2?: string;         // Upgrade Text; default: same as T1
+  P?: PhaseName,       // default: 'Combat'
   isRhyzu?: boolean;
   plGem?: number;        // default: 0, isRhyzu --> 0
   upGem?: number;        // default: 0
@@ -172,44 +176,48 @@ export interface ILeader extends LeaderSpec {
 export class Leader extends ChaosUnit implements LeaderSpec {
 
   static leaderSpecs: LeaderSpec[] = [
-    // Circadian
+    // Circadian: 0
     { facId: 0, name: 'Sable', stats0: [2, 0, 1], stats2: [4, 2, 1], }, // reveal combat
     { facId: 0, name: 'Akira', stats0: [2, 0, 2], stats2: [4, 0, 4], upGem: 1}, // E1->G1, G1
     { facId: 0, name: 'Renzo', stats0: [3, 2, 0], stats2: [5, 3, 0], upGem: 1}, // pins 3, 5
     { facId: 0, name: 'Zoey',  stats0: [2, 2, 0], stats2: [3, 3, 0]}, // retreat w/Fighters to non-adjacent region
     { facId: 0, name: 'Melvan', stats0: [2, 0, 0], stats2: [3, 1, 1]}, // 2,3 str when non-adjacent to ship
-    // AI
+    // AI: 1
     { facId: 1, name: 'Adecai', stats0: [3, 0, 0], stats2: [5, 0, 0], plGem: 1},  // wound 1 if victory (un-blockable, limit 4)
     { facId: 1, name: 'Injura', stats0: [-2, 3, 0], stats2: [2, 4, 0], plGem: 1, upGem: 1}, // 1 atk if victory (blockable, limit 4)
     { facId: 1, name: 'Xiao',   stats0: [2, 1, 1], stats2: [3, 3, 1], upGem: 1},    // 1,2 % if no wounds
     { facId: 1, name: 'Phoros', stats0: [-2, 3, 0], stats2: [2, 4, 0], plGem: 1},   // use ** on battle wheel
     { facId: 1, name: 'Demo', stats0: [2, 1, 0], stats2: [4, 2, 0], upGem: 2},      // upPl: 0 (never dies!)
-    // Zcharo
+    // Zcharo: 2
     { facId: 2, name: 'Oachra', stats0: [2, 2, 0], stats2: [3, 3, 0], plGem: 1, }, // resolve attacks before strength
     { facId: 2, name: 'Cahzor', stats0: [2, 0, 0], stats2: [4, 0, 0],  },  // +1 str (if, per) opposing building
     { facId: 2, name: 'Zucalah', stats0: [3, 0, 0], stats2: [6, 0, 0], },  // (E1, -) --> gain Card
     { facId: 2, name: 'Ejax', stats0: [1, 1, 0], stats2: [2, 1, 2],  },    // +str per Round
     { facId: 2, name: 'Urzo', stats0: [3, 0, 0], stats2: [5, 0, 0], plGem: 1, }, // gain oppo Card (unless Urzo retreats)
-    // Leyrien
+    // Leyrien: 3
     { facId: 3, name: 'Niruveh', stats0: [2, 0, 1], stats2: [3, 0, 3], }, // Build: double found rewards, no found req'd
     { facId: 3, name: 'Eeyla', stats0: [2, 2, 0], stats2: [4, 3, 0], plGem: 1, }, // 1 Fame after Victory
     { facId: 3, name: 'Vehlac', stats0: [3, 0, 0], stats2: [6, 0, 0], plGem: 1, }, // Move: Free move w/o other Units
     { facId: 3, name: 'Ivi', stats0: [2, 0, 0], stats2: [3, 1, 1], }, // Move: (& attack) with Allied Leader
     { facId: 3, name: 'Rylach', stats0: [1, 0, 1], stats2: [3, 0, 2], plGem: 1, }, // Move: Boost Morale if end on Cliff/Plains
-    // Jrayek
+    // Jrayek: 4
     { facId: 4, name: 'Jayen', stats0: [4, 0, 1], stats2: [7, 0, 2], plGem: 1}, // Lose half after victory (before atk v shields)
     { facId: 4, name: 'Ikryla', stats0: [2, 0, 0], stats2: [4, 2, 0], }, // G1|C in Relic Region
     { facId: 4, name: 'Lynke', stats0: [1, 2, 0], stats2: [3, 4, 0], upGem: 1}, // 1 str per atk
     { facId: 4, name: 'Vahla', stats0: [2, 0, 0], stats2: [2, 0, 2], upGem: 2},  // +4 str against, (or with) a Rhyzu
     { facId: 4, name: 'Kajali', stats0: [2, 1, 0], stats2: [4, 2, 0], plGem: 1}, // no oppo initiative in this region
-    // Rhyzu
+    // Rhyzu: 4
     { facId: 4, name: 'Uryk', stats0: [2, 2, 0], stats2: [3, 3, 0], isRhyzu: true },   // PriceToken: 1
     { facId: 4, name: 'Halke', stats0: [2, 0, 2], stats2: [3, 0, 3], isRhyzu: true },  // PriceToken: 3
     { facId: 4, name: 'Katarin', stats0: [3, 0, 0], stats2: [5, 0, 0], isRhyzu: true }, // PriceToken: 6
-    // Oxataya
-    { facId: 5, name: 'Tovati', stats0: [1, 2, 0], stats2: [3, 3, 0], upGem: 1}, // +2 str if no other Leader/Rhyzu
-    { facId: 5, name: 'Azaru', stats0: [2, 0, 0], stats2: [3, 0, 0], plGem: 1}, // card (, & gem) before each battle
-    { facId: 5, name: 'Xanya', stats0: [2, 0, 1], stats2: [4, 0, 2], }, // Recruit[end]: free move without (, with) Units
+    // Oxataya: 5
+    { facId: 5, name: 'Tovati', stats0: [1, 2, 0], stats2: [3, 3, 0], upGem: 1,
+      t1: "2 F IF FIGHTING WITHOUT ALLIED LEADERS OR RHY-ZU", },
+    { facId: 5, name: 'Azaru', stats0: [2, 0, 0], stats2: [3, 0, 0], plGem: 1,
+      t1: "GAIN 1 TACTICS CARD BEFORE EACH BATTLE", t2: "GAIN 1 TACTICS CARD AND 1 GEM BEFORE EACH BATTLE"},
+    { facId: 5, name: 'Xanya', stats0: [2, 0, 1], stats2: [4, 0, 2], P: 'Recruit',
+      t1: "MAY MAKE A FREE MOVE WITHOUT OTHER UNITS [END OF PHASE]",
+      t2: "MAY MAKE A FREE MOVE WITH ANY NUMBER OF FIGHTERS [END OF PHASE]", },
     { facId: 5, name: 'Rhan', stats0: [2, 0, 2], stats2: [3, 0, 2], plGem: 1, upGem: 1}, // 2, 3 str per other Oxataya Leader
     { facId: 5, name: 'Onari', stats0: [1, 1, 0], stats2: [3, 2, 1], plGem: 1}, // Move: off lakes w/Units is Free Move
     { facId: 5, name: 'Latanja', stats0: [2, 0, 0], stats2: [3, 1, 0], upGem: 1}, // may redploy 4, 10 fighters when victorious
@@ -224,6 +232,9 @@ export class Leader extends ChaosUnit implements LeaderSpec {
   get stats() { return this.upgraded ? this.stats2 : this.stats0 }
   stats0: CombatStats;
   stats2: CombatStats;
+  t1: string;
+  t2: string;
+  tp: PhaseName;
   upgraded = false;  // set true when upgraded
   onBoard = false;
   plGem = 0;
@@ -231,17 +242,20 @@ export class Leader extends ChaosUnit implements LeaderSpec {
   upPlace = 0;
   isRhyzu = false;   // maybe subclass...
 
-  card: DisplayObject;
+  card: NamedContainer;
 
   constructor(Aname: string, player: Player) {
-    super(Aname, player); // TODO: inject Player/Faction
+    super(`${Aname}`, player); // TODO: inject Player/Faction
     Leader.allLeadersByName.set(Aname, this);
 
     const lspec = Leader.leaderSpecs.find(spec => spec.name == Aname)!
-    const { name, facId, stats0, stats2, isRhyzu, plGem, upGem } = lspec;
+    const { name, facId, stats0, stats2, t1, t2, P, isRhyzu, plGem, upGem } = lspec;
     this.facId = facId;
     this.stats0 = stats0;
     this.stats2 = stats2;
+    this.t1 = t1 ?? 'Leader Text';
+    this.t2 = t2 ?? this.t1;
+    this.tp = P ?? 'Combat';
     this.isRhyzu = isRhyzu ?? false;
     this.plGem = plGem ?? 0;
     this.upGem = upGem ?? 0;
@@ -253,9 +267,9 @@ export class Leader extends ChaosUnit implements LeaderSpec {
   override onRightClick(evt: MouseEvent) {
     super.onRightClick(evt);
     // TODO: show all properties of this Leader
-    const x = evt.localX, y = evt.localY;
-    const card = this.card;
-    this.parent.addChild(card);
+    const card = this.card, parCont = this.factOnTile!.tile.hex!.map.mapCont.overCont;
+    this.factOnTile!.parent.localToLocal(0, 0, parCont, card);
+    parCont.addChild(card);  // baseTile.FoT or overCont
     card.visible = true;
     card.stage.update();
   }
@@ -270,24 +284,78 @@ export class Leader extends ChaosUnit implements LeaderSpec {
    */
   makeCard() {
     // Should probably use CardShape; and simple put Aname @ y = height-mlh
-    const card = new NamedContainer(this.Aname), fontSize = this.radius * .15;
-    const bg = new TextInRect(this.Aname, { border: [.1, .1, .2, 12], fontSize, corner: .3, })
-    const { width, height } = bg.getBounds(), mlh = bg.label.getMeasuredLineHeight();
-    const dx = (height * 2.5/3.5 - width)/(2 * mlh); // final width = height * 2.5/3.5
-    bg.borders = [dx, dx, undefined, undefined];
-    bg.paint(this.pColor); // repaint after set borders!
-    card.addChild(bg);
+    const card = new NamedContainer(`${this.Aname}Card`);  // maybe some day: class LeaderCard
+    const bg = new CardShape(this.pColor, C.white), fontSize = this.radius * .3; this.player.color
+    const top = -bg._rect.h/2, left = bg._rect.x, right = -left;
+    const aname = new CenterText(this.Aname, fontSize, C.WHITE);
+    aname.y = fontSize * .9 + top;
+    card.addChild(bg, aname);
+    this.addStats(card, fontSize, 2 * fontSize + top);
+    if (this.plGem) card.addChild(this.plGemIcon(fontSize, top, left))
+    if (this.upGem) card.addChild(this.upGemIcon(fontSize, top, left))
+    const t1 = new CenterText(this.t1, fontSize * .5, C.WHITE);
+    t1.lineWidth = right * 1.8;
+    t1.textAlign = 'left';
+    t1.x = left + .3 * fontSize;
+    t1.y = .5 * fontSize;
+    card.addChild(t1);
+    card.scaleX = card.scaleY = 2;
     card.visible = false;
     card.on(S.click, () => { card.visible = false; card.stage.update(); })
     return card;
+  }
+
+  plGemIcon(fontSize = 16, top = -80, left = -55) {
+    const icon = new NamedContainer('plGem');
+    const gem = new CircleShape('red', fontSize*.33, '');
+    gem.y = (2 * fontSize + top); gem.x = left + fontSize/2;
+    const circ = new EllipseShape('grey', fontSize * .35, fontSize * .12 ,'white')
+    const arr1 = new CenterText('v', fontSize * .55, 'white');
+    const arr2 = new CenterText('V', fontSize * 1.0, 'white');
+    circ.y = gem.y + fontSize * 1.3;
+    arr1.y = gem.y + fontSize * .55;
+    arr2.y = gem.y + fontSize;
+    circ.x = arr1.x = arr2.x = gem.x;
+    icon.addChild(gem, circ, arr1, arr2);
+    return icon;
+  }
+
+  upGemIcon(fontSize = 16, top = -80, left = -55) {
+    const icon = new NamedContainer('plGem');
+    const gem = new CircleShape('red', fontSize*.33, '');
+    gem.y = (3 * fontSize + top); gem.x = -(left + fontSize/2);
+    const arr2 = new CenterText('V', fontSize * 1.0, 'white');
+    arr2.scaleY = -1;  // to get inverted V
+    gem.y + fontSize * 1.3;
+    gem.y + fontSize * .55;
+    arr2.y = gem.y - fontSize;// arr2.scaleY = -1;
+    arr2.x = gem.x;
+    icon.addChild(gem, arr2);
+    return icon;
+  }
+
+  addStats(card: Container, fontSize = this.radius * .3, y = 0 ) {
+    const [str, atk, shld] = this.stats;
+    const stats1 = new CenterText(`S     A     D`, fontSize*.7, C.WHITE);
+    const stats2 = new CenterText(`\n${str}   ${atk}   ${shld}`, fontSize, C.WHITE) ;
+    stats1.y = stats2.y = y;
+    card.addChild(stats1, stats2);
+  }
+  // show with gold border:
+  upgrade() {
+    this.upgraded = true;
+    const bg = this.card.children[0] as RectShape;   // from this.makeCard()
+    bg.strokec = C.coinGold; bg.paint(bg.colorn, true);
   }
 
   // TODO: image & click to popup
   /** the small, D&D/on-map shape; it can expand to the larger leaderCard */
   override makeShape(size?: number): Paintable {
     const cont = new PaintableCont(`${this.Aname}_icon`);
-    const text = `${this.Aname.substring(0,2)}`, fontSize = TP.hexRad * .2;
-    const temp1 = new TextInRect(text, { bgColor: this.player.color, fontSize, border: [0, 0, .15, 0], corner: .1 })
+    const ntext = `${this.Aname.substring(0,2)}`, fontSize = TP.hexRad * .2;
+    const text = new CenterText(ntext, fontSize, C.WHITE), mw = text.getMeasuredWidth();
+    const dx = Math.max((1.4 * fontSize - mw) / 2, 1) / fontSize;
+    const temp1 = new TextInRect(text, { bgColor: this.player.color, fontSize, border: [dx, dx, .15, 0], corner: .1 })
     cont.addChild(temp1);
     return cont;
   }
@@ -304,13 +372,14 @@ export class Leader extends ChaosUnit implements LeaderSpec {
 
   override dragStart(ctx: DragContext): void {
     super.dragStart(ctx);
+    // remove leaderIcon from ctile:
     this.ctxCtile(ctx)?.addLeader(this, false);
   }
 
   override dropFunc(targetHex: Hex2, ctx: DragContext): void {
     const ctile = targetHex?.ctile ?? this.ctxCtile(ctx);
-    this.factOnTile = ctile.getFoT(this.player);
-    this.factOnTile.addLeader(this);
+    // place leaderIcon on ctile:
+    ctile.getFoT(this.player).addLeader(this);
   }
 }
 

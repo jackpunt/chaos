@@ -48,9 +48,10 @@ export class Player extends PlayerLib {
       // start with 6 key factionColors:
       ... playerColors.reduce((pv, cv) => (pv[cv] = cv, pv), {} as typeof PlayerLib.colorScheme),
       // overwrite a few to get a better color
-      'yellow': 'tan',// 'rgb(255, 213, 0)',
+      'gold': 'rgb(235, 186, 26)', // 'tan'? 'rgb(247, 209, 37)'
       'blue': 'rgb(1, 161, 230)',
-      'orange': 'rgb(255, 60, 0)',
+      'orange': 'rgb(195, 34, 34)',
+      'violet': 'rgb(134, 102, 163)',
       'brown' : 'brown',
   } as typeof PlayerLib.colorScheme;
 
@@ -581,6 +582,7 @@ export class Panel extends PlayerPanel {
     this.baseTile.addLeader(leaders[0]);
     this.baseTile.addLeader(leaders[1]);
     this.baseTile.addLeader(leaders[2]);
+    // TODO: show all on panel for selection
   }
 
   makeLeaders() {

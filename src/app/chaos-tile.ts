@@ -162,11 +162,15 @@ export class FactionOnTile extends NamedContainer {
   // methods to add/remove elements
   addLeader(ldr: Leader, add = true) {
     if (add) {
-      !this.leaders.includes(ldr) && this.leaders.push(ldr);
+      if (!this.leaders.includes(ldr)) {
+        this.leaders.push(ldr);
+        ldr.factOnTile = this;
+      }
       this.addChild(ldr); // move to top...
     } else {
       removeEltFromArray(ldr, this.leaders);
       this.removeChild(ldr)
+      // ldr.factOnTile = undefined;
     }
     this.update()
   }
@@ -233,7 +237,7 @@ export class FactionOnTile extends NamedContainer {
     const index = this.index, overCont = this.tile.hex!.map.mapCont.overCont;
     // sx, sy: sector placement;
     const sx = (this.isBase ?  0 : this.offset) * TP.hexRad; // -1: left side; offset[][] = 0
-    const sy = (this.isBase ? -1 : [0, 1].includes(index) ? -1 : [4, 5].includes(index) ? 1 : TP.numPlayers == 5 ? -1 : 1);
+    const sy = (this.isBase ? -1 : [0, 1].includes(index) ? -1 : [3, 4].includes(index) ? 1 : TP.numPlayers == 5 ? -1 : 1);
     this.x = sx/2;
     this.y = sy * TP.hexRad * H.sqrt3_2/2;
 
@@ -244,7 +248,7 @@ export class FactionOnTile extends NamedContainer {
     if (this.leaders.length > 0) {
       // location of leader line:
       const yl = yh * .33; // assuming 2 of 5 orientation == Base!
-      const lineWidth = TP.hexRad * 1.1; // (allocate width for several Leader Icons)
+      const lineWidth = TP.hexRad * (this.leaders.length < 4 ? .9 : 1.1); // (allocate width for several Leader Icons)
       const gap = lineWidth/this.leaders.length;
       const xl = gap/2 - lineWidth/2;
       this.leaders.forEach((ldr, n) => {
@@ -353,7 +357,7 @@ export class ChaosTile extends MapTile {
 
   addHarvest() {
     const icon = bonusIcon(this.harvest)!;
-    icon.y = this.radius * .37;
+    icon.y = this.radius * .41;
     this.addChild(icon);
   }
 
