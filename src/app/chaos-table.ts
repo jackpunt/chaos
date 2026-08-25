@@ -1,4 +1,4 @@
-import { arrayN, C, type Constructor, type XY, type XYWH } from "@thegraid/common-lib";
+import { arrayN, C, F, type Constructor, type XY, type XYWH } from "@thegraid/common-lib";
 import { AliasLoader, NamedContainer, ParamGUI, type DragInfo, type NamedObject, type ParamItem, type RectShape } from "@thegraid/easeljs-lib";
 import { Stage, type Container, type DisplayObject } from "@thegraid/easeljs-module";
 import { Hex2, Table, Tile, TileSource, TP, type IHex2, type MapCont, type Player as PlayerLib } from "@thegraid/hexlib";
@@ -66,16 +66,18 @@ export class ChaosTable extends Table {
     this.initialVis = false;
     super.layoutTable2();            // toggleText
 
-    const doneRow = 7.4, lefcol = 1.8; // position Panels near truncated hexMap
+    const row = -1.15, col = 5.9;       // position Panels on Neutral Panel
 
-    const [source, discard] = TacticsCard.makeCardSources(this, { row: doneRow + 1.2, col: lefcol })
+    const [source, discard] = TacticsCard.makeCardSources(this, { row, col })
     this.cardSource = source;
     this.cardDiscard = discard;
 
     TacticsCard.makeAllCards(); // populate PathCard.cardByName
 
     this.addDoneButton();
-    this.setToRowCol(this.doneButton, doneRow, lefcol); // between cardDeck & discards
+    this.doneButton.label.font = F.fontSpec(this.sr(20));
+    this.doneButton.label.lineWidth = TP.hexRad * 1.15;
+    this.setToRowCol(this.doneButton, 1.3, col);
 
     this.makeNeutralPanel();    // See also: Panel.layoutNeutralPanel()
     this.makeTokenVault();

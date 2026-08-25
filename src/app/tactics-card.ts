@@ -270,11 +270,11 @@ export class TacticsCard extends Tile {
   static makeCardSources(table: Table, rowcol: { row?: number, col?: number }) {
     CardHex.allCardHex.length = 0; // clear before we make all the new CardHex.
     const { row, col } = { row: 1.9, col: 1, ...rowcol }
-    table.makeSourceAtRowCol(TacticsCard.makeSource, 'discards', row + 0.0, col + 1.5, { x: .5, y: 1.0 }, CardHex)
+    table.makeSourceAtRowCol(TacticsCard.makeSource, 'discards', row + 0, col, { x: .5, y: 1.0 }, CardHex)
     TacticsCard.discard = TacticsCard.source;
     // overwrite readonly Aname; else: class DiscardHex { that names itself... }
     ;(TacticsCard.discard as any as NamedContainer).Aname = 'TacticsCardDiscard';
-    table.makeSourceAtRowCol(TacticsCard.makeSource, 'cardDeck', row + 0.0, col, { x: .5, y: 1.0 }, CardHex)
+    table.makeSourceAtRowCol(TacticsCard.makeSource, 'cardDeck', row + 1.5, col, { x: .5, y: 1.0 }, CardHex)
 
     const discback = new CardBack(table, 'discard', '', '#aabbcc59');
     discback.moveTo(TacticsCard.discard.hex as Hex1); // set position above source.hex

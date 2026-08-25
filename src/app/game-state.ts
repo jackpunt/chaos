@@ -108,7 +108,7 @@ export class GameState extends GameStateLib {
         const plyr = this.vaultPlayerBeforePid(pid)!; // last player in vault list, before pid (highest facId)
         if (plyr) {
           this.setCurPlayerNdx(plyr.index);
-          this.doneButton(`PlaceBase: ${plyr.Aname}`);
+          this.doneButton(`PlaceBase: ${plyr.facName}`);
         } else {
           this.gunPlayer = this.gamePlay.allPlayers[pid];  // last to place Base is first with the Gun.
           this.phase('PlaceRelic');
