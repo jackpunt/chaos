@@ -173,33 +173,61 @@ export interface ILeader extends LeaderSpec {
   // specialByPhase: Map<phase, function>
 }
 
+//  ' F ' --> Fist (strength), * --> Attack, # --> Shield/Defense
 export class Leader extends ChaosUnit implements LeaderSpec {
 
   static leaderSpecs: LeaderSpec[] = [
     // Circadian: 0
-    { facId: 0, name: 'Sable', stats0: [2, 0, 1], stats2: [4, 2, 1], }, // reveal combat
-    { facId: 0, name: 'Akira', stats0: [2, 0, 2], stats2: [4, 0, 4], upGem: 1}, // E1->G1, G1
-    { facId: 0, name: 'Renzo', stats0: [3, 2, 0], stats2: [5, 3, 0], upGem: 1}, // pins 3, 5
-    { facId: 0, name: 'Zoey',  stats0: [2, 2, 0], stats2: [3, 3, 0]}, // retreat w/Fighters to non-adjacent region
-    { facId: 0, name: 'Melvan', stats0: [2, 0, 0], stats2: [3, 1, 1]}, // 2,3 str when non-adjacent to ship
+    { facId: 0, name: 'Sable', stats0: [2, 0, 1], stats2: [4, 2, 1],
+      t1: "OPPONENTS MUST REVEAL THEIR COMBAT WHEEL AND TACTICS CARD FIRST", },
+    { facId: 0, name: 'Akira', stats0: [2, 0, 2], stats2: [4, 0, 4], upGem: 1, P: 'Recruit',
+      t1: "MAY SPEND 1 ENERGY TO GAIN 1 GEM",
+      t2: "GAIN ONE GEM", },
+    { facId: 0, name: 'Renzo', stats0: [3, 2, 0], stats2: [5, 3, 0], upGem: 1,
+      t1: "PINS 3 OPPOSING UNITS AND REQUIRES 3 OPPOSING UNITS TO BE PINNED",
+      t2: "PINS 5 OPPOSING UNITS AND REQUIRES 5 OPPOSING UNITS TO BE PINNED", },
+    { facId: 0, name: 'Zoey',  stats0: [2, 2, 0], stats2: [3, 3, 0],
+      t1: "MAY STAY WITH FIGHTERS IF RETREATING. THIS MAY BE TO NON-ADJACENT REGIONS", },
+    { facId: 0, name: 'Melvan', stats0: [2, 0, 0], stats2: [3, 1, 1],
+      t1: "2 F IF NOT ADJACENT TO THE DROP SHIP",
+      t2: "3 F IF NOT ADJACENT TO THE DROP SHIP", },
     // AI: 1
-    { facId: 1, name: 'Adecai', stats0: [3, 0, 0], stats2: [5, 0, 0], plGem: 1},  // wound 1 if victory (un-blockable, limit 4)
-    { facId: 1, name: 'Injura', stats0: [-2, 3, 0], stats2: [2, 4, 0], plGem: 1, upGem: 1}, // 1 atk if victory (blockable, limit 4)
-    { facId: 1, name: 'Xiao',   stats0: [2, 1, 1], stats2: [3, 3, 1], upGem: 1},    // 1,2 % if no wounds
-    { facId: 1, name: 'Phoros', stats0: [-2, 3, 0], stats2: [2, 4, 0], plGem: 1},   // use ** on battle wheel
-    { facId: 1, name: 'Demo', stats0: [2, 1, 0], stats2: [4, 2, 0], upGem: 2},      // upPl: 0 (never dies!)
+    { facId: 1, name: 'Adecai', stats0: [3, 0, 0], stats2: [5, 0, 0], plGem: 1,
+      t1: "WOUND 1 OPPOSING FIGHTER AFTER EACH VICTORY", }, // (limit 4) },
+    { facId: 1, name: 'Injura', stats0: [-2, 3, 0], stats2: [2, 4, 0], plGem: 1, upGem: 1,
+      t1: "1 * AFTER EACH VICTORY", }, // (Shieldable, limit 4)
+    { facId: 1, name: 'Xiao',   stats0: [2, 1, 1], stats2: [3, 3, 1], upGem: 1,
+      t1: "GAIN 1 RESEARCH IF NO OPPOSING FIGHTERS ARE WOUNDED IN BATTLE",
+      t2: "GAIN 2 RESEARCH IF NO OPPOSING FIGHTERS ARE WOUNDED IN BATTLE", },
+    { facId: 1, name: 'Phoros', stats0: [-2, 3, 0], stats2: [2, 4, 0], plGem: 1,
+      t1: "MAY USE * * SECTION OF THE WHEEL OR PAY NO GEM IF ROLLING A DIE", },
+    { facId: 1, name: 'Demo', stats0: [2, 1, 0], stats2: [4, 2, 0], upGem: 2,
+      t1: "RETURN TO BASE IF DEFEATED", },
     // Zcharo: 2
-    { facId: 2, name: 'Oachra', stats0: [2, 2, 0], stats2: [3, 3, 0], plGem: 1, }, // resolve attacks before strength
-    { facId: 2, name: 'Cahzor', stats0: [2, 0, 0], stats2: [4, 0, 0],  },  // +1 str (if, per) opposing building
-    { facId: 2, name: 'Zucalah', stats0: [3, 0, 0], stats2: [6, 0, 0], },  // (E1, -) --> gain Card
-    { facId: 2, name: 'Ejax', stats0: [1, 1, 0], stats2: [2, 1, 2],  },    // +str per Round
-    { facId: 2, name: 'Urzo', stats0: [3, 0, 0], stats2: [5, 0, 0], plGem: 1, }, // gain oppo Card (unless Urzo retreats)
+    { facId: 2, name: 'Oachra', stats0: [2, 2, 0], stats2: [3, 3, 0], plGem: 1,
+      t1: "ZCHARO ATTACKS ARE RESOLVED BEFORE RESOLVING STRENGTH", },
+    { facId: 2, name: 'Cahzor', stats0: [2, 0, 0], stats2: [4, 0, 0],
+      t1: "1 F IF IN A REGION WITH 1 OR MORE OPPOSING BUILDINGS",
+      t2: "1 F PER OPPOSING BUILDING", },
+    { facId: 2, name: 'Zucalah', stats0: [3, 0, 0], stats2: [6, 0, 0], P: 'Harvest',
+      t1: "MAY SPEND 1 ENERGY TO GAIN 1 TACTICS CARD",
+      t2: "GAIN 1 TACTICS CARD", },
+    { facId: 2, name: 'Ejax', stats0: [1, 1, 0], stats2: [2, 1, 2],
+      t1: "GAIN F EQUAL TO THE CURRENT ROUND", },    // +str per Round
+    { facId: 2, name: 'Urzo', stats0: [3, 0, 0], stats2: [5, 0, 0], plGem: 1,
+      t1: "GAIN OPPONENT'S USED TACTICS CARD UNLESS YOU CHOOSE TO RETREAT", }, // gain oppo Card (unless Urzo retreats)
     // Leyrien: 3
-    { facId: 3, name: 'Niruveh', stats0: [2, 0, 1], stats2: [3, 0, 3], }, // Build: double found rewards, no found req'd
-    { facId: 3, name: 'Eeyla', stats0: [2, 2, 0], stats2: [4, 3, 0], plGem: 1, }, // 1 Fame after Victory
-    { facId: 3, name: 'Vehlac', stats0: [3, 0, 0], stats2: [6, 0, 0], plGem: 1, }, // Move: Free move w/o other Units
-    { facId: 3, name: 'Ivi', stats0: [2, 0, 0], stats2: [3, 1, 1], }, // Move: (& attack) with Allied Leader
-    { facId: 3, name: 'Rylach', stats0: [1, 0, 1], stats2: [3, 0, 2], plGem: 1, }, // Move: Boost Morale if end on Cliff/Plains
+    { facId: 3, name: 'Niruveh', stats0: [2, 0, 1], stats2: [3, 0, 3], P: 'Build',
+      t1: "DOUBLE ALL LOCATION REWARDS",
+      t2: "DOUBLE ALL LOCATION REWARDS. FOUNDATIONS ARE NOT REQUIRED", }, // Build: double found rewards, no found req'd
+    { facId: 3, name: 'Eeyla', stats0: [2, 2, 0], stats2: [4, 3, 0], plGem: 1,
+      t1: "GAIN ONE FAME AFTER EACH VICTORY", },
+    { facId: 3, name: 'Vehlac', stats0: [3, 0, 0], stats2: [6, 0, 0], plGem: 1, P: "Move",
+      t1: "MAY MAKE A FREE MOVE WITHOUT OTHER UNITS [END OF PHASE]", },
+    { facId: 3, name: 'Ivi', stats0: [2, 0, 0], stats2: [3, 1, 1], P: 'Move',
+      t1: "MAY MOVE AND ATTACK WITH AN ALLIED LEADER", },
+    { facId: 3, name: 'Rylach', stats0: [1, 0, 1], stats2: [3, 0, 2], plGem: 1, P: 'Move',
+      t1: "BOOST MORALE IF ENDING MOVEMENT ON A CLIFFS OR PLAINS REGION", },
     // Jrayek: 4
     { facId: 4, name: 'Jayen', stats0: [4, 0, 1], stats2: [7, 0, 2], plGem: 1,
       t1: "LOSE HALF (ROUNDED UP) HIS FIGHTERS AFTER EACH VICTORY", }, // (before atk v shields)
@@ -227,9 +255,14 @@ export class Leader extends ChaosUnit implements LeaderSpec {
     { facId: 5, name: 'Xanya', stats0: [2, 0, 1], stats2: [4, 0, 2], P: 'Recruit',
       t1: "MAY MAKE A FREE MOVE WITHOUT OTHER UNITS [END OF PHASE]",
       t2: "MAY MAKE A FREE MOVE WITH ANY NUMBER OF FIGHTERS [END OF PHASE]", },
-    { facId: 5, name: 'Rhan', stats0: [2, 0, 2], stats2: [3, 0, 2], plGem: 1, upGem: 1}, // 2, 3 str per other Oxataya Leader
-    { facId: 5, name: 'Onari', stats0: [1, 1, 0], stats2: [3, 2, 1], plGem: 1}, // Move: off lakes w/Units is Free Move
-    { facId: 5, name: 'Latanja', stats0: [2, 0, 0], stats2: [3, 1, 0], upGem: 1}, // may redploy 4, 10 fighters when victorious
+    { facId: 5, name: 'Rhan', stats0: [2, 0, 2], stats2: [3, 0, 2], plGem: 1, upGem: 1,
+      t1: "2 F FOR EACH OTHER OXATAYA LEADER",
+      t2: "3 F FOR EACH OTHER OXATAYA LEADER", },
+    { facId: 5, name: 'Onari', stats0: [1, 1, 0], stats2: [3, 2, 1], plGem: 1, P: 'Move',
+      t1: "MOVING OFF LAKES WITH ANY NUMBER OF UNITS IS A FREE MOVE", },
+    { facId: 5, name: 'Latanja', stats0: [2, 0, 0], stats2: [3, 1, 0], upGem: 1,
+      t1: "MAY REDEPLOY UP TO 4 FIGHTERS FROM HER REGION IF VICTORIOUS",
+      t2: "MAY REDEPLOY UP TO 10 FIGHTERS FROM HER REGION IF VICTORIOUS", }, // may redploy 4, 10 fighters when victorious
   ];
 
   static allLeadersByName = new Map<LeaderName, Leader>();
@@ -310,7 +343,7 @@ export class Leader extends ChaosUnit implements LeaderSpec {
   }
 
   addText(card: Container, fontSize = 16, top = -80, left = -55) {
-    const t1 = new CenterText(this.t1, fontSize * .5, C.WHITE);
+    const t1 = new CenterText(this.t1 || 'Leader text', fontSize * .5, C.WHITE);
     t1.lineWidth = -left * 1.8;
     t1.textAlign = 'left';
     const { width, height } = t1.getBounds(), mlh = t1.getMeasuredLineHeight();
