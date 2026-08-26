@@ -103,7 +103,7 @@ class NullGameSetup extends GameSetupLib {
 
     this.facIds = fids
     this.facNames = this.facIds.map(ndx => factionNames[ndx]);  // faction names
-    console.log(stime(this, `.new:`), "factions Names playing:", this.facNames);
+    console.log(stime(this, `.getNPlayers:`), "factions Names playing:", this.facNames);
     return this.facIds.length;
   }
 
@@ -195,6 +195,11 @@ class NullGameSetup extends GameSetupLib {
     TP.nHexes = 4;
     TP.mHexes = 1;
     cNames.splice(cNames.indexOf('tileCont')+1, 0, 'overCont')
+    // ["backCont", "hexCont", "tileCont", "overCont", "markCont", "counterCont"]
+    // overCont is for tile things that must appear above all the other Tiles.
+    // Note: [...MapTile, ...Mountain, ...BaseTile] [...overCont] [...markCont]
+    // Keeping new Mountain() below BaseTile.
+    // Note: scaleCont = [mapCont, overlayCont]; overlayCont for all the popup menus & buttons
     const hexMap = super.makeHexMap(hexMC, hexC, cNames) as HexMap2; // hexMap.makeAllHexes(nh=TP.nHexes, mh=TP.mHexes)
     return hexMap;
   }

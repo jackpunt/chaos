@@ -393,7 +393,7 @@ export class ChaosTile extends MapTile {
       f.x = hex.x + (ndx-1) * dx * f.scaleX;
       f.y = hex.y + hex.radius - dy * f.scaleY;
       f.faceUp(true);
-      f.homeXY = { x: f.x, y: f.y }
+      f.homeXY = { x: f.x, y: f.y };    // see Foundation.sendHome()
       this.chex.mapCont.overCont.addChild(f);
       f.mouseEnabled = false;
     }
@@ -403,7 +403,9 @@ export class ChaosTile extends MapTile {
   /** for Relic Foundations when Relic is D&D moved: */
   removeFoundation(f: Foundation) {
     f.parent?.removeChild(f);
-    delete this.foundations[this.foundations.indexOf(f)];
+    this.foundations[this.foundations.indexOf(f)] = undefined;
+    f.onTile = undefined;
+    f.sendHome();
   }
 
   override isDragable(ctx?: DragContext): boolean {

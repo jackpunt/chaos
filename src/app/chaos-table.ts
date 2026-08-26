@@ -1,10 +1,10 @@
 import { arrayN, C, F, type Constructor, type XY, type XYWH } from "@thegraid/common-lib";
-import { AliasLoader, NamedContainer, ParamGUI, type DragInfo, type NamedObject, type ParamItem, type RectShape } from "@thegraid/easeljs-lib";
+import { AliasLoader, NamedContainer, ParamGUI, type NamedObject, type ParamItem, type RectShape } from "@thegraid/easeljs-lib";
 import { Stage, type Container, type DisplayObject } from "@thegraid/easeljs-module";
 import { Hex2, Table, Tile, TileSource, TP, type IHex2, type MapCont, type Player as PlayerLib } from "@thegraid/hexlib";
 import { TokenHex, type ChaosHex2, type HexMap2 } from "./chaos-hex";
 import { ChaosTile } from "./chaos-tile";
-import { factionColors, factionNames } from "./factions";
+import { factionColors, factionNeutral } from "./factions";
 import type { GamePlay } from "./game-play";
 import { PTokenShape, Relic } from "./meeples";
 import { Panel, Player } from "./player";
@@ -12,6 +12,7 @@ import { TacticsCard, type CardBack } from "./tactics-card";
 
 export class ChaosTable extends Table {
   constructor(stage: Stage) {
+    stage.removeAllChildren();  // prior scaleCont...
     super(stage);
     this.initialVis = true;
   }
@@ -66,7 +67,7 @@ export class ChaosTable extends Table {
     this.initialVis = false;
     super.layoutTable2();            // toggleText
 
-    const row = -1.15, col = 5.9;       // position Panels on Neutral Panel
+    const row = 8.4, col = 1.8;       // position Panels on Neutral Panel
 
     const [source, discard] = TacticsCard.makeCardSources(this, { row, col })
     this.cardSource = source;
@@ -77,10 +78,10 @@ export class ChaosTable extends Table {
     this.addDoneButton();
     this.doneButton.label.font = F.fontSpec(this.sr(20));
     this.doneButton.label.lineWidth = TP.hexRad * 1.15;
-    this.setToRowCol(this.doneButton, 1.3, col);
+    this.setToRowCol(this.doneButton, 1.3, 5.9);
 
-    this.makeNeutralPanel();    // See also: Panel.layoutNeutralPanel()
-    this.makeTokenVault();
+    const vault = this.makeTokenVault();
+    this.makeNeutralPanel(vault);    // See also: Panel.layoutNeutralPanel()
     this.makeRelics();
     return;
   }
@@ -94,7 +95,8 @@ export class ChaosTable extends Table {
    * Do whatever when DoneButton is clicked; --> phaseDone()
    */
   override addDoneButton() {
-    const rv = super.addDoneButton(undefined, 0, 0); // see: gameState.doneButton('Done')
+    const cont = this.hexMap.mapCont.overCont;
+    const rv = super.addDoneButton(cont, 0, 0); // see: gameState.doneButton('Done')
     this.orig_doneClick = this.orig_doneClick ?? this.doneClicked; // override
     this.doneClicked = (evt) => {
       // insert advice to doneClicked here:
@@ -118,13 +120,17 @@ export class ChaosTable extends Table {
   }
 
   neutralPanel!: Panel;
-  makeNeutralPanel() {
+  makeNeutralPanel(vault: Container) {
     const [row, col, dir] = this.neutralPanelLoc();
     const nPlayer = this.gamePlay.neutralPlayer;
     this.neutralPanel = this.makePlayerPanel(this, nPlayer, this.panelHeight, this.panelWidth-.6, row, col+.5, dir)
-  }
+
+    vault.x = this.neutralPanel.x + TP.hexRad * 2.24;
+    vault.y = this.neutralPanel.y - TP.hexRad * .656;
+}
 
   // established by Panel.addPriceSlots()
+  /** TokenHex[] to hold PriceToken when 'inplay' */
   priceHex = [] as TokenHex[];
 
   // constructor does: { mapCont.backCont.addChild(playerPanel); setToRowCol(this, row, col); ... }
@@ -146,13 +152,13 @@ export class ChaosTable extends Table {
    * Make a new HexC() on the given map.mapCont
    * @param row
    * @param col
-   * @param name
-   * @param HexC
+   * @param name hex.Aname
+   * @param HexC (map, row, col, name)
    * @param map [this.hexMap] { mapCont: MapCont }
    * @returns
    */
-  override newHex2(row = 0, col = 0, name: string, HexC: Constructor<IHex2> = this.hexC, map: { mapCont: MapCont } = this.hexMap) {
-    const hex = new HexC(map, row, col, name);
+  override newHex2<T extends IHex2>(row = 0, col = 0, name: string, HexC: Constructor<T> = this.hexC as Constructor<T>, map: { mapCont: MapCont } = this.hexMap) {
+    const hex = new HexC(map, row, col, name) as T;
     hex.distText.text = name; // district text
     this.newHexes.push(hex);
     return hex
@@ -198,8 +204,8 @@ export class ChaosTable extends Table {
 
   tokenVault: NamedContainer[] = [];
   /** make a TokenHex, put it (& its legalMark) at location of dObj */
-  makeHexForObj(dObj: DisplayObject, label: string) {
-    const thex = this.newHex2(0, 0, `${label}`, TokenHex) as TokenHex; // hex on mapCont
+  makeTokenHexForObj(dObj: DisplayObject, label: string) {
+    const thex = this.newHex2(0, 0, `${label}`, TokenHex); // hex on mapCont
     dObj.parent.localToLocal(dObj.x, dObj.y, this.hexMap.mapCont.hexCont, thex.cont)
     thex.legalMark.setOnHex(thex)
     return thex;
@@ -212,10 +218,8 @@ export class ChaosTable extends Table {
 
     const vault = new NamedContainer('Vault'); // will only contain PTokens, 'invault'
     this.hexMap.mapCont.backCont.addChild(vault);
-    vault.x = this.neutralPanel.x + wh * 2.8;
-    vault.y = this.neutralPanel.y - wh * 0.82;
 
-    factionNames.forEach((fn, facId) => {
+    factionNeutral.forEach((fn, facId) => {
       const fcont = new NamedContainer(`vault:${fn}`); // container for PriceTokens of Faction
       fcont.x = x0 + facId * wh0;
       fcont.y = y0;     // no real need to displace, will move 'vault' container
@@ -225,9 +229,15 @@ export class ChaosTable extends Table {
       tShape.paint(Player.colorScheme[factionColors[facId]]);
       fcont.addChild(tShape);
       fcont.visible = false;   // until a PlayerPanel picks it up
-      const fImage = AliasLoader.loader.getBitmap(fn, {x: wh, y: wh});
-      fcont.addChild(fImage)
+      if (fn == 'Neutral') {
+        fcont.x = TP.hexRad * -1.37; // ?
+        fcont.visible = false;       // we show the actual PriceToken instead.
+      } else {
+        const fImage = AliasLoader.loader.getBitmap(fn, { x: wh, y: wh });
+        fcont.addChild(fImage)
+      }
     })
+    return vault;
   }
 
   /** make 6 numbered Relic buildings, place on the neutralPanel; D&D & auto-place on map */
@@ -238,7 +248,7 @@ export class ChaosTable extends Table {
       const n = ndx+1;
       const fxy = { x: x0 + n * s1, y: y0 + 6 * wh }
       const relic = new Relic(n, player, fxy);
-      relic.sendHome()
+      // relic.sendHome()
       panel.addChild(relic);
     })
   }

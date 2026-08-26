@@ -1,17 +1,18 @@
 import { arrayN, C, Constructor, stime, type XY } from "@thegraid/common-lib";
 import { AliasLoader, CenterText, CircleShape, NamedContainer, RectShape, TextInRect, UtilButton } from "@thegraid/easeljs-lib";
+import type { DisplayObject } from "@thegraid/easeljs-module";
 import { HexMap, newPlanner, NumCounter, Player as PlayerLib, PlayerPanel, TP, type IHex2, type MapCont, type Tile, type TileSource } from "@thegraid/hexlib";
 import { ChaosHex2 as Hex2, type ChaosHex2 } from "./chaos-hex";
 import { type ChaosTable, type ChaosTable as Table } from "./chaos-table";
 import { BaseTile, type BONUS, type HARVEST } from "./chaos-tile";
 import { Faction, factionColors, type FactionId, type FactionName } from "./factions";
 import { BgFound, Foundation } from "./foundation";
-import { type GamePlay } from "./game-play";
+import { type Battle, type GamePlay } from "./game-play";
 import { type PlayerId } from "./game-state";
 import { ChaosPresence, Factory, Leader, Outposts, PriceToken, PTokenShape, Stronghold, type ChaosUnitType, type Fighter, type PriceId } from "./meeples";
 import { ResearchCell, ResGrid } from "./research-cell";
 import { bonusIcon, CO, pricePhases } from "./table-params";
-import { CardBack, CardPanel, type CardHex } from "./tactics-card";
+import { CardBack, CardPanel, TacticsCard, type CardHex } from "./tactics-card";
 
 /** Canonical Faction colors, aligned with gameSetup.factionNames.
  *
@@ -165,12 +166,13 @@ export class Player extends PlayerLib {
   makeCardRack(table: Table, row?: number, ncols = 6) {
   }
 
-  // addCard(card?: TacticsCard) {
-  //   const hex2 = this.cardRack.find(hex => !hex.tile) as Hex2;
-  //   if (!hex2) return;
-  //   if (!card) card = TacticsCard.source.takeUnit();
-  //   card?.placeTile(hex2);
-  //   return card;
+  addCard(card?: TacticsCard) {
+    const hex2 = this.cardRack.find(hex => !hex.tile) as Hex2;
+    if (!hex2) return;                               // TODO: auxillary hex for new card & choose
+    if (!card) card = TacticsCard.source.nextUnit(); // sourcHexUnit assured to be undefined (see takeUnit())
+    card?.placeTile(hex2);
+    return card;
+  }
 
   /** for ScenarioParser.saveState() */ // TODO: code cards with index, or string->card
   get cards() { return this.cardRack.map(hex => hex.card).filter(card => !!card) }
@@ -187,6 +189,20 @@ export class Player extends PlayerLib {
     const cards = this.cards.map(card => card?.name);
     const recruits = this.panel.recruits.map(ctr => ctr.value);
     return {coins, gems, cards, recruits }
+  }
+
+  chooseBattle(battles: Battle[], cb: (battle: Battle) => void) {
+    // TODO: choose from GUI
+    cb(battles[0]);
+  }
+
+  setBattlePlan(battle: Battle, cb: () => void) {
+    // oh, sure: plyr2 can see the stat1.wheel & card...
+    const stat = (battle.stat1.plyr == this) ? battle.stat1 : battle.stat2;
+    // dummy reply:
+    stat.wheel = "retreat";    // or whatever
+    stat.card = this.cards[0];
+    setTimeout(cb, 50)
   }
 }
 
@@ -232,7 +248,7 @@ export class Panel extends PlayerPanel {
     this.addChild(this.avail)
     this.vault = table.tokenVault[faction.facId];
     if (this.vault) this.vault.visible = true;
-    if (faction.name == 'Neutral' as FactionName) {
+    if (faction.name == 'Neutral') {
       this.layoutNeutralPanel(table)
     } else {
       this.layoutPanel(table);
@@ -260,13 +276,22 @@ export class Panel extends PlayerPanel {
     return;
   }
 
+  /** set disp on this.parent @ panel's wh grid(xy)
+   * disp: DisplayObject with parent (on stage)
+   * x, y: offsets in units of this.wh (TP.meepleRad)
+   */
+  moveToWH(disp: DisplayObject, x = 0, y = 0) {
+    const wh = this.wh, x0 = wh * .55, y0 = wh * .55, s1 = wh * 1.1;
+    this.localToLocal(x0 + x * s1, y0 + y * s1, disp.parent, disp);
+  }
+
   rowh = 1.35;
   addPriceSlots() {
     const wh = this.wh, fs = wh * .15, x0 = wh * .5, y0 = wh * .5, rowh = this.rowh * wh;
     pricePhases.forEach((pName, i) => {
       // place a tokenShape suitable for PricingToken
-      const tokenShape = (dy = 0, label = (i == 4) ? 'FIRST' : '') => {
-        const isLast = label == 'LAST';
+      const tokenShape = (dy = 0, label4 = (i == 4) ? 'FIRST' : '') => {
+        const isLast = (label4 == 'LAST');   // as given parametar
         const tShape = new PTokenShape(wh, C.white);
         tShape.paint(C.grey224);
         slot.addChild(tShape);
@@ -279,13 +304,13 @@ export class Panel extends PlayerPanel {
           bonus.y = cy - wh * .2;
           slot.addChild(bonus)
         }
-        if (label) {
-          const mtext = new CenterText(label, fs);
+        if (label4) {   // 'FIRST' or 'LAST' aka: (i == 4)
+          const mtext = new CenterText(label4, fs);
           mtext.x = cx;
           mtext.y = cy + wh * .2;
           slot.addChild(mtext)
         }
-        const thex = this.table.makeHexForObj(tShape, `${label ?? pName}`);
+        const thex = this.table.makeTokenHexForObj(tShape, `${label4 ?? pName}`);
         const di = (isLast ? i + 1 : i);
         this.table.priceHex[di] = thex;
       }
@@ -296,6 +321,9 @@ export class Panel extends PlayerPanel {
       tokenShape();
       if (i == 4) {
         tokenShape(wh * 1.1, 'LAST');
+        // cross link for isLegalHex:
+        this.table.priceHex[4].otherMoveHex = this.table.priceHex[5];
+        this.table.priceHex[5].otherMoveHex = this.table.priceHex[4];
       }
       const label = new CenterText(pName, fs, C.white )
       label.textAlign = 'left';

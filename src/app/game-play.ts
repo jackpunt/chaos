@@ -3,15 +3,25 @@ import { KeyBinder } from "@thegraid/easeljs-lib";
 import { GamePlay as GamePlayLib, SetupElt, TP as TPLib } from "@thegraid/hexlib";
 import type { HexMap2 } from "./chaos-hex";
 import type { ChaosTable } from "./chaos-table";
-import type { BONUS, TERRAIN } from "./chaos-tile";
+import type { BONUS, ChaosTile, TERRAIN } from "./chaos-tile";
 import { BgFound } from "./foundation";
 import type { GameSetup } from "./game-setup";
 import { GameState, type PlayerId } from "./game-state";
 import { Relic } from "./meeples";
 import type { Player } from "./player";
 import { ScenarioParser } from "./scenario-parser";
-import { priceNames, type PriceName, TP } from "./table-params";
+import { priceNames, TP, type PriceName } from "./table-params";
+import type { TacticsCard } from "./tactics-card";
 
+
+type Wheel = string;  // TBD: define names for the wheel slots
+type BattleStat = { plyr: Player, wheel: Wheel, card: TacticsCard }
+/** a Region in conflict and 2 contestant Player */
+export class Battle {
+  region!: ChaosTile;
+  stat1!: BattleStat;
+  stat2!: BattleStat;
+}
 
 export class GamePlay extends GamePlayLib {
   neutralPlayer!: Player;
@@ -63,9 +73,15 @@ export class GamePlay extends GamePlayLib {
     this.gameState.state.done!(ndx);
   }
 
+  awardPriceBonuses() {
+    this.gameState.phasePrices['Build']?.player.gemCounter.incValue(2);
+    this.gameState.phasePrices['Recruit']?.player.coinCounter.incValue(2);
+    this.gameState.phasePrices['MoveFirst']?.player.addCard();
+  }
+
   setPriceNeutral() {
     const plyr = this.neutralPlayer;
-    plyr.panel.priceTokens; // [5,3] or [5,4,3,2]
+    // plyr.panel.priceTokens; // [5,3] or [5,4,3,2]
     const p2a = [3], p2b = [5], p3a = [2, 4], p3b = [3, 4], p3c = [4, 5], p4a = [3], p4b = [5];
     // vs looking for a special attribute on the token:
     const plan = [[p2a, p2a, p2a, p2a, p2b, p2b], [p3a, p3a, p3b, p3b, p3c, p3c], [p4a, p4a, p4a, p4a, p4b, p4b]];
@@ -81,11 +97,22 @@ export class GamePlay extends GamePlayLib {
     })
   }
 
-  setPendingToAvail() {
+  /** end of SetPricing; cleanup */
+  movePendingToAvail() {
     this.allPlayers.forEach(plyr => {
       plyr.panel.priceTokens.forEach(pt => {
         if (pt.status == 'pending') pt.status = 'avail';
       })
+    })
+  }
+
+  moveInPlayToInVault() {
+    priceNames.forEach(pn => {
+      const pt = this.gameState.phasePrices[pn];
+      this.gameState.phasePrices[pn] = undefined;
+      if (!pt) return;
+      pt.status = 'invault';
+      pt.moveToVault();
     })
   }
 
@@ -116,12 +143,13 @@ export class GamePlay extends GamePlayLib {
   // Setup: place Relics on Foundations; player choice? [8/17]
   // Setup: layout FactionOnTile (v & ^) [8/20]
   // Setup: choose Leaders & starting Leader
-  // Setup: place Leader & Fighters in Base (Fighters as Counter, leader w/hovertext? w/clicktext?)
+  // Setup: place Leader & Fighters in Base (Fighters as Counter, leader w/clicktext [8/26])
   // Setup: place Fighters & Leader on Map (on base Foundation Regions)
-  // SetPrices: Move --> FlareGun (gunPlayer)
-  // SetPrices: Recurit, Build --> Energy & Gem
-  // Each Phase: start with Pricer (or Neutral --> gunPlayer)
-  // Each Phses: player to pay or pass
+  // Setup/phase: show FlareGun indication on faction Panel [8/26]
+  // SetPrices: Move --> FlareGun (gunPlayer) [8/26]
+  // SetPrices: Recurit, Build, MoveLast --> Energy & Gem & Card [8/26]
+  // Each Phase: start with Pricer (or Neutral --> gunPlayer) [8/26]
+  // Each Phase: player to pay or pass
   // Discover: advancement bonus; give E,G,C; Move(3) R2;
   // Discover: present Production Tokens, allow selection & placement for Harvest(2); Build(1,3) Foundation
   // Discover: click to select Primary & Auxillary Research. (inc ResearchLevel)
@@ -140,6 +168,10 @@ export class GamePlay extends GamePlayLib {
   // Income: Faction specific Income: Ley,
   // Relics: Win?; assign Relic do Bonus (Research, Upgrade-Circadian)
   // ... next round
+
+  findBattles(pid: PlayerId) {
+    return [] as Battle[];
+  }
 
   brake = false; // for debugger
   /** for conditional breakpoints while dragging; inject into any object. */

@@ -160,7 +160,7 @@ interface LeaderSpec {
   t1?: string;         // Text on card
   t2?: string;         // Upgrade Text; default: same as T1
   P?: PhaseName,       // default: 'Combat'
-  isRhyzu?: boolean;
+  isRhyzu?: number;    // default 0 (not a Rhyzu) 1..6 --> PriceToken to summon
   plGem?: number;        // default: 0, isRhyzu --> 0
   upGem?: number;        // default: 0
   upPlace?: number;      // upPlace: 1 (except: Injura = 2, Demo = 0, isRhyzu = 0)
@@ -201,15 +201,24 @@ export class Leader extends ChaosUnit implements LeaderSpec {
     { facId: 3, name: 'Ivi', stats0: [2, 0, 0], stats2: [3, 1, 1], }, // Move: (& attack) with Allied Leader
     { facId: 3, name: 'Rylach', stats0: [1, 0, 1], stats2: [3, 0, 2], plGem: 1, }, // Move: Boost Morale if end on Cliff/Plains
     // Jrayek: 4
-    { facId: 4, name: 'Jayen', stats0: [4, 0, 1], stats2: [7, 0, 2], plGem: 1}, // Lose half after victory (before atk v shields)
-    { facId: 4, name: 'Ikryla', stats0: [2, 0, 0], stats2: [4, 2, 0], }, // G1|C in Relic Region
-    { facId: 4, name: 'Lynke', stats0: [1, 2, 0], stats2: [3, 4, 0], upGem: 1}, // 1 str per atk
-    { facId: 4, name: 'Vahla', stats0: [2, 0, 0], stats2: [2, 0, 2], upGem: 2},  // +4 str against, (or with) a Rhyzu
-    { facId: 4, name: 'Kajali', stats0: [2, 1, 0], stats2: [4, 2, 0], plGem: 1}, // no oppo initiative in this region
+    { facId: 4, name: 'Jayen', stats0: [4, 0, 1], stats2: [7, 0, 2], plGem: 1,
+      t1: "LOSE HALF (ROUNDED UP) HIS FIGHTERS AFTER EACH VICTORY", }, // (before atk v shields)
+    { facId: 4, name: 'Ikryla', stats0: [2, 0, 0], stats2: [4, 2, 0], P: "Income",
+      t1: "GAIN 1 TACTICS CARD OR 1 GEM IF IN A RELIC REGION",  },
+    { facId: 4, name: 'Lynke', stats0: [1, 2, 0], stats2: [3, 4, 0], upGem: 1,
+      t1: "1 $S PER 2 $A", }, // 1 str per 2 atk
+    { facId: 4, name: 'Vahla', stats0: [2, 0, 0], stats2: [2, 0, 2], upGem: 2,
+      t1: "4 $S IF FIGHTING AN OPPOSING RHY-ZU",
+      t2: "4 $S IF FIGHTING WITH 1 OR MORE ALLIED OR OPPOSING RHY-ZU", },  // +4 str against, (or with) a Rhyzu
+    { facId: 4, name: 'Kajali', stats0: [2, 1, 0], stats2: [4, 2, 0], plGem: 1,
+      t1: "OPPONENT CANNOT SELECT ANY BATTLES IN THIS REGION", },
     // Rhyzu: 4
-    { facId: 4, name: 'Uryk', stats0: [2, 2, 0], stats2: [3, 3, 0], isRhyzu: true },   // PriceToken: 1
-    { facId: 4, name: 'Halke', stats0: [2, 0, 2], stats2: [3, 0, 3], isRhyzu: true },  // PriceToken: 3
-    { facId: 4, name: 'Katarin', stats0: [3, 0, 0], stats2: [5, 0, 0], isRhyzu: true }, // PriceToken: 6
+    { facId: 4, name: 'Uryk', stats0: [2, 2, 0], stats2: [3, 3, 0], isRhyzu: 1,
+      t1: "CANNOT ENTER LAKES BATTLE VICTOR GAINS CONTROL OF URYK", },
+    { facId: 4, name: 'Halke', stats0: [2, 0, 2], stats2: [3, 0, 3], isRhyzu: 3,
+      t1: "CANNOT ENTER LAKES BATTLE VICTOR GAINS CONTROL OF HALKE", },
+    { facId: 4, name: 'Katarin', stats0: [3, 0, 0], stats2: [5, 0, 0], isRhyzu: 6,
+      t1: "CANNOT ENTER LAKES BATTLE VICTOR GAINS CONTROL OF HALKE", },
     // Oxataya: 5
     { facId: 5, name: 'Tovati', stats0: [1, 2, 0], stats2: [3, 3, 0], upGem: 1,
       t1: "2 F IF FIGHTING WITHOUT ALLIED LEADERS OR RHY-ZU", },
@@ -240,7 +249,7 @@ export class Leader extends ChaosUnit implements LeaderSpec {
   plGem = 0;
   upGem = 0;
   upPlace = 0;
-  isRhyzu = false;   // maybe subclass...
+  isRhyzu = 0;   // maybe subclass...
 
   card: NamedContainer;
 
@@ -256,7 +265,7 @@ export class Leader extends ChaosUnit implements LeaderSpec {
     this.t1 = t1 ?? 'Leader Text';
     this.t2 = t2 ?? this.t1;
     this.tp = P ?? 'Combat';
-    this.isRhyzu = isRhyzu ?? false;
+    this.isRhyzu = isRhyzu ?? 0;
     this.plGem = plGem ?? 0;
     this.upGem = upGem ?? 0;
     this.upPlace = (name == 'Injura' ? 2 : name == 'Demo' ? 0 : isRhyzu ? 0 : 1);
@@ -547,8 +556,14 @@ export class Relic extends ChaosMeeple {
   override makeShape(size = TP.meepleRad): Paintable {
     return new RectShape({ x: -size/2, y: -size/2, w: size, h: size }, C.grey32);
   }
-  foundation: Foundation; // placed on map hex by placeRelic(hex)
+  readonly foundation: Foundation; // placed on map hex by placeRelic(hex)
 
+  /**
+   *
+   * @param n Relic number (1..6)
+   * @param player NeutralPlayer
+   * @param homeXY location for sendHome
+   */
   constructor(n: number, player: Player, homeXY: XY) {
     const Aname = `Relic${n}`;
     super(Aname, player);
@@ -557,14 +572,16 @@ export class Relic extends ChaosMeeple {
     this.addChild(new CenterText(`${n}`, F.fontSpec(fs, 'Arial Rounded MT Bold'), C.WHITE));
     this.foundation = new BgFound(`RF_${n}`, Relic.bonus[n]);
     Relic.allRelics.push(this);
+    this.sendHome();
   }
 
   override sendHome(): void {
     const f = this.foundation;
     f.onTile?.removeFoundation(f);
+    f.x = this.homeXY.x; f.y = this.homeXY.y;
     this.player.panel.addChild(this);
     this.scaleX = this.scaleY = 1;
-    this.x = this.homeXY.x; this.y = this.homeXY.y;
+    this.x = f.x; this.y = f.y;
     this.fromHex = undefined!;
   }
 
@@ -587,18 +604,18 @@ export class Relic extends ChaosMeeple {
   override isLegalTarget(toHex: Hex2, ctx: DragContext): boolean {
     if (toHex == this.foundation.onTile?.chex) return true; // Relic is not 'on' a Hex or Tile; is on its Foundation.
     if ((['Base', 'Mtn', 'Lake'] as TERRAIN[]).includes(toHex.ctile?.terrain ?? 'Base')) return false;
-    return !!toHex.tile && !toHex.tile.foundations[1] && !this.isAdjacentCurPlayerBaseFoundations(toHex);
+    const adjacent = this.isAdjacentCurPlayerBaseFoundations(toHex) && !ctx.lastCtrl;
+    return !!toHex.tile && !toHex.tile.foundations[1] && !adjacent;
   }
 
   override dragStart(ctx: DragContext): void {
     super.dragStart(ctx)
-    this.rescaleDrag(2);
-    this.scaleX = this.scaleY = 1;
+    this.toMapScale(false);
   }
 
   override dropFunc(targetHex: Hex2, ctx: DragContext): void {
     this.placeRelic(targetHex);
-    this.rescaleDrag(1);
+    this.toMapScale(!this.gamePlay.gameState.isPhase('PlaceRelic'));
     if (!targetHex) this.gamePlay.hexMap.showMark();
   }
 
@@ -613,17 +630,16 @@ export class Relic extends ChaosMeeple {
         f.onTile?.removeFoundation(f);
         targetHex.ctile?.addFoundation(f); // sets f.scaleX, f.scaleY
       }
-      this.scaleX = this.scaleY = Foundation.mapScale;
       this.x = f.x; this.y = f.y;
       f.parent.addChild(this);
       return;
     }
   }
 
-  rescaleDrag(sf = 2) {
+  toMapScale(shrink = true) {
     Relic.allRelics.forEach(rel => {
       if (!!rel.foundation.parent) {
-        rel.scaleX = rel.scaleY = sf * Foundation.mapScale;
+        rel.scaleX = rel.scaleY = shrink ? Foundation.mapScale : 1;
       }
     })
   }
@@ -753,7 +769,7 @@ export class PriceToken extends ChaosMeeple {
 
   // add content above the PricingToken baseShape:
   fillCont(cont: NamedContainer, size = (this.baseShape).getBounds().width) {
-    const bgcolor = C.nameToRgbaString(this.player!.color, .5)
+    const bgcolor = C.nameToRgbaString(this.player!.color, .7)
     const base = this.baseShape as PTokenShape;
     const over = new RectShape(base._rect)
     over.paint(bgcolor, true);
@@ -814,7 +830,7 @@ export class PriceToken extends ChaosMeeple {
   }
 
   override isLegalTarget(toHex: Hex2, ctx?: DragContext): boolean {
-    return (toHex instanceof TokenHex);
+    return ((toHex instanceof TokenHex) && !toHex.meep && !toHex.otherMoveHex?.meep);
   }
 
   // return token to place on panel
@@ -858,9 +874,17 @@ export class PriceToken extends ChaosMeeple {
     this.onPhase = priceName;
     this.status = 'inplay';
     this.gamePlay.gameState.phasePrices[priceName] = this;
+    if (priceName.startsWith('Move')) this.advanceGun();
 
     const facName = factionNeutral[this.facId];
-    console.log(stime(this, `.setTokenOnPhase: ${facName} w/${this.Aname} ->`), priceName, this )
+    console.log(stime(this, `.setTokenOnPhase: ${facName} w/${this.Aname} ->`), priceName )
+  }
+
+  advanceGun() {
+    const gs = this.gamePlay.gameState;
+    const pnxt = gs.nextNdx(this.player.index);
+    const pndx = (pnxt != gs.gunPlayer.index) ? pnxt : gs.nextNdx(pnxt);
+    gs.gunPlayer = this.gamePlay.allPlayers[pndx];
   }
 
   /** remove from pricing, place in vault */

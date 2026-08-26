@@ -81,6 +81,9 @@ export class ChaosHex2 extends ChaosHex2Lib {
 /** the way code typically imports ChaosHex2 */
 type Hex2 = ChaosHex2;
 export class TokenHex extends ChaosHex2 {
+  /** set to crosslink 'MoveFirst' & 'MoveLast' hexes */
+  otherMoveHex: TokenHex | undefined = undefined;
+
   override makeHexShape(colorn?: string): Paintable {
     const wh = TP.meepleRad;
     const hs = new RectShape({ x: -wh/2, y: -wh/2, w: wh, h: wh}, 'rgba(192, 192, 192, 0.2)')
