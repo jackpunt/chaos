@@ -1,7 +1,6 @@
 import { C, Random, removeEltFromArray, stime, type Constructor } from "@thegraid/common-lib";
-import { RectShape, type NamedObject, type Paintable } from "@thegraid/easeljs-lib";
-import type { DisplayObject } from "@thegraid/easeljs-module";
-import { H, Hex1 as Hex1Lib, Hex2Mixin, HexMap, HexMark, HexShape, TP, type HexDir, type HexM, type IdHex, type IHex2, type Tile } from "@thegraid/hexlib";
+import { CircleShape, RectShape, type NamedObject, type Paintable } from "@thegraid/easeljs-lib";
+import { H, Hex1 as Hex1Lib, Hex2Mixin, HexMap, HexMark, HexShape, LegalMark, TP, type HexDir, type HexM, type IdHex, type IHex2, type Tile } from "@thegraid/hexlib";
 import { type ChaosTile, type HARVEST, type TERRAIN } from "./chaos-tile";
 import { pentagon } from "./table-params";
 import type { TacticsCard } from "./tactics-card";
@@ -77,6 +76,16 @@ export class ChaosHex2 extends ChaosHex2Lib {
     hs.paint(colorn);
     return hs;
   }
+
+  // smaller radius of circle
+  override makeLegalMark(): LegalMark {
+    return new class extends LegalMark {
+      override doGraphics(): void {
+        this.removeAllChildren();
+        this.addChild(new CircleShape(C.legalGreen, this.hex2.radius * .3, '')); // @(0, 0)
+      }
+    }
+  }
 }
 /** the way code typically imports ChaosHex2 */
 type Hex2 = ChaosHex2;
@@ -129,8 +138,8 @@ export class HexMap2 extends HexMap<ChaosHex2> {
     super(radius, addToMapCont, hexC, Aname)
   }
 
-  // temp: (rh, rc coming in next hexlib)
-  override makeMark(rh = this.radius, rc = this.radius / 2.5): DisplayObject {
+  // smaller radius
+  override makeMark(rh = this.radius, rc = this.radius * .25) {
     return new HexMark(rh, rc);
   }
 

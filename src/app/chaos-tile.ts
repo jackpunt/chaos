@@ -136,7 +136,11 @@ const colorOfTerrain: Record<TERRAIN, string> = {
 }
 
 
-/** per-Player bits on map Tile/Hex; add one for each Faction, in apprpriate place */
+/** per-Player bits on map Tile/Hex; add one for each Faction, in apprpriate place
+ *
+ * @param player: indicates color of glyphs and sector (unless tile.isBase) for this Faction
+ * @param tile: parent of FoT; (glyphs are on overCont above tile)
+ */
 export class FactionOnTile extends NamedContainer {
 
   leaders: Leader[] = [ ];              // 2+ slots (own + Rhyzu), Zcharo: 4, Oxytaya: 4
@@ -155,8 +159,9 @@ export class FactionOnTile extends NamedContainer {
     const fontSize = tile.radius * .2;
     this.fighterIcon = new TextInRect('0', { bgColor: this.player.color, fontSize, border: [.2, .2, .2, 0], corner: .1 } )
     this.addChild(this.fighterIcon); // at (0, 0)
+    this.setXY();   // move to sector for player
     this.tile.addChild(this);
-    this.update();
+    // this.update();
   }
 
   // methods to add/remove elements
@@ -232,23 +237,27 @@ export class FactionOnTile extends NamedContainer {
   get offset() { return -1 + (FactionOnTile.offset[this.index][TP.numPlayers - 2] ?? 0)};
   get isBase() { return this.tile.terrain == 'Base' }
 
-  /** update graphics */
-  update() {
-    const index = this.index, overCont = this.tile.hex!.map.mapCont.overCont;
+  /** move FoT to sector for isBase ? Base : player.index */
+  setXY(rad = this.tile.radius) {
+    const index = this.index;
     // sx, sy: sector placement;
-    const sx = (this.isBase ?  0 : this.offset) * TP.hexRad; // -1: left side; offset[][] = 0
+    const sx = (this.isBase ?  0 : this.offset) * rad; // -1: left side; offset[][] = 0
     const sy = (this.isBase ? -1 : [0, 1].includes(index) ? -1 : [3, 4].includes(index) ? 1 : TP.numPlayers == 5 ? -1 : 1);
     this.x = sx/2;
-    this.y = sy * TP.hexRad * H.sqrt3_2/2;
+    this.y = sy * rad * H.sqrt3_2/2;
+  }
 
+  /** update graphics */
+  update() {
+    const rad = this.tile.radius, overCont = this.tile.hex!.map.mapCont.overCont;
     // invert: 1 --> leaders on top;  -1 --> leaders on bottom;
-    const yh = (this.isBase ? -1 : this.invert) * TP.hexRad * H.sqrt3_2;
+    const yh = (this.isBase ? -1 : this.invert) * rad * H.sqrt3_2;
     this.fighterIcon.y = yh * 0;
     this.fighterIcon.visible = (this.fighters > 0);
     if (this.leaders.length > 0) {
       // location of leader line:
       const yl = yh * .33; // assuming 2 of 5 orientation == Base!
-      const lineWidth = TP.hexRad * (this.leaders.length < 4 ? .9 : 1 + this.leaders.length/8); // (allocate width for several Leader Icons)
+      const lineWidth = rad * (this.leaders.length < 4 ? .9 : 1 + this.leaders.length/8); // (allocate width for several Leader Icons)
       const gap = lineWidth/this.leaders.length;
       const xl = gap/2 - lineWidth/2;
       this.leaders.forEach((ldr, n) => {
@@ -412,7 +421,7 @@ export class ChaosTile extends MapTile {
     return false;   // User/GUI cannot rearrange MapTile
   }
 
-  // Delegate FoT actions to the associated FoT:
+  // Delegate FoT actions to the associated FoT: TODO: set FoT location on creation, not every fot.update!
   getFoT(player: Player) {
     return this.factions[player.index] ?? (this.factions[player.index] = new FactionOnTile(player, this));
   }

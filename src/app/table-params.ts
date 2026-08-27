@@ -31,6 +31,7 @@ export class TP extends TPLib {
 
 /** colors for ChaosOrder */
 export namespace CO {
+  export const btColor = 'rgb(203, 135, 183)'; // baseTile color (lighter mauve-ish)
   export const mauve = 'rgb(166, 78, 129)'; // bold mauve
   export const dmauve = 'rgb(138, 105, 138)'; // dark mauve
   export const orange = 'rgb(255, 140, 0)'; // color for phase Icons

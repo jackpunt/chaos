@@ -1,10 +1,11 @@
 import { arrayN, C, Constructor, stime, type XY } from "@thegraid/common-lib";
-import { AliasLoader, CenterText, CircleShape, NamedContainer, RectShape, TextInRect, UtilButton } from "@thegraid/easeljs-lib";
+import { AliasLoader, CenterText, CircleShape, NamedContainer, RectShape, TextInRect, UtilButton, type Paintable, type PaintableShape } from "@thegraid/easeljs-lib";
 import type { DisplayObject } from "@thegraid/easeljs-module";
-import { HexMap, newPlanner, NumCounter, Player as PlayerLib, PlayerPanel, TP, type IHex2, type MapCont, type Tile, type TileSource } from "@thegraid/hexlib";
-import { ChaosHex2 as Hex2, type ChaosHex2 } from "./chaos-hex";
+import { HexMap, LegalMark, newPlanner, NumCounter, Player as PlayerLib, PlayerPanel, TP, type IHex2, type MapCont, type Tile, type TileSource } from "@thegraid/hexlib";
+import { CardShape } from "./card-shape";
+import { ChaosHex2, ChaosHex2 as Hex2 } from "./chaos-hex";
 import { type ChaosTable, type ChaosTable as Table } from "./chaos-table";
-import { BaseTile, type BONUS, type HARVEST } from "./chaos-tile";
+import { BaseTile, ChaosTile, type BONUS, type HARVEST } from "./chaos-tile";
 import { Faction, factionColors, type FactionId, type FactionName } from "./factions";
 import { BgFound, Foundation } from "./foundation";
 import { type Battle, type GamePlay } from "./game-play";
@@ -12,7 +13,7 @@ import { type PlayerId } from "./game-state";
 import { ChaosPresence, Factory, Leader, Outposts, PriceToken, PTokenShape, Stronghold, type ChaosUnitType, type Fighter, type PriceId } from "./meeples";
 import { ResearchCell, ResGrid } from "./research-cell";
 import { bonusIcon, CO, pricePhases } from "./table-params";
-import { CardBack, CardPanel, TacticsCard, type CardHex } from "./tactics-card";
+import { CardBack, CardHex, CardPanel, TacticsCard } from "./tactics-card";
 
 /** Canonical Faction colors, aligned with gameSetup.factionNames.
  *
@@ -244,9 +245,9 @@ export class Panel extends PlayerPanel {
     const faction = this.faction = this.player.faction;
     console.log(stime(this, `.constructor: factionId=${this.factionId} cname=${this.player.cname} ${faction.name}`))
     player.panel = this;       // set it so layout can easily find the Player
-    this.avail = new NamedContainer('PT_avail');
+    this.avail = new NamedContainer('PT_avail'); // place to show available PriceToken[]
     this.addChild(this.avail)
-    this.vault = table.tokenVault[faction.facId];
+    this.vault = table.tokenVault[faction.facId];// place to show 'invault' PriceToken (faction.image)
     if (faction.name == 'Neutral') {
       this.layoutNeutralPanel(table)
     } else {
@@ -596,30 +597,66 @@ export class Panel extends PlayerPanel {
   // make ChaosTile, set color, set Harvest token
   setupBase(faction: Faction) {
     const baseTile = this.baseTile = new BaseTile(faction);
-    const bColor = faction.facId == 0 ? this.pColor : CO.mauve;
-    const color = C.nameToRgbaString(bColor, .6);
-    baseTile.paint(color);
+    const bColor = faction.facId == 0 ? this.pColor : CO.btColor;
+    const color = C.nameToRgbaString(bColor, .8), wh = this.wh;
+    baseTile.paint(bColor);
     const hex = this.baseHex = this.table.newHex2(0, 0, `${this.faction.name}Base`);
     // move hex to center-right of this Panel:
-    this.localToLocal(11.6*this.wh, 6.7*this.wh, hex.cont.parent, hex.cont)
+    this.localToLocal(11.6 * wh, 6.7 * wh, hex.cont.parent, hex.cont)
     hex.legalMark.setOnHex(hex);
     baseTile.moveTo(hex);
     this.recruitToBase(); // the left-over fighters
 
-    // temp code to test spacing on FoT
-    const leaders = this.makeLeaders();
-    leaders.forEach(ldr => this.baseTile.addLeader(ldr))
-    // this.baseTile.addLeader(leaders[0]);
-    // this.baseTile.addLeader(leaders[1]);
-    // this.baseTile.addLeader(leaders[2]);
-    // if (this.faction.facId == 5) this.baseTile.addLeader(leaders[3]);
-    // TODO: show all on panel for selection
+    // TODO: move to layoutPanel ?
+    this.makeLeaders();
   }
 
-  makeLeaders() {
-    const player = this.player, facId = player.facId;
-    const leaders = Leader.leaderSpecs.filter(lspec => lspec.facId == facId)
-    this.faction.leaders = leaders.map(lspec => new Leader(lspec.name, player));
+  // Make a homeHex for 3 or 4 leaders (TODO: 3 for Rhyzu)
+  // Also: a 'recycle' Hex to remove a Leader from game.
+  // (a legalTarget only during setup: PlaceBase ? move 2 to Recycle, rest to homeHex[i])
+  /** make Leaders for this.player.facId */
+  makeLeaders(player = this.player ) {
+    const facId = player.facId, wh = this.wh;
+    const leaders = Leader.leaderSpecs.filter(lspec => lspec.facId == facId);
+    const leaderRad = TP.hexRad * .8; // width of leader.card
+
+    /** a Hex to hold a LeaderTile */
+    const LeaderHex = class LeaderHex extends Hex2 {
+      override makeHexShape(colorn?: string): Paintable {
+        return new CardShape(player.color, '', leaderRad)
+      }
+      override makeLegalMark(): LegalMark {
+        return new class extends LegalMark {
+          override doGraphics(): void {
+            this.removeAllChildren();
+            this.addChild(new CardShape(C.legalGreen, '', leaderRad/2)); // @(0, 0)
+          }
+        }
+      }
+    }
+    /** a place to drop Leader on Panel when not recruited to map */
+    const LeaderTile = class LeaderTile extends ChaosTile {
+      constructor(Aname: string) {
+        super(Aname, 'Base', '-', player);
+        const fot = this.getFoT(player);
+        fot.setXY(-this.radius * .6);    // Note: fot.isBase == true
+      }
+      override makeShape(): PaintableShape {
+        return new CardShape(player.color, undefined, leaderRad);
+      }
+    }
+    this.faction.leaders = leaders.map((lspec, n) => {
+      const ldr = new Leader(lspec.name, player);
+      const name = `${this.Aname.substring(0,2)}_home`;
+      const homeHex = ldr.homeHex = this.table.newHex2(0, 0, name, LeaderHex, );
+      this.localToLocal((4 + n * 5/5) * wh, 6 * wh, homeHex.cont.parent, homeHex.cont);
+      homeHex.legalMark.setOnHex(homeHex);
+
+      const homeTile = new LeaderTile(name);
+      homeTile.moveTo(homeHex);  // homeTile on hex on map with mapCont
+      homeTile.addLeader(ldr);   // add to mapCont.overCont
+      return ldr;
+    });
     return this.faction.leaders
   }
 

@@ -309,11 +309,39 @@ export class Leader extends ChaosUnit implements LeaderSpec {
   override onRightClick(evt: MouseEvent) {
     super.onRightClick(evt);
     // TODO: show all properties of this Leader
-    const card = this.card, parCont = this.factOnTile!.tile.hex!.map.mapCont.overCont;
+    const parCont = this.factOnTile!.tile.hex!.map.mapCont.overCont;
+    const card = this.card;
     this.factOnTile!.parent.localToLocal(0, 0, parCont, card);
     parCont.addChild(card);  // baseTile.FoT or overCont
+    card.scaleX = card.scaleY = 1.8;
     card.visible = true;
     card.stage.update();
+  }
+
+  // TODO: image?
+  /** the small, D&D/on-map shape; it can expand to the larger leaderCard */
+  override makeShape(size?: number): Paintable {
+    const cont = new PaintableCont(`${this.Aname}_icon`);
+    const ntext = `${this.Aname.substring(0,2)}`, fontSize = TP.hexRad * .2;
+    const tib = this.textInBox(ntext, fontSize, 1.4 * fontSize, { bgColor: this.player.color });
+    cont.addChild(tib);
+    return cont;
+  }
+
+  // Note: common pattern in PriceToken (below)
+  /** the TargetMark for Leader  */
+  static targetMark = new class LeaderMark extends CardShape {
+    constructor(rad = TP.hexRad * 1.1) {
+      super('rgba(130, 130, 130, 0.4)', '', rad);
+      this.visible = false;
+    }
+  }();
+
+  override showTargetMark(hex: IHex2 | undefined, ctx: DragContext): void {
+    const map = (ctx.targetHex ? ctx.targetHex.map : this.gamePlay.hexMap) as HexMap2;
+    const mark = (this.constructor as typeof Leader).targetMark;
+    map?.showMark(ctx.targetHex, mark);
+    map?.mapCont.overCont?.addChild(mark); // move to overCont
   }
 
   /** Fill a container with the info from a Leader card.
@@ -327,17 +355,17 @@ export class Leader extends ChaosUnit implements LeaderSpec {
   makeCard() {
     // Should probably use CardShape; and simple put Aname @ y = height-mlh
     const card = new NamedContainer(`${this.Aname}Card`);  // maybe some day: class LeaderCard
-    const bg = new CardShape(this.pColor, C.white);
+    const baseShape = new CardShape(this.pColor, C.white);
     const fontSize = this.radius * .3;
-    const top = -bg._rect.h/2, left = bg._rect.x, right = -left;
+    const top = -baseShape._rect.h/2, left = baseShape._rect.x, right = -left;
     const aname = new CenterText(this.Aname, fontSize, C.WHITE);
     aname.y = fontSize * .9 + top;
-    card.addChild(bg, aname);
+    card.addChild(baseShape, aname);
     this.addStats(card, fontSize, 2 * fontSize + top);
     if (this.plGem) card.addChild(this.plGemIcon(fontSize, top, left))
     if (this.upGem) card.addChild(this.upGemIcon(fontSize, top, left))
     this.addText(card, fontSize, top, left);
-    card.scaleX = card.scaleY = 2;
+    card.scaleX = card.scaleY = 1;
     card.visible = false;
     card.on(S.click, () => { card.visible = false; card.stage.update(); })
     return card;
@@ -423,19 +451,6 @@ export class Leader extends ChaosUnit implements LeaderSpec {
     bg.strokec = C.coinGold; bg.paint(bg.colorn, true);
   }
 
-  // TODO: image & click to popup
-  /** the small, D&D/on-map shape; it can expand to the larger leaderCard */
-  override makeShape(size?: number): Paintable {
-    const cont = new PaintableCont(`${this.Aname}_icon`);
-    const ntext = `${this.Aname.substring(0,2)}`, fontSize = TP.hexRad * .2;
-    const text = new CenterText(ntext, fontSize, C.WHITE), mw = text.getMeasuredWidth();
-    const dx = Math.max((1.4 * fontSize - mw) / 2, 1) / fontSize;
-    const temp1 = new TextInRect(text, { bgColor: this.player.color, fontSize, border: [dx, dx, .15, 0], corner: .1 })
-    const tib = this.textInBox(ntext, fontSize, 1.4 * fontSize, { bgColor: this.player.color });
-    cont.addChild(tib);
-    return cont;
-  }
-
   /** the ChaosTile the was holding Leader before dragStart. */
   ctxCtile(ctx?: DragContext) {
     return this.factOnTile?.tile ?? (ctx?.info.srcCont as FactionOnTile).tile;
@@ -443,7 +458,9 @@ export class Leader extends ChaosUnit implements LeaderSpec {
 
   override isLegalTarget(toHex: Hex2, ctx?: DragContext): boolean {
     if (toHex == this.ctxCtile(ctx).hex) return true;
-    return !!toHex.ctile && (toHex.ctile.terrain !== 'Mtn') && super.isLegalTarget(toHex, ctx)
+    if (!toHex.ctile || (toHex.ctile.terrain == 'Mtn')) return false;
+    if (toHex.ctile.terrain == 'Lake' && this.facId !== 5) return false;
+    return true
   }
 
   override dragStart(ctx: DragContext): void {
@@ -744,14 +761,6 @@ type VDIST = [ toFac: number, toBank: number, toLeft?: number, toRight?: number,
 type PT_Status = 'avail' | 'inplay' | 'invault' | 'pending'; // pending-->avail at end of round (or: after SetPrices phase)
 // Auto-move during SetPrices phase (just click on track, place token)
 
-class PTMark extends RectShape {
-  constructor(wh = TP.meepleRad * 1.9) {
-    super({x: -wh/2, y: -wh/2, w: wh, h: wh}, 'rgba(130, 130, 130, 0.4)', '');
-    this.name = 'TargetMark';
-    this.visible = false;
-  }
-}
-
 
 export class PriceToken extends ChaosMeeple {
 
@@ -881,13 +890,19 @@ export class PriceToken extends ChaosMeeple {
     return new PTokenShape(size)
   }
 
-  /** the TargetMark for PricingToken  */
-  static mark = new PTMark();
+  /** the TargetMark for PriceToken  */
+  static targetMark = new class PTMark extends RectShape {
+    constructor(wh = TP.meepleRad * 1.9) {
+      super({x: -wh/2, y: -wh/2, w: wh, h: wh}, 'rgba(130, 130, 130, 0.4)', '');
+      this.visible = false;
+    }
+  }();
 
   override showTargetMark(hex: IHex2 | undefined, ctx: DragContext): void {
     const map = (ctx.targetHex ? ctx.targetHex.map : this.gamePlay.hexMap) as HexMap2;
-    map?.showMark(ctx.targetHex, PriceToken.mark);
-    map?.mapCont.overCont?.addChild(PriceToken.mark); // move to overCont
+    const mark = (this.constructor as typeof PriceToken).targetMark
+    map?.showMark(ctx.targetHex, mark);
+    map?.mapCont.overCont?.addChild(mark); // move to overCont
   }
 
   override isLegalTarget(toHex: Hex2, ctx?: DragContext): boolean {
