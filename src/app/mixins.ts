@@ -17,38 +17,65 @@ export function dynamicMixin(classA: Constructor<any>, classB: Constructor<any>)
     Object.setPrototypeOf(rootA, classB.prototype);
   }
 
+/**
+ * Given a class that extends classB, inject classA into protoype chain, so that class extends classA extends classB;
+ *
+ * Note: constructor in classExtendsB must initialize both classB and classA
+ *
+ * @example super(args to classB); Object.assign(this, instanceOfclassA);
+ *
+ * @param classExtendsB someClass extends classB
+ * @param classA
+ * @returns with classExtendsB extends classA extends classB;
+ */
+export function alsoExtend(classExtendsB: Constructor<any>, classA: Constructor<any>) {
+  const classB = Object.getPrototypeOf(classExtendsB.prototype.constructor); // the direct super class
+  const classA_extends_classB = mixins.clonePrototypeChain(classA, classB.prototype); // annonymousClass extends classA & classB
+  Object.setPrototypeOf(classExtendsB.prototype, classA_extends_classB);   // now classExtendsB extends classA & classB;
+  }
+
+/**
+ * Clone prototype chain of classA; inject above classB (any initial prototype)
+ *
+ * for each layer classA.n: produce classA.n extends classB
+ *
+ * Utimately produce classC: extends classA & classB
+ * @param classA
+ * @param classB
+ * @returns classC: extends classA & classB;
+ */
 export function clonePrototypeChain(
   classA: Constructor<any>,
-  initialLink: any = Object.prototype
+  classB: any = Object.prototype, // initialLink
 ): any {
   let currentProto = classA.prototype;
-  const originalChain: any[] = [];
+  const classA_clone: any[] = [];
 
   // Step 1: Track and store each distinct prototype layer upward
   while (currentProto && currentProto !== Object.prototype) {
-    originalChain.push(currentProto);
+    classA_clone.push(currentProto);  // originalChain.push(currentProto);
     currentProto = Object.getPrototypeOf(currentProto);
   }
 
   // Step 2: Rebuild the chain top-down, anchoring to the provided initialLink parameter
-  let lastClonedLink = initialLink;
+  let classC = classB;     // lastCloneLink = initialLink;
 
-  for (let i = originalChain.length - 1; i >= 0; i--) {
-    const sourceProto = originalChain[i];
+  for (let i = classA_clone.length - 1; i >= 0; i--) {
+    const classA_n = classA_clone[i];  // sourceProto = oritinalChain[i];
 
     // Provision a clean, empty layer extending from the running link reference
-    const newCloneLink = Object.create(lastClonedLink);
+    const nextClassC = Object.create(classC);  // newCloneLink
 
-    // Deep-copy all methods, properties, getters, and setters verbatim
-    const propertyDescriptors = Object.getOwnPropertyDescriptors(sourceProto);
-    Object.defineProperties(newCloneLink, propertyDescriptors);
+    // Deep-copy all methods, properties, getters, and setters verbatim from each 'super' of classA
+    const propertyDescriptors = Object.getOwnPropertyDescriptors(classA_n);
+    Object.defineProperties(nextClassC, propertyDescriptors);
 
     // Shift tracking pointer up to the newly generated link
-    lastClonedLink = newCloneLink;
+    classC = nextClassC;
   }
 
   // Step 3: Return the final head of the isolated prototype chain clone
-  return lastClonedLink;
+  return classC;
 }
 
 // classA2 extends classA1 { ... }

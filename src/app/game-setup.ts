@@ -40,10 +40,9 @@ class NullGameSetup extends GameSetupLib {
   declare hexMap: HexMap2;
 
   static {
-    // insert methods of HexMap2: Panel extends HexMap2 & PlayerPanel {...}
-    const bOverA1 = mixins.clonePrototypeChain(HexMap2, PlayerPanel.prototype);
-    Object.setPrototypeOf(Panel.prototype, bOverA1);   // now Panel ISA HexMap2 & PlayerPanel
+    mixins.alsoExtend(Panel, HexMap2); // before Panel is instantiated!
   }
+
   constructor(canvasId?: string, qParam?: Params) {
     super(canvasId, qParam);
     const exp = qParam?.['t'] ?? 0;
