@@ -249,6 +249,7 @@ export class Panel extends PlayerPanel {
     this.vault = table.tokenVault[faction.facId];
     if (this.vault) this.vault.visible = true;
     if (faction.name == 'Neutral') {
+      this.vault.visible = false;
       this.layoutNeutralPanel(table)
     } else {
       this.layoutPanel(table);
@@ -608,10 +609,11 @@ export class Panel extends PlayerPanel {
 
     // temp code to test spacing on FoT
     const leaders = this.makeLeaders();
-    this.baseTile.addLeader(leaders[0]);
-    this.baseTile.addLeader(leaders[1]);
-    this.baseTile.addLeader(leaders[2]);
-    if (this.faction.facId == 5) this.baseTile.addLeader(leaders[3]);
+    leaders.forEach(ldr => this.baseTile.addLeader(ldr))
+    // this.baseTile.addLeader(leaders[0]);
+    // this.baseTile.addLeader(leaders[1]);
+    // this.baseTile.addLeader(leaders[2]);
+    // if (this.faction.facId == 5) this.baseTile.addLeader(leaders[3]);
     // TODO: show all on panel for selection
   }
 

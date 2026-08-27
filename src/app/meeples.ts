@@ -1,5 +1,5 @@
 import { C, F, S, stime, type XY, type XYWH } from "@thegraid/common-lib";
-import { CenterText, CircleShape, EllipseShape, NamedContainer, PathShape, RectShape, TextInRect, type Paintable } from "@thegraid/easeljs-lib";
+import { CenterText, CircleShape, EllipseShape, NamedContainer, PathShape, RectShape, TextInRect, type Paintable, type TextInRectOptions } from "@thegraid/easeljs-lib";
 import type { Container, MouseEvent, Rectangle } from "@thegraid/easeljs-module";
 import { Graphics } from "@thegraid/easeljs-module";
 import { Meeple, MeepleShape, Tile, TP, type DragContext, type Hex, type HexM, type IHex2 } from "@thegraid/hexlib";
@@ -230,14 +230,14 @@ export class Leader extends ChaosUnit implements LeaderSpec {
       t1: "BOOST MORALE IF ENDING MOVEMENT ON A CLIFFS OR PLAINS REGION", },
     // Jrayek: 4
     { facId: 4, name: 'Jayen', stats0: [4, 0, 1], stats2: [7, 0, 2], plGem: 1,
-      t1: "LOSE HALF (ROUNDED UP) HIS FIGHTERS AFTER EACH VICTORY", }, // (before atk v shields)
+      t1: "LOSE HALF HIS FIGHTERS [ROUNDED UP] AFTER EACH VICTORY", }, // (before atk v shields)
     { facId: 4, name: 'Ikryla', stats0: [2, 0, 0], stats2: [4, 2, 0], P: "Income",
       t1: "GAIN 1 TACTICS CARD OR 1 GEM IF IN A RELIC REGION",  },
     { facId: 4, name: 'Lynke', stats0: [1, 2, 0], stats2: [3, 4, 0], upGem: 1,
-      t1: "1 $S PER 2 $A", }, // 1 str per 2 atk
+      t1: "1 F PER 2 *", }, // 1 str per 2 atk
     { facId: 4, name: 'Vahla', stats0: [2, 0, 0], stats2: [2, 0, 2], upGem: 2,
-      t1: "4 $S IF FIGHTING AN OPPOSING RHY-ZU",
-      t2: "4 $S IF FIGHTING WITH 1 OR MORE ALLIED OR OPPOSING RHY-ZU", },  // +4 str against, (or with) a Rhyzu
+      t1: "4 F IF FIGHTING AN OPPOSING RHY-ZU",
+      t2: "4 F IF FIGHTING WITH 1 OR MORE ALLIED OR OPPOSING RHY-ZU", },  // +4 str against, (or with) a Rhyzu
     { facId: 4, name: 'Kajali', stats0: [2, 1, 0], stats2: [4, 2, 0], plGem: 1,
       t1: "OPPONENT CANNOT SELECT ANY BATTLES IN THIS REGION", },
     // Rhyzu: 4
@@ -327,7 +327,8 @@ export class Leader extends ChaosUnit implements LeaderSpec {
   makeCard() {
     // Should probably use CardShape; and simple put Aname @ y = height-mlh
     const card = new NamedContainer(`${this.Aname}Card`);  // maybe some day: class LeaderCard
-    const bg = new CardShape(this.pColor, C.white), fontSize = this.radius * .3; this.player.color
+    const bg = new CardShape(this.pColor, C.white);
+    const fontSize = this.radius * .3;
     const top = -bg._rect.h/2, left = bg._rect.x, right = -left;
     const aname = new CenterText(this.Aname, fontSize, C.WHITE);
     aname.y = fontSize * .9 + top;
@@ -343,14 +344,40 @@ export class Leader extends ChaosUnit implements LeaderSpec {
   }
 
   addText(card: Container, fontSize = 16, top = -80, left = -55) {
-    const t1 = new CenterText(this.t1 || 'Leader text', fontSize * .5, C.WHITE);
+    const tt = this.upgraded ? this.t2 : this.t1;
+    const t1 = new CenterText(tt || 'Leader text', fontSize * .5, C.WHITE);
     t1.lineWidth = -left * 1.8;
     t1.textAlign = 'left';
     const { width, height } = t1.getBounds(), mlh = t1.getMeasuredLineHeight();
     t1.x = left + .3 * fontSize;
-    t1.y = -top - Math.max(height, 3 * mlh) - .3 * fontSize;
+    t1.y = -top - Math.max(height, 3 * mlh);
     card.addChild(t1);
-    const tphase = new CenterText(this.tp, fontSize * .6, CO.orange)
+    const tpIcon = this.phaseIcon(this.tp, card);
+    const tphase = new CenterText(this.tp, fontSize * 1.1, CO.orange)
+    tpIcon.y = t1.y - tpIcon.label.getMeasuredLineHeight() * 1.1;
+    card.addChild(tpIcon);
+  }
+
+  phaseIcon(ntext: PhaseName, card: Container) {
+    const font = F.fontSpec(this.radius * .3, undefined, "bold");
+    const wide = card.children[0].getBounds().width * .8; // extract the baseShape
+    return this.textInBox(ntext, font, wide, { bgColor: C.grey128, textColor: CO.orange, textColors: [CO.orange] });
+  }
+
+  /**
+   * increase border [dx] to fill to wide
+   * @param ntext
+   * @param font
+   * @param wide desired width of rect
+   * @param opts
+   * @returns
+   */
+  textInBox(ntext: string, font: string | number, wide: number, opts: TextInRectOptions = {}) {
+    const ctext = new CenterText(ntext, font, opts.textColor ?? C.WHITE), mw = ctext.getMeasuredWidth();
+    const fontSize = F.fontSize(ctext.font);  // extract from full fontSpec
+    const dx = Math.max((wide - mw) / 2, 1) / fontSize;
+    const tir = new TextInRect(ctext, { fontSize, border: [dx, dx, .15, 0], corner: .1, ...opts })
+    return tir;
   }
 
   plGemIcon(fontSize = 16, top = -80, left = -55) {
@@ -404,7 +431,8 @@ export class Leader extends ChaosUnit implements LeaderSpec {
     const text = new CenterText(ntext, fontSize, C.WHITE), mw = text.getMeasuredWidth();
     const dx = Math.max((1.4 * fontSize - mw) / 2, 1) / fontSize;
     const temp1 = new TextInRect(text, { bgColor: this.player.color, fontSize, border: [dx, dx, .15, 0], corner: .1 })
-    cont.addChild(temp1);
+    const tib = this.textInBox(ntext, fontSize, 1.4 * fontSize, { bgColor: this.player.color });
+    cont.addChild(tib);
     return cont;
   }
 

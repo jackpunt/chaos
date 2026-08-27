@@ -4,6 +4,8 @@
 
 [Choas Order](https://docs.google.com/document/d/1233l5BVtKD-KcAcVPqyA4bgy-h6HGWJapEH6uSzNb4E/) Google Docs
 
+[Tracking Sheet](https://docs.google.com/spreadsheets/d/13isV4ZksMPf1TeLNJqYo6meln0ZroSMmStx5tvhmEoY/) Google Sheets
+
 
 This project was generated using [Angular CLI](https://github.com/angular/angular-cli) version 20.3.1.
 

@@ -248,7 +248,7 @@ export class FactionOnTile extends NamedContainer {
     if (this.leaders.length > 0) {
       // location of leader line:
       const yl = yh * .33; // assuming 2 of 5 orientation == Base!
-      const lineWidth = TP.hexRad * (this.leaders.length < 4 ? .9 : 1.2); // (allocate width for several Leader Icons)
+      const lineWidth = TP.hexRad * (this.leaders.length < 4 ? .9 : 1 + this.leaders.length/8); // (allocate width for several Leader Icons)
       const gap = lineWidth/this.leaders.length;
       const xl = gap/2 - lineWidth/2;
       this.leaders.forEach((ldr, n) => {
