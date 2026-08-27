@@ -228,10 +228,9 @@ export class ChaosTable extends Table {
       const tShape = new PTokenShape(wh, 'white');
       tShape.paint(Player.colorScheme[factionColors[facId]]);
       fcont.addChild(tShape);
-      fcont.visible = false;   // until a PlayerPanel picks it up
+      fcont.visible = false;   // until a new PlayerPanel sets it visible
       if (fn == 'Neutral') {
         fcont.x = TP.hexRad * -1.37; // ?
-        fcont.visible = false;       // we show the actual PriceToken instead.
       } else {
         const fImage = AliasLoader.loader.getBitmap(fn, { x: wh, y: wh });
         fcont.addChild(fImage)

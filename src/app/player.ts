@@ -247,11 +247,10 @@ export class Panel extends PlayerPanel {
     this.avail = new NamedContainer('PT_avail');
     this.addChild(this.avail)
     this.vault = table.tokenVault[faction.facId];
-    if (this.vault) this.vault.visible = true;
     if (faction.name == 'Neutral') {
-      this.vault.visible = false;
       this.layoutNeutralPanel(table)
     } else {
+      this.vault.visible = true;
       this.layoutPanel(table);
     }
   }
