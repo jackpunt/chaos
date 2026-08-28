@@ -248,24 +248,20 @@ export class Panel extends PlayerPanel {
     this.avail = new NamedContainer('PT_avail'); // place to show available PriceToken[]
     this.addChild(this.avail)
     this.vault = table.tokenVault[faction.facId];// place to show 'invault' PriceToken (faction.image)
-    if (faction.name == 'Neutral') {
-      this.layoutNeutralPanel(table)
-    } else {
-      this.vault.visible = true;
-      this.layoutPanel(table);
-    }
+    this.vault.visible = true;
   }
 
-  /** common wh for relics & foundations & buildings */
+  /** common wh for relics & foundations & buildings & PriceToken */
   wh = TP.meepleRad;
 
 
   // TODO: table.vault
   layoutNeutralPanel(table: ChaosTable) {
-    const np = table.gamePlay.allPlayers.length;
+    const np = table.gamePlay.allPlayers.length, wh = this.wh;
     const ptIds = [[],[], [5, 3], [5, 4, 3, 2], [5, 3], [], []][np];
-    this.addPriceTokens(table, -.25, ptIds); // make the row, then stack them on the edge:
-    const x = this.wh * -.1;  // stack the Neutral tiles above phase pricing slots
+    this.addPriceTokens(table, -1.16, ptIds); // make the row, then stack them on the edge:
+    const y = wh * (.55 - 1.16); // row = -1.16
+    const x = wh * .55;  // stack the Neutral tiles above phase pricing slots
     // stack in order (TODO: two stacks for 3-player)
     ptIds.forEach(pid => {
       const pt = this.priceTokens[pid];
@@ -274,6 +270,7 @@ export class Panel extends PlayerPanel {
     });
     this.addPriceSlots()
     this.addResearchLines()
+    this.localToLocal(wh * 2.93, y, table.vault.parent, table.vault); // position vault above Panel
     return;
   }
 
@@ -385,7 +382,7 @@ export class Panel extends PlayerPanel {
     this.addBuildings(faction);
     this.addFoundations(faction, table);
     this.addRecruits(faction);
-    this.addPriceTokens(table, 3.5);
+    this.addPriceTokens(table, 7);
     this.setupBase(faction);
     return this.children;
   }
@@ -601,8 +598,8 @@ export class Panel extends PlayerPanel {
     const color = C.nameToRgbaString(bColor, .8), wh = this.wh;
     baseTile.paint(bColor);
     const hex = this.baseHex = this.table.newHex2(0, 0, `${this.faction.name}Base`);
-    // move hex to center-right of this Panel:
-    this.localToLocal(11.6 * wh, 6.7 * wh, hex.cont.parent, hex.cont)
+    // move hex to center-center of this Panel:
+    this.localToLocal(6.5 * wh, 5.7 * wh, hex.cont.parent, hex.cont)
     hex.legalMark.setOnHex(hex);
     baseTile.moveTo(hex);
     this.recruitToBase(); // the left-over fighters
@@ -648,8 +645,9 @@ export class Panel extends PlayerPanel {
     this.faction.leaders = leaders.map((lspec, n) => {
       const ldr = new Leader(lspec.name, player);
       const name = `${this.Aname.substring(0,2)}_home`;
+      const hx = (10 + n % 3) * wh, hy = (3.3 * wh + Math.floor(n / 3) * leaderRad*1.4);
       const homeHex = ldr.homeHex = this.table.newHex2(0, 0, name, LeaderHex, );
-      this.localToLocal((4 + n * 5/5) * wh, 6 * wh, homeHex.cont.parent, homeHex.cont);
+      this.localToLocal(hx, hy, homeHex.cont.parent, homeHex.cont);
       homeHex.legalMark.setOnHex(homeHex);
 
       const homeTile = new LeaderTile(name);
@@ -711,16 +709,15 @@ export class Panel extends PlayerPanel {
    * @param pids PriceToken ids (1--6) or subset for neutralPlayer
    */
   addPriceTokens(table: Table, row = 0, pids = arrayN(6, (i)=>i+1)) {
-    const { x: x0, y: y0 } = this.getBounds();
-    const { dydr } = this.metrics
-    const h = this.wh, w = h * 2, gap = h * .25;
-    const x = x0 + w * 0.76 - gap;
-    const y = y0 + row * dydr;
+    const wh = this.wh, gap = wh * .1;
+    const x0 = wh * .55, y0 = wh * .55;
+    const x = x0 + wh * 0;
+    const y = y0 + row * wh;
     this.avail.x = x; this.avail.y = y;
 
     this.priceTokens.length = 0;
     pids.forEach(i => {
-      const xy = { x: i * (w/2 + gap), y: 0 };
+      const xy = { x: i * (1.1 * wh), y: 0 };
       const pt = new PriceToken(i as PriceId, xy, this.player);
       pt.sendHome()
       this.priceTokens[i] = pt;

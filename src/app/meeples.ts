@@ -840,7 +840,7 @@ export class PriceToken extends ChaosMeeple {
   // add content above the PricingToken baseShape:
   fillCont(cont: NamedContainer, size = (this.baseShape).getBounds().width) {
     const bgcolor = C.nameToRgbaString(this.player!.color, .7)
-    const base = this.baseShape as PTokenShape;
+    const base = this.baseShape;
     const over = new RectShape(base._rect)
     over.paint(bgcolor, true);
     cont.addChild(over)
@@ -886,7 +886,7 @@ export class PriceToken extends ChaosMeeple {
     // TODO: use bonusIcon(^, C, >, %)
     return cont;
   }
-  override makeShape(size = TP.meepleRad * 1.0): Paintable {
+  override makeShape(size = TP.meepleRad): Paintable {
     return new PTokenShape(size)
   }
 
@@ -997,7 +997,7 @@ export class PriceToken extends ChaosMeeple {
 
 export class PTokenShape extends RectShape {
 
-  constructor(public size = 10, strokec = 'black', g0 = new Graphics) {
+  constructor(public size = TP.meepleRad, strokec = 'black', g0 = new Graphics) {
     super({ x: -size/2, y: -size/2,  w: size, h: size }, CO.dColor, strokec, g0);
   }
   override paint(colorn?: string, force?: boolean): Graphics {

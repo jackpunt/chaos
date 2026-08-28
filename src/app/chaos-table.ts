@@ -4,7 +4,7 @@ import { Stage, type Container, type DisplayObject } from "@thegraid/easeljs-mod
 import { Hex2, Table, Tile, TileSource, TP, type IHex2, type MapCont, type Player as PlayerLib } from "@thegraid/hexlib";
 import { TokenHex, type ChaosHex2, type HexMap2 } from "./chaos-hex";
 import { ChaosTile } from "./chaos-tile";
-import { factionColors, factionNeutral } from "./factions";
+import { factionColors, factionNeutral, type FactionId } from "./factions";
 import type { GamePlay } from "./game-play";
 import { PTokenShape, Relic } from "./meeples";
 import { Panel, Player } from "./player";
@@ -80,11 +80,12 @@ export class ChaosTable extends Table {
     this.doneButton.label.lineWidth = TP.hexRad * 1.15;
     this.setToRowCol(this.doneButton, 1.3, 5.9);
 
-    const vault = this.makeTokenVault();
-    this.makeNeutralPanel(vault);    // See also: Panel.layoutNeutralPanel()
+    this.vault = this.makeTokenVault();
+    this.makeNeutralPanel();    // See also: Panel.layoutNeutralPanel()
     this.makeRelics();
     return;
   }
+  vault!: Container;
 
   cardSource!: TileSource<TacticsCard>
   cardDiscard!: TileSource<TacticsCard>
@@ -120,13 +121,12 @@ export class ChaosTable extends Table {
   }
 
   neutralPanel!: Panel;
-  makeNeutralPanel(vault: Container) {
+  makeNeutralPanel() {
     const [row, col, dir] = this.neutralPanelLoc();
     const nPlayer = this.gamePlay.neutralPlayer;
-    this.neutralPanel = this.makePlayerPanel(this, nPlayer, this.panelHeight, this.panelWidth-.6, row, col+.5, dir)
-
-    vault.x = this.neutralPanel.x + TP.hexRad * 2.24;
-    vault.y = this.neutralPanel.y - TP.hexRad * .656;
+    const neutralPanel = this.neutralPanel = this.makePlayerPanel(this, nPlayer, this.panelHeight, this.panelWidth-.6, row, col+.5, dir)
+    neutralPanel.vault.visible = false;
+    neutralPanel.layoutNeutralPanel(this)
 }
 
   // established by Panel.addPriceSlots()
@@ -139,6 +139,7 @@ export class ChaosTable extends Table {
     if (col > 0) col -= 1;  // inset Panels on the right-hand side
     const playerPanel = new Panel(table as ChaosTable, player as Player, high, wide, row - high / 2, col - wide / 2, dir);
     playerPanel.showPlayer(false); // trigger repaint with background and other content
+    if (playerPanel.factionId !== 6 as FactionId) playerPanel.layoutPanel(this);
     return playerPanel;
   }
 
@@ -214,15 +215,15 @@ export class ChaosTable extends Table {
   /** arrange slots on top for each faction */
   makeTokenVault() {
     // much like addPriceSlots()
-    const wh = TP.hexRad * .8, fs = wh * .15, x0 = wh * .1, y0 = wh * .2, wh0 = wh*1.1;
+    const wh = TP.hexRad * .8, x0 = wh * .1, wh0 = wh*1.1; // wh*(1.1*facId + .1)
 
     const vault = new NamedContainer('Vault'); // will only contain PTokens, 'invault'
     this.hexMap.mapCont.backCont.addChild(vault);
 
     factionNeutral.forEach((fn, facId) => {
       const fcont = new NamedContainer(`vault:${fn}`); // container for PriceTokens of Faction
-      fcont.x = x0 + facId * wh0;
-      fcont.y = y0;     // no real need to displace, will move 'vault' container
+      fcont.x = facId * wh0;
+      fcont.y = 0;     // no real need to displace, will move 'vault' container
       vault.addChild(fcont);
       this.tokenVault[facId] = fcont; // roughly the same as vault.children
       const tShape = new PTokenShape(wh, 'white');
