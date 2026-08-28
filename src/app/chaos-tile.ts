@@ -227,7 +227,7 @@ export class FactionOnTile extends NamedContainer {
                   ];
   static offset = [[0, 0, 0, 0],
                    [2, 2, 2, 1],
-                   [0, 2, 2, 2],
+                   [0, 0, 2, 2],
                    [0, 0, 0, 2],
                    [0, 0, 0, 0],
                   ];
@@ -257,7 +257,7 @@ export class FactionOnTile extends NamedContainer {
     if (this.leaders.length > 0) {
       // location of leader line:
       const yl = yh * .33; // assuming 2 of 5 orientation == Base!
-      const lineWidth = rad * (this.leaders.length < 4 ? .9 : 1 + this.leaders.length/8); // (allocate width for several Leader Icons)
+      const lineWidth = rad * (this.leaders.length * .29); // Leader.box_width = (.2 * 1.4) * hex.radius
       const gap = lineWidth/this.leaders.length;
       const xl = gap/2 - lineWidth/2;
       this.leaders.forEach((ldr, n) => {
@@ -397,10 +397,10 @@ export class ChaosTile extends MapTile {
       this.foundations[ndx] = f;
       f.onTile = this;   // record Foundation is onTile on the map.
       // Graphically above this.hex:
-      const hex = this.chex, dx = f.radius * 1.03, dy = f.radius * 1.25;
+      const hex = this.chex, dx = f.radius * 1.03, dy = hex.radius * 2.34;   // <<< foundation.y
       f.scaleX = f.scaleY = Foundation.mapScale;  // scale down when drop on map
       f.x = hex.x + (ndx-1) * dx * f.scaleX;
-      f.y = hex.y + hex.radius - dy * f.scaleY;
+      f.y = hex.y + dy * f.scaleY;
       f.faceUp(true);
       f.homeXY = { x: f.x, y: f.y };    // see Foundation.sendHome()
       this.chex.mapCont.overCont.addChild(f);
