@@ -631,8 +631,10 @@ export class Relic extends ChaosMeeple {
   static allRelics: Relic[] = [];
 
   bText = '%' as BONUS;   // placeholder
+
   override makeShape(size = TP.meepleRad): Paintable {
-    return new RectShape({ x: -size/2, y: -size/2, w: size, h: size }, C.grey32);
+    const rc = size * .4;
+    return new RectShape({ x: -size/2, y: -size * .7, w: size, h: size, rr: [rc, rc, 2, 2] }, C.grey32);
   }
   readonly foundation: Foundation; // placed on map hex by placeRelic(hex)
 
@@ -645,9 +647,14 @@ export class Relic extends ChaosMeeple {
   constructor(n: number, player: Player, homeXY: XY) {
     const Aname = `Relic${n}`;
     super(Aname, player);
+    const {y: bsy, width: bsh} = this.baseShape.getBounds()
+    const dy = bsh/2 + bsy;
+    homeXY.y -= dy;
     this.homeXY = homeXY;
     const fs = this.baseShape.getBounds().height*.9;
-    this.addChild(new CenterText(`${n}`, F.fontSpec(fs, 'Arial Rounded MT Bold'), C.WHITE));
+    const label = new CenterText(`${n}`, F.fontSpec(fs, 'Arial Rounded MT Bold'), C.WHITE);
+    label.y = dy + this.radius * .1;
+    this.addChild(label);
     this.foundation = new BgFound(`RF_${n}`, Relic.bonus[n]);
     Relic.allRelics.push(this);
     this.sendHome();
