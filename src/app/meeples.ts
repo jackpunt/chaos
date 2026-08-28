@@ -307,7 +307,7 @@ export class Leader extends ChaosUnit implements LeaderSpec {
   }
 
   override onRightClick(evt: MouseEvent) {
-    super.onRightClick(evt);
+    // super.onRightClick(evt); // log rightClick
     // TODO: show all properties of this Leader
     const parCont = this.factOnTile!.tile.hex!.map.mapCont.overCont;
     const card = this.card;
@@ -634,7 +634,7 @@ export class Relic extends ChaosMeeple {
 
   override makeShape(size = TP.meepleRad): Paintable {
     const rc = size * .4;
-    return new RectShape({ x: -size/2, y: -size * .7, w: size, h: size, rr: [rc, rc, 2, 2] }, C.grey32);
+    return new RectShape({ x: -size/2, y: -size * .5, w: size, h: size, rr: [rc, rc, 2, 2] }, C.grey32);
   }
   readonly foundation: Foundation; // placed on map hex by placeRelic(hex)
 
@@ -658,6 +658,14 @@ export class Relic extends ChaosMeeple {
     this.foundation = new BgFound(`RF_${n}`, Relic.bonus[n]);
     Relic.allRelics.push(this);
     this.sendHome();
+    this.rightClickable()
+  }
+
+  override onRightClick(evt: MouseEvent): void {
+    // super.onRightClick(evt);
+    this.toMapScale(false);
+    this.stage.update();
+    this.on(S.click, () => { this.toMapScale(true); setTimeout(this.stage.update, 4)}, this, true)
   }
 
   override sendHome(): void {
