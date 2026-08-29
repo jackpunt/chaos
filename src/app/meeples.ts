@@ -1,5 +1,5 @@
 import { C, F, S, stime, type XY, type XYWH } from "@thegraid/common-lib";
-import { CenterText, CircleShape, EllipseShape, NamedContainer, PathShape, RectShape, TextInRect, type Paintable, type TextInRectOptions } from "@thegraid/easeljs-lib";
+import { CenterText, CircleShape, EllipseShape, NamedContainer, PathShape, RectShape, TextInRect, type Paintable, type RectWithDispOptions, type TextInRectOptions } from "@thegraid/easeljs-lib";
 import type { Container, MouseEvent, Rectangle } from "@thegraid/easeljs-module";
 import { Graphics } from "@thegraid/easeljs-module";
 import { Meeple, MeepleShape, Tile, TP, type DragContext, type Hex, type HexM, type IHex2 } from "@thegraid/hexlib";
@@ -245,8 +245,8 @@ export class Leader extends ChaosUnit implements LeaderSpec {
       t1: "CANNOT ENTER LAKES BATTLE VICTOR GAINS CONTROL OF URYK", },
     { facId: 4, name: 'Halke', stats0: [2, 0, 2], stats2: [3, 0, 3], isRhyzu: 3,
       t1: "CANNOT ENTER LAKES BATTLE VICTOR GAINS CONTROL OF HALKE", },
-    { facId: 4, name: 'Katarin', stats0: [3, 0, 0], stats2: [5, 0, 0], isRhyzu: 6,
-      t1: "CANNOT ENTER LAKES BATTLE VICTOR GAINS CONTROL OF HALKE", },
+    { facId: 4, name: 'Katarin', stats0: [3, 0, 0], stats2: [5, 0, 0], isRhyzu: 6, // [Ka]tarin vs [Ka]jali
+      t1: "CANNOT ENTER LAKES BATTLE VICTOR GAINS CONTROL OF KATARIN", },
     // Oxataya: 5
     { facId: 5, name: 'Tovati', stats0: [1, 2, 0], stats2: [3, 3, 0], upGem: 1,
       t1: "2 F IF FIGHTING WITHOUT ALLIED LEADERS OR RHY-ZU", },
@@ -278,7 +278,7 @@ export class Leader extends ChaosUnit implements LeaderSpec {
   t2: string;
   tp: PhaseName;
   upgraded = false;  // set true when upgraded
-  onBoard = false;
+  onBoard = false;   // in play: on map, on a ctile/fac vs waiting on Leader.homeHex
   plGem = 0;
   upGem = 0;
   upPlace = 0;
@@ -316,16 +316,19 @@ export class Leader extends ChaosUnit implements LeaderSpec {
     card.scaleX = card.scaleY = 1.8;
     card.visible = true;
     card.stage.update();
+    card.on(S.click, () => { card.visible = false; card.stage.update()}, this, true)
   }
 
+
+  declare baseShape: TextInRect & { backSide: Paintable };
   // TODO: image?
   /** the small, D&D/on-map shape; it can expand to the larger leaderCard */
-  override makeShape(size?: number): Paintable {
-    const cont = new PaintableCont(`${this.Aname}_icon`);
-    const ntext = `${this.Aname.substring(0,2)}`, fontSize = TP.hexRad * .2;
-    const tib = this.textInBox(ntext, fontSize, 1.4 * fontSize, { bgColor: this.player.color });
-    cont.addChild(tib);
-    return cont;
+  override makeShape(size?: number, opts?: RectWithDispOptions): Paintable {
+    const ntext = `${this.Aname.substring(0,2)}`, wide = this.radius * .35, fontSize = this.radius * .25;
+    const bgColor = this.player.color;
+    const tib = this.textInBox(ntext, fontSize, wide, { bgColor, border: [0, 0, .26, -.0], ...opts });
+    ;(tib as NamedContainer).Aname = `${this.Aname}_icon`;
+    return tib;
   }
 
   // Note: common pattern in PriceToken (below)
@@ -353,9 +356,15 @@ export class Leader extends ChaosUnit implements LeaderSpec {
    * onboard: obvious from location of baseShape (baseShape on Card OR Card [popup] on baseShape)
    */
   makeCard() {
+    const LeaderCard = class LeaderCard extends Tile {
+        declare baseShape: CardShape;
+        override makeShape(size?: number) { return new CardShape(C.grey224, C.WHITE) }
+    }
     // Should probably use CardShape; and simple put Aname @ y = height-mlh
-    const card = new NamedContainer(`${this.Aname}Card`);  // maybe some day: class LeaderCard
-    const baseShape = new CardShape(this.pColor, C.white);
+    const card = new LeaderCard(`${this.Aname}Card`, this.player);
+    const baseShape = card.baseShape;
+    const color = this.isRhyzu ? CO.rhy_zu : this.pColor;
+    baseShape.paint(color, true);
     const fontSize = this.radius * .3;
     const top = -baseShape._rect.h/2, left = baseShape._rect.x, right = -left;
     const aname = new CenterText(this.Aname, fontSize, C.WHITE);
@@ -367,7 +376,6 @@ export class Leader extends ChaosUnit implements LeaderSpec {
     this.addText(card, fontSize, top, left);
     card.scaleX = card.scaleY = 1;
     card.visible = false;
-    card.on(S.click, () => { card.visible = false; card.stage.update(); })
     return card;
   }
 
@@ -380,16 +388,23 @@ export class Leader extends ChaosUnit implements LeaderSpec {
     t1.x = left + .3 * fontSize;
     t1.y = -top - Math.max(height, 3 * mlh);
     card.addChild(t1);
-    const tpIcon = this.phaseIcon(this.tp, card);
-    const tphase = new CenterText(this.tp, fontSize * 1.1, CO.orange)
+    const tpIcon = this.phaseIcon(card, this.tp);
     tpIcon.y = t1.y - tpIcon.label.getMeasuredLineHeight() * 1.1;
     card.addChild(tpIcon);
   }
-
-  phaseIcon(ntext: PhaseName, card: Container) {
-    const font = F.fontSpec(this.radius * .3, undefined, "bold");
+  /** Rhy-zu indicator on Card */
+  rhyzuIcon(card: Container, ntext = 'Rhy-zu') {
+    const font = F.fontSpec(this.radius * .3, undefined, 'bold');
     const wide = card.children[0].getBounds().width * .8; // extract the baseShape
-    return this.textInBox(ntext, font, wide, { bgColor: C.grey128, textColor: CO.orange, textColors: [CO.orange] });
+    const border = [0, 0, .1, -.0] as [number, number, number, number];
+    return this.textInBox(ntext, font, wide, { bgColor: C.grey128, border, textColors: [C.WHITE] });
+  }
+  /** Phase indicator on Card */
+  phaseIcon(card: Container, ntext: PhaseName, ) {
+    const font = F.fontSpec(this.radius * .3, 'sans-serif', '500');
+    const wide = card.children[0].getBounds().width * .8; // extract the baseShape
+    const border = [0, 0, .15, -.05] as [number, number, number, number];
+    return this.textInBox(ntext, font, wide, { bgColor: C.grey128, border, textColors: [CO.orange] });
   }
 
   /**
@@ -397,14 +412,24 @@ export class Leader extends ChaosUnit implements LeaderSpec {
    * @param ntext
    * @param font
    * @param wide desired width of rect
-   * @param opts
+   * @param opts; opts.border sets only [ , , dy1, dy2]
+   * - bgColor: [WHITE]
+   * - corner: [.1]
+   * - border: [5]
+   * - strokec: ['']
+   * - ss: [1]
    * @returns
    */
-  textInBox(ntext: string, font: string | number, wide: number, opts: TextInRectOptions = {}) {
+  textInBox(ntext: string, font: string | number, wide: number, opts: TextInRectOptions & RectWithDispOptions = {}) {
     const ctext = new CenterText(ntext, font, opts.textColor ?? C.WHITE), mw = ctext.getMeasuredWidth();
     const fontSize = F.fontSize(ctext.font);  // extract from full fontSpec
     const dx = Math.max((wide - mw) / 2, 1) / fontSize;
-    const tir = new TextInRect(ctext, { fontSize, border: [dx, dx, .15, 0], corner: .1, ...opts })
+    const ob = opts.border;
+    const border: [number, number, number, number] = (typeof ob == 'number')
+      ? [dx, dx, ob, ob]
+      : [dx, dx, ob?.[2] ?? .15, ob?.[3] ?? 0];
+      delete opts.border;
+    const tir = new TextInRect(ctext, { fontSize, border, corner: .1, ...opts })
     return tir;
   }
 
@@ -473,6 +498,54 @@ export class Leader extends ChaosUnit implements LeaderSpec {
     const ctile = targetHex?.ctile ?? this.ctxCtile(ctx);
     // place leaderIcon on ctile:
     ctile.getFoT(this.player).addLeader(this);
+  }
+}
+
+export class Rhyzu extends Leader {
+
+  constructor(Aname: string, player: Player) {
+    super(Aname, player);
+    this.baseShape.paint(undefined, true);
+
+    this.addRzIcon(this.card); // fields (rzIcon) get [re]initialized after super()
+    this.paint(CO.rhy_zu, true);   // paint this.rzIcon
+  }
+  override makeShape(size?: number): Paintable {
+    return super.makeShape(size, { strokec: C.BLACK, ss: .5 });   // TODO: CardShape is getting a black border?
+  }
+
+  override paint(colorn?: string, force?: boolean): void {
+    if (this.rzIcon) {
+      this.rzIcon.paint(this.onBoard ? this.pColor : CO.rhy_zu);
+      this.card.updateCache();
+      this.factOnTile?.update();
+    }
+    super.paint(CO.rhy_zu, force)
+  }
+
+  /** rzIcon of this.card... this.card.children[7] */
+  rzIcon?: TextInRect;       // set *after* super()
+  addRzIcon(card = this.card) {
+    const rzIcon = this.rzIcon = this.rhyzuIcon(card)
+    rzIcon.y = 0;
+    card.addChild(rzIcon)
+  }
+
+  setPlayer(player: Player) {
+    this.onBoard = true;  // once in play, always in play;
+    this.player = player;
+    this.paint();
+  }
+
+  override isLegalTarget(toHex: Hex2, ctx?: DragContext): boolean {
+    if (toHex?.ctile?.terrain == 'Base') return true;
+    return super.isLegalTarget(toHex, ctx);
+  }
+  override dropFunc(targetHex: Hex2, ctx: DragContext): void {
+    if (targetHex?.ctile?.terrain == 'Base') {
+      this.setPlayer(targetHex.ctile.player!)
+    }
+    super.dropFunc(targetHex, ctx);
   }
 }
 

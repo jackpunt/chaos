@@ -39,6 +39,7 @@ export namespace CO {
   export const bColor = 'rgb(255, 140, 0)'; // bank color
   export const dColor = 'rgb(150, 70, 0)'; // default background color? for PTokenShape
   export const gColor = 'rgb(240, 30, 0)'; // gem Color
+  export const rhy_zu = 'rgb(210, 75, 41)'; // Rhyzu.pColor
 
 }
 

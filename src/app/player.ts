@@ -10,7 +10,7 @@ import { Faction, factionColors, type FactionId, type FactionName } from "./fact
 import { BgFound, Foundation } from "./foundation";
 import { type Battle, type GamePlay } from "./game-play";
 import { type PlayerId } from "./game-state";
-import { ChaosPresence, Factory, Leader, Outposts, PriceToken, PTokenShape, Stronghold, type ChaosUnitType, type Fighter, type PriceId } from "./meeples";
+import { ChaosPresence, Factory, Leader, Outposts, PriceToken, PTokenShape, Rhyzu, Stronghold, type ChaosUnitType, type Fighter, type PriceId } from "./meeples";
 import { ResearchCell, ResGrid } from "./research-cell";
 import { bonusIcon, CO, pricePhases } from "./table-params";
 import { CardBack, CardHex, CardPanel, TacticsCard } from "./tactics-card";
@@ -643,9 +643,10 @@ export class Panel extends PlayerPanel {
       }
     }
     this.faction.leaders = leaders.map((lspec, n) => {
-      const ldr = new Leader(lspec.name, player);
+      const ldr = !lspec.isRhyzu ? new Leader(lspec.name, player) : new Rhyzu(lspec.name, player);
       const name = `${this.Aname.substring(0,2)}_home`;
-      const hx = (10 + n % 3) * wh, hy = (3.3 * wh + Math.floor(n / 3) * leaderRad*1.4);
+      const cn = ldr.isRhyzu ? n + 1 : n;
+      const hx = (10 + cn % 3) * wh, hy = (3.3 * wh + Math.floor(cn / 3) * leaderRad*1.4);
       const homeHex = ldr.homeHex = this.table.newHex2(0, 0, name, LeaderHex, );
       this.localToLocal(hx, hy, homeHex.cont.parent, homeHex.cont);
       homeHex.legalMark.setOnHex(homeHex);
