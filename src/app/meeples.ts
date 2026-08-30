@@ -933,42 +933,46 @@ export class PriceToken extends ChaosMeeple {
     over.paint(bgcolor, true);
     cont.addChild(over)
 
+    const textBlock = (text: string, bgColor: string, fs = s * .5) => {
+      const fontSpec = F.fontSpec(fs, 'sans-serif', '600');
+      const border = [0, 0, .13, -.09] as [number, number, number, number];
+      return new TextInRect(text, { bgColor, fontSpec, border })
+    }
     // make TextRect for number/icon:
     const setTR = (tr: TextInRect, w = 10, x = 0, y = 0) => {
       tr.rectShape.setRectRad({ w, x: tr.rectShape.x - w/2 }) ;
       tr.x = x; tr.y = y;
       cont.addChild(tr);
-      tr.paint(tr.bgColor, true)
+      tr.paint(tr.bgColor, true);  // repaint with new width
     }
     const [ toFac, toBank, left, right, eject ] = this.vdist ?? [];
     const s = size*.92, x1 = -s/4, x2 = +s/4, y1 = +s/4, y2 = -s/4;
-    const fontSize = s * .2;
     const neutral = (left !== undefined);
     if (neutral && left > 0) {
-      const lt = new TextInRect(`${left}`, { bgColor: 'black', fontSize })
+      const lt = textBlock(`${left}`, C.BLACK)
       setTR(lt, s*.45, x1, y2)
-      const rt = new TextInRect(`${right}`, { bgColor: 'white', fontSize })
+      const rt = textBlock(`${right}`, C.WHITE)
       setTR(rt, s*.45, x2, y2)
     }
     if (toFac > 0 && toBank > 0) {
-      const tf = new TextInRect(`${toFac}`, { bgColor: this.pColor, fontSize })
+      const tf = textBlock(`${toFac}`, this.pColor!)
       setTR(tf, s*.45, x1, y1);
-      const tb = new TextInRect(`${toBank}`, { bgColor: CO.bColor, fontSize })
+      const tb = textBlock(`${toBank}`, CO.bColor)
       setTR(tb, s*.45, x2, y1);
     } else if (toFac > 0) {  // single payment to Faction:
-      const tf = new TextInRect(`${toFac}`, { bgColor: this.pColor, fontSize })
+      const tf = textBlock(`${toFac}`, this.pColor!)
       setTR(tf, s*.7, 0, y1)
     } else if (toBank > 0) { // single payment to Bank
-      const tb = new TextInRect(`${toBank}`, { bgColor: CO.bColor, fontSize })
+      const tb = textBlock(`${toBank}`, CO.bColor)
       setTR(tb, s*.7, 0, y1)
     }
     if (neutral && eject !== undefined) {
-      const tir = new TextInRect(`X  ${eject}`, { bgColor: C.transparent, fontSize })
+      const tir = textBlock(`x${eject}`, C.transparent, s * .3)
       setTR(tir, s*.7, 0, toBank > 0 ? y2 : y1)
     }
     if (!neutral && this.bTexts) {
-      const text = this.bTexts.join('  ')
-      const tir = new TextInRect(text, { bgColor: C.rgba(this.pColor!, .6), fontSize })
+      const text = this.bTexts.join(' ')
+      const tir = textBlock(text, C.nameToRgbaString(this.pColor!, .6), s * .4)
       setTR(tir, s*.7, 0, y2);
     }
     // TODO: use bonusIcon(^, C, >, %)

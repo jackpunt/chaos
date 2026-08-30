@@ -50,11 +50,12 @@ export class Player extends PlayerLib {
       // start with 6 key factionColors:
       ... playerColors.reduce((pv, cv) => (pv[cv] = cv, pv), {} as typeof PlayerLib.colorScheme),
       // overwrite a few to get a better color
-      'gold': 'rgb(235, 186, 26)', // 'tan'? 'rgb(247, 209, 37)'
-      'blue': 'rgb(1, 161, 230)',
-      'orange': 'rgb(195, 34, 34)',
-      'violet': 'rgb(134, 102, 163)',
-      'brown' : 'brown',
+      'gold': 'rgb(235, 186, 26)',    // Circadians
+      'grey': 'rgb(168, 167, 167)',   // AI: between 128 & 224
+      'blue': 'rgb(1, 161, 230)',     // Zcharo
+      'orange': 'rgb(195, 34, 34)',   // Jrayek
+      'violet': 'rgb(123, 91, 153)', // Oxataya
+      'brown' : 'brown',                // Neutral
   } as typeof PlayerLib.colorScheme;
 
   // QQQ: Player.color -> PlayerPanel, or PlayerPanel.color -> Player
@@ -257,6 +258,7 @@ export class Panel extends PlayerPanel {
 
   // TODO: table.vault
   layoutNeutralPanel(table: ChaosTable) {
+    this.setOutline(4, 'rgba(241, 226, 165, 0.3)');
     const np = table.gamePlay.allPlayers.length, wh = this.wh;
     const ptIds = [[],[], [5, 3], [5, 4, 3, 2], [5, 3], [], []][np];
     this.addPriceTokens(table, -1.16, ptIds); // make the row, then stack them on the edge:
@@ -373,8 +375,6 @@ export class Panel extends PlayerPanel {
    * Also: setup Base hex: [Ship, E1, E2, E2, G1, R1]
    */
   layoutPanel(table: ChaosTable) {
-    this.bg0 = C.grey64; 'rgb(56, 56, 56)';
-    this.bg1 = this.bg0;
     const faction = this.faction;
     this.wh = TP.meepleRad; // TODO: integrate with panel.metrics (so counters align with wh & gap)
     this.cardPanel = this.addCardPanel(table);
@@ -386,6 +386,8 @@ export class Panel extends PlayerPanel {
     this.setupBase(faction);
     return this.children;
   }
+  override bg0 = 'rgb(82, 81, 81)';
+  override bg1 = this.bg0;
 
   addImage(x = this.wh, y = this.wh * 3) {
     const img = AliasLoader.loader.getBitmap(this.player.facName);
@@ -620,7 +622,7 @@ export class Panel extends PlayerPanel {
     /** a Hex to hold a LeaderTile */
     const LeaderHex = class LeaderHex extends Hex2 {
       override makeHexShape(colorn?: string): Paintable {
-        return new CardShape(player.color, '', leaderRad)
+        return new CardShape(colorn, '', leaderRad)
       }
       override makeLegalMark(): LegalMark {
         return new class extends LegalMark {
@@ -634,9 +636,10 @@ export class Panel extends PlayerPanel {
     /** a place to drop Leader on Panel when not recruited to map */
     const LeaderTile = class LeaderTile extends ChaosTile {
       constructor(Aname: string) {
-        super(Aname, 'Base', '-', player);
+        super(Aname, 'Base', '-', player); // paints (baseShape) WHITE [Base]
+        this.paint(C.grey224)
         const fot = this.getFoT(player);
-        fot.setXY(-this.radius * .6);    // Note: fot.isBase == true
+        fot.setXY(-this.radius * .6);    // Note: fot.isBase == true; --> x = 0
       }
       override makeShape(): PaintableShape {
         return new CardShape(player.color, undefined, leaderRad);

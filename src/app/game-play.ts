@@ -142,6 +142,8 @@ export class GamePlay extends GamePlayLib {
   // Setup: Ciradian Base
   // Setup: place Relics on Foundations; player choice? [8/17]
   // Setup: layout FactionOnTile (v & ^) [8/20]
+  // Setup: Rhyzu.setPlayer() & popup-card [8/28] (8/29)
+  // Setup: Leader as: Icon_on_FoT, Card-on-Panel, Card-popup
   // Setup: choose Leaders & starting Leader
   // Setup: place Leader & Fighters in Base (Fighters as Counter, leader w/clicktext [8/26])
   // Setup: place Fighters & Leader on Map (on base Foundation Regions)
