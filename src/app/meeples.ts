@@ -319,16 +319,46 @@ export class Leader extends ChaosUnit implements LeaderSpec {
     card.on(S.click, () => { card.visible = false; card.stage.update()}, this, true)
   }
 
+  /**
+   * A TextInRect: increase border [dx] to fill to wide
+   * @param ntext
+   * @param font
+   * @param wide desired width of rect
+   * @param opts; opts.border sets only [ , , dy1, dy2]
+   * - bgColor: [WHITE]
+   * - corner: [.1]
+   * - border: [5]
+   * - strokec: ['']
+   * - ss: [1]
+   * @returns
+   */
+  static TextInBox = class TextInBox extends TextInRect {
+    constructor(ntext: string, font: string | number, wide: number, opts: TextInRectOptions & RectWithDispOptions = {}) {
+      const ctext = new CenterText(ntext, font, opts.textColor ?? C.WHITE), mw = ctext.getMeasuredWidth();
+      const fontSize = F.fontSize(ctext.font);  // extract from full fontSpec
+      const dx = Math.max((wide - mw) / 2, 1) / fontSize;
+      const ob = opts.border;
+      const border: [number, number, number, number] = (typeof ob == 'number')
+        ? [dx, dx, ob, ob]
+        : [dx, dx, ob?.[2] ?? .15, ob?.[3] ?? 0];
+        delete opts.border;
+      super(ctext, { fontSize, border, corner: .1, ...opts })
+    }
+  }
+
+  /** the small, D&D/on-map shape; it can expand to the larger leaderCard */
+  static LeaderIcon = class LeaderIcon extends Leader.TextInBox implements NamedContainer {
+    constructor(inst: Leader, opts?: RectWithDispOptions) {
+      const ntext = `${inst.Aname.substring(0,2)}`, wide = inst.radius * .35, fontSize = inst.radius * .25;
+      const bgColor = inst.player.color;
+      super(ntext, fontSize, wide, { bgColor, border: [0, 0, .26, -.0], ...opts });
+      this.Aname = `${inst.Aname}_icon`;
+    }
+  }
 
   declare baseShape: TextInRect & { backSide: Paintable };
-  // TODO: image?
-  /** the small, D&D/on-map shape; it can expand to the larger leaderCard */
   override makeShape(size?: number, opts?: RectWithDispOptions): Paintable {
-    const ntext = `${this.Aname.substring(0,2)}`, wide = this.radius * .35, fontSize = this.radius * .25;
-    const bgColor = this.player.color;
-    const tib = this.textInBox(ntext, fontSize, wide, { bgColor, border: [0, 0, .26, -.0], ...opts });
-    ;(tib as NamedContainer).Aname = `${this.Aname}_icon`;
-    return tib;
+    return new Leader.LeaderIcon(this, opts);
   }
 
   // Note: common pattern in PriceToken (below)
@@ -397,40 +427,14 @@ export class Leader extends ChaosUnit implements LeaderSpec {
     const font = F.fontSpec(this.radius * .3, undefined, 'bold');
     const wide = card.children[0].getBounds().width * .8; // extract the baseShape
     const border = [0, 0, .1, -.0] as [number, number, number, number];
-    return this.textInBox(ntext, font, wide, { bgColor: C.grey128, border, textColors: [C.WHITE] });
+    return new Leader.TextInBox(ntext, font, wide, { bgColor: C.grey128, border, textColors: [C.WHITE] });
   }
   /** Phase indicator on Card */
   phaseIcon(card: Container, ntext: PhaseName, ) {
     const font = F.fontSpec(this.radius * .3, 'sans-serif', '500');
     const wide = card.children[0].getBounds().width * .8; // extract the baseShape
     const border = [0, 0, .15, -.05] as [number, number, number, number];
-    return this.textInBox(ntext, font, wide, { bgColor: C.grey128, border, textColors: [CO.orange] });
-  }
-
-  /**
-   * increase border [dx] to fill to wide
-   * @param ntext
-   * @param font
-   * @param wide desired width of rect
-   * @param opts; opts.border sets only [ , , dy1, dy2]
-   * - bgColor: [WHITE]
-   * - corner: [.1]
-   * - border: [5]
-   * - strokec: ['']
-   * - ss: [1]
-   * @returns
-   */
-  textInBox(ntext: string, font: string | number, wide: number, opts: TextInRectOptions & RectWithDispOptions = {}) {
-    const ctext = new CenterText(ntext, font, opts.textColor ?? C.WHITE), mw = ctext.getMeasuredWidth();
-    const fontSize = F.fontSize(ctext.font);  // extract from full fontSpec
-    const dx = Math.max((wide - mw) / 2, 1) / fontSize;
-    const ob = opts.border;
-    const border: [number, number, number, number] = (typeof ob == 'number')
-      ? [dx, dx, ob, ob]
-      : [dx, dx, ob?.[2] ?? .15, ob?.[3] ?? 0];
-      delete opts.border;
-    const tir = new TextInRect(ctext, { fontSize, border, corner: .1, ...opts })
-    return tir;
+    return new Leader.TextInBox(ntext, font, wide, { bgColor: C.grey128, border, textColors: [CO.orange] });
   }
 
   plGemIcon(fontSize = 16, top = -80, left = -55) {
@@ -505,26 +509,26 @@ export class Rhyzu extends Leader {
 
   constructor(Aname: string, player: Player) {
     super(Aname, player);
-    this.baseShape.paint(undefined, true);
 
     this.addRzIcon(this.card); // fields (rzIcon) get [re]initialized after super()
     this.paint(CO.rhy_zu, true);   // paint this.rzIcon
+    this.baseShape.paint(undefined, true); // Icon
   }
   override makeShape(size?: number): Paintable {
-    return super.makeShape(size, { strokec: C.BLACK, ss: .5 });   // TODO: CardShape is getting a black border?
+    return super.makeShape(size, { strokec: C.BLACK, ss: .5 });  // Rhyzu Icon distinguished by black outline
   }
 
   override paint(colorn?: string, force?: boolean): void {
-    if (this.rzIcon) {
+    if (this.rzIcon) {       // super.constructor invokes paint before setRzIcon()
       this.rzIcon.paint(this.onBoard ? this.pColor : CO.rhy_zu);
       this.card.updateCache();
       this.factOnTile?.update();
     }
-    super.paint(CO.rhy_zu, force)
+    super.paint(CO.rhy_zu, force);   // --> baseShape.paint()
   }
 
   /** rzIcon of this.card... this.card.children[7] */
-  rzIcon?: TextInRect;       // set *after* super()
+  rzIcon!: TextInRect;       // set *after* super()
   addRzIcon(card = this.card) {
     const rzIcon = this.rzIcon = this.rhyzuIcon(card)
     rzIcon.y = 0;
