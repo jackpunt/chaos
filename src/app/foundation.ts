@@ -73,7 +73,7 @@ export class Foundation extends Tile {
   addGemLock(dx = .35, dy = 0) {
     const gl = gemlockIcon(dx * this.radius, dy * this.radius);
     this.addChild(this.gemlock = gl)
-    this.reCache();
+    this.reCache(0);
   }
 
   faceup = true; // Used for Player Bonus Foundations
