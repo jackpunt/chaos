@@ -1,5 +1,5 @@
 import { C, permute, removeEltFromArray, S, stime } from "@thegraid/common-lib";
-import { AliasLoader, NamedContainer, PaintableShape, RectShape, TextInRect } from "@thegraid/easeljs-lib";
+import { AliasLoader, NamedContainer, type Paintable, RectShape, TextInRect } from "@thegraid/easeljs-lib";
 import { type DragContext, H, type HexDir, HexShape, type IHex2, MapTile, Player as PlayerLib, type Table, TP } from "@thegraid/hexlib";
 import { type ChaosHex2, type ChaosHex2 as Hex2, type HexMap2 } from "./chaos-hex";
 import { type ChaosTable } from "./chaos-table";
@@ -361,6 +361,7 @@ export class ChaosTile extends MapTile {
 
   // paint the [terrain or base] color onto the baseShape;
   override paint(colorn = colorOfTerrain[this.terrain], force?: boolean): void {
+    colorn = (colorn as TERRAIN | undefined) ?? this.player?.color!;
     super.paint(colorn, force)
   }
 
@@ -370,7 +371,7 @@ export class ChaosTile extends MapTile {
     this.addChild(icon);
   }
 
-  override makeShape(): PaintableShape {
+  override makeShape(): Paintable {
     return new HexShape(); // basic HexShape, not the TileShape
   }
 
