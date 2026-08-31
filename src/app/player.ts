@@ -383,7 +383,7 @@ export class Panel extends PlayerPanel {
     this.addBuildings(faction);
     this.addFoundations(faction, table);
     this.addRecruits(faction);
-    if (this.factionId == 4) this.addIncomeStripe(9, 7, 3.7 * this.wh);
+    if (this.factionId == 4) this.addRhyzu();
     this.addPriceTokens(table, 7);
     this.setupBase(faction);
     return this.children;
@@ -397,6 +397,28 @@ export class Panel extends PlayerPanel {
     img.y = y;
     this.addChild(img);
   }
+
+  // align row with PriceTokens, col with LeaderHex
+  addRhyzu(row = 7, col = 8) {
+    this.addIncomeStripe(col, row, 3.7 * this.wh);
+    Rhyzu.rhyzuCost.filter(rc => rc !== '-').forEach((rc, n) => {
+      const ts = this.wh * .8;
+      const noToken = new RectShape({x: -ts/2, y: -ts/2, w: ts, h: ts}, C.grey128, C.BLACK)
+      this.addRhyzuToken(noToken, n)
+    })
+  }
+  rhyzuCostTokens: DisplayObject[] = [];
+  /** replace Rhyzu CostToken */
+  addRhyzuToken(token: DisplayObject, n = 0, row = 7, col = 8) {
+    this.removeChild(this.rhyzuCostTokens[n]);   // remove prior token
+    this.rhyzuCostTokens[n] = token;
+    const wh = this.wh, x0 = wh * .55, y0 = wh * .55;
+    const ts = token.getBounds().width;
+    token.x = x0 + (col + 1 + n) * wh;
+    token.y = y0 + (row) * wh;
+    this.addChild(token);
+  }
+
   /** a row of icon pairs: [ % bonus ] */  // TODO: create Foundations for the Relic targets on Panel
   addRelics(spec: Faction) {
     const { x, y } = this.getBounds();
@@ -622,7 +644,8 @@ export class Panel extends PlayerPanel {
   // (a legalTarget only during setup: PlaceBase ? move 2 to Recycle, rest to homeHex[i])
   /** make Leaders for this.player.facId */
   makeLeaders(player = this.player ) {
-    const facId = player.facId, wh = this.wh;
+    const wh = this.wh, x0 = wh * .55, y0 = wh * .55;
+    const facId = player.facId;
     const leaders = Leader.leaderSpecs.filter(lspec => lspec.facId == facId);
     const leaderRad = TP.hexRad * .8; // width of leader.card
 
@@ -656,7 +679,8 @@ export class Panel extends PlayerPanel {
       const ldr = !lspec.isRhyzu ? new Leader(lspec.name, player) : new Rhyzu(lspec.name, player);
       const name = `${this.Aname.substring(0,2)}_home`;
       const cn = ldr.isRhyzu ? n + 1 : n;
-      const hx = (10 + cn % 3) * wh, hy = (3.3 * wh + Math.floor(cn / 3) * leaderRad*1.4);
+      const hx = x0 + (9 + cn % 3) * wh;
+      const hy = y0 + (2.8 * wh + Math.floor(cn / 3) * leaderRad * 1.4);
       const homeHex = ldr.homeHex = this.table.newHex2(0, 0, name, LeaderHex, );
       this.localToLocal(hx, hy, homeHex.cont.parent, homeHex.cont);
       homeHex.legalMark.setOnHex(homeHex);
