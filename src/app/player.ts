@@ -256,7 +256,7 @@ export class Panel extends PlayerPanel {
   wh = TP.meepleRad;
 
 
-  // TODO: table.vault
+  // special Panel with Pricin & ResearchCell matrix
   layoutNeutralPanel(table: ChaosTable) {
     this.setOutline(4, 'rgba(241, 226, 165, 0.3)');
     const np = table.gamePlay.allPlayers.length, wh = this.wh;
@@ -285,7 +285,8 @@ export class Panel extends PlayerPanel {
     this.localToLocal(x0 + x * s1, y0 + y * s1, disp.parent, disp);
   }
 
-  rowh = 1.35;
+  rowh = 1.35;    // includes space for PhaseName label
+  /** NeutralPanel: column of TokenHex to hold 'inplay' PriceToken */
   addPriceSlots() {
     const wh = this.wh, fs = wh * .15, x0 = wh * .5, y0 = wh * .5, rowh = this.rowh * wh;
     pricePhases.forEach((pName, i) => {
@@ -382,6 +383,7 @@ export class Panel extends PlayerPanel {
     this.addBuildings(faction);
     this.addFoundations(faction, table);
     this.addRecruits(faction);
+    if (this.factionId == 4) this.addIncomeStripe(9, 7, 3.7 * this.wh);
     this.addPriceTokens(table, 7);
     this.setupBase(faction);
     return this.children;
@@ -418,17 +420,23 @@ export class Panel extends PlayerPanel {
     return;
   }
 
+  addIncomeStripe(wx = 0, wy = 1.1, w = 6 * this.wh) {
+    const wh = this.wh, x0 = wh * .55, y0 = wh * .55;
+    const x = x0 + wh * wx, y = y0 + wh * wy, h = wh * .5;
+    const stripe = new RectShape({ x, y: y-h/2, w, h }, CO.orange, '')
+    const circ = new CircleShape(CO.orange, h, '');
+    circ.x = x; circ.y = y;
+    this.addChild(stripe, circ);
+  }
+
   // add Income & Buildings; set playerColor & Harvest icon on Base.
   // FacSpec.bg: number[][] building w/gemlock (index per type); // indicates number of slots for each type
   /** 10 Foundations and 9 Buildings */
-  addBuildings(spec: Faction) {
-    const wh = this.wh, x0 = wh * 2.95, y0 = wh * 1.65, fs = wh * .2; // fs = foundation size
-    const inx = wh * .54, iny = wh * 1.32;
-    const stripe = new RectShape({ x: inx, y: iny, w: this.getBounds().width - wh, h: wh * .6 }, CO.orange, '')
-    const circ = new CircleShape(CO.orange, wh/2, ''); circ.x = inx; circ.y = iny + wh/4;
-    this.addChild(stripe, circ);
+  addBuildings(spec: Faction, row = 1.1, col = 2.4) {
+    const wh = this.wh, x0 = wh * .55, y0 = wh * .55, fs = wh * .2; // fs = foundation size
+    this.addIncomeStripe(0, row, this.getBounds().width - this.wh);
     const specBg = spec.bg;      // buildings with gemLocks
-    let x00 = x0;
+    let x00 = x0 + wh * col;
     specBg.forEach((bldgs, btype) => {  // btype: 0: Factory, 1: Outposts, 2: Stronghold
       const nbldgs = bldgs.length;
       const homeAry = new Array<Foundation>(nbldgs); // each Factory instance shares the same homeAry
@@ -441,7 +449,7 @@ export class Panel extends PlayerPanel {
       bldgs.toReversed().forEach((bldg, rndx) => {
         const ndx = nbldgs - 1 - rndx; // actual ndx in homeAry
         const x = x00 + ndx * wh * 1.01; // place bg from left-to-right
-        const y = y0;
+        const y = y0 + wh * row;
         // TODO: use TextTweaks to convert E*, C, G* to glyphs?
         const bonus = bldg < 2 ? bText : [ 'E2  /    \n/\n    /  G1', 'E3'][bldg-2] as BONUS;
         const Aname = `${bid}${this.player.facId}.${ndx}`;
@@ -462,8 +470,7 @@ export class Panel extends PlayerPanel {
     })
   }
 
-  /**
-   * turned out we do not re-use this...
+  /** turned out we do not re-use this...
    * @param fxy Panel location of bg & fg
    * @param produce { bg: Foundation, fg: Tile }
    * @returns
@@ -669,9 +676,7 @@ export class Panel extends PlayerPanel {
     // move to panel with (3 or 4) newHex for each leader/leaderCard
   }
 
-  /** a sub-panel that holds the hand of TacticsCards */
-  /**
-   *
+  /** a sub-panel that holds the hand of TacticsCards
    * @param table for hexMap & dydr, dxdc
    * @param row [0 = align to bottom of Panel] else row * dydr
    * @param ncols [6] number of card spaces to allocate
