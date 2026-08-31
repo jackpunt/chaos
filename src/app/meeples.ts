@@ -5,7 +5,7 @@ import { Graphics } from "@thegraid/easeljs-module";
 import { Meeple, MeepleShape, Tile, TP, type DragContext, type Hex, type HexM, type IHex2 } from "@thegraid/hexlib";
 import { CardShape } from "./card-shape";
 import { TokenHex, type ChaosHex2 as Hex2, type HexMap2 } from "./chaos-hex";
-import { type BONUS, type FactionOnTile, type TERRAIN } from "./chaos-tile";
+import { ChaosTile, type BONUS, type FactionOnTile, type TERRAIN } from "./chaos-tile";
 import { factionNeutral, type FactionId } from "./factions";
 import { BgFound, Foundation } from "./foundation";
 import type { GamePlay } from "./game-play";
@@ -173,6 +173,9 @@ export interface ILeader extends LeaderSpec {
   // specialByPhase: Map<phase, function>
 }
 
+// canonize and publish for typing field & return type
+type LeaderCard = InstanceType<typeof Leader.LeaderCard>;
+
 //  ' F ' --> Fist (strength), * --> Attack, # --> Shield/Defense
 export class Leader extends ChaosUnit implements LeaderSpec {
 
@@ -283,11 +286,14 @@ export class Leader extends ChaosUnit implements LeaderSpec {
   upGem = 0;
   upPlace = 0;
   isRhyzu = 0;   // maybe subclass...
+  isaRhyzu(): this is Rhyzu {
+    return this.isRhyzu > 0;   // versus instanceof
+  }
 
-  card: NamedContainer;
+  card: LeaderCard;       // InstanceType<typeof Leader.LeaderCard>;
 
   constructor(Aname: string, player: Player) {
-    super(`${Aname}`, player); // TODO: inject Player/Faction
+    super(`${Aname}`, player); // Note: Tile/Meeple (Container) caches itself. so it all drags & drops
     Leader.allLeadersByName.set(Aname, this);
 
     const lspec = Leader.leaderSpecs.find(spec => spec.name == Aname)!
@@ -306,17 +312,17 @@ export class Leader extends ChaosUnit implements LeaderSpec {
     this.rightClickable()
   }
 
+  // make card visible, and scale up:
   override onRightClick(evt: MouseEvent) {
-    // super.onRightClick(evt); // log rightClick
-    // TODO: show all properties of this Leader
-    const parCont = this.factOnTile!.tile.hex!.map.mapCont.overCont;
-    const card = this.card;
-    this.factOnTile!.parent.localToLocal(0, 0, parCont, card);
+    const tile = this.factOnTile!.tile;
+    const card = this.card, parCont = tile.hex!.map.mapCont.overCont;
+    this.baseShape.parent.localToLocal(this.baseShape.x, this.baseShape.y, parCont, card);
     parCont.addChild(card);  // baseTile.FoT or overCont
-    card.scaleX = card.scaleY = 1.8;
+    card.scale = 1.6;        //
     card.visible = true;
+    card.reCache(0);
     card.stage.update();
-    card.on(S.click, () => { card.visible = false; card.stage.update()}, this, true)
+    card.on(S.click, () => { card.visible = false; card.reCache(0); card.stage.update()}, this, true)
   }
 
   /**
@@ -347,34 +353,48 @@ export class Leader extends ChaosUnit implements LeaderSpec {
   }
 
   /** the small, D&D/on-map shape; it can expand to the larger leaderCard */
-  static LeaderIcon = class LeaderIcon extends Leader.TextInBox implements NamedContainer {
+  static LeaderIcon2 = class LeaderIcon2 extends PaintableCont {
     constructor(inst: Leader, opts?: RectWithDispOptions) {
+      const { strokec, ss } = { strokec: '', ss: 1, ...opts };
       const ntext = `${inst.Aname.substring(0,2)}`, wide = inst.radius * .35, fontSize = inst.radius * .25;
       const bgColor = inst.player.color;
-      super(ntext, fontSize, wide, { bgColor, border: [0, 0, .26, -.0], ...opts });
-      this.Aname = `${inst.Aname}_icon`;
+      super(`${inst.Aname}_icon`);
+      const rs = new RectShape({ x: -wide/2, y: -wide/2, w: wide, h: wide, s: ss, r: 2}, bgColor, strokec)
+      const text = new CenterText(ntext, fontSize);
+      this.addChild(rs, text);
     }
   }
-
   declare baseShape: TextInRect & { backSide: Paintable };
-  override makeShape(size?: number, opts?: RectWithDispOptions): Paintable {
-    return new Leader.LeaderIcon(this, opts);
+  override makeShape(size?: number, opts?: RectWithDispOptions) {
+    return new Leader.LeaderIcon2(this, opts);
   }
 
-  // Note: common pattern in PriceToken (below)
-  /** the TargetMark for Leader  */
-  static targetMark = new class LeaderMark extends CardShape {
-    constructor(rad = TP.hexRad * 1.1) {
-      super('rgba(130, 130, 130, 0.4)', '', rad);
-      this.visible = false;
-    }
-  }();
+  //
+  static LeaderCard = class LeaderCardC extends PaintableCont {
+    cardShape: CardShape;
+    rzIcon?: Paintable;
 
-  override showTargetMark(hex: IHex2 | undefined, ctx: DragContext): void {
-    const map = (ctx.targetHex ? ctx.targetHex.map : this.gamePlay.hexMap) as HexMap2;
-    const mark = (this.constructor as typeof Leader).targetMark;
-    map?.showMark(ctx.targetHex, mark);
-    map?.mapCont.overCont?.addChild(mark); // move to overCont
+    constructor(Aname: string, public leader: Leader, vis = false) {
+      super(Aname);
+      const color = leader.isRhyzu ? CO.rhy_zu : leader.pColor;
+      const cardShape = this.cardShape = new CardShape(color, C.WHITE)
+      cardShape.paint(color, true);
+      const fontSize = leader.radius * .3;
+      const top = -cardShape._rect.h/2, left = cardShape._rect.x, right = -left;
+      const nText = new CenterText(this.Aname, fontSize, C.WHITE);
+      nText.y = fontSize * .9 + top;
+      // TODO: move the addXXX() methods from Leader to LeaderCard
+      const card = this;
+      card.addChild(cardShape);
+      card.addChild(nText);
+      leader.addStats(this, fontSize, 2 * fontSize + top);
+      if (leader.plGem) card.addChild(leader.plGemIcon(fontSize, top, left))
+      if (leader.upGem) card.addChild(leader.upGemIcon(fontSize, top, left))
+      leader.addText(card, fontSize, top, left);
+      card.scale = .45;
+      card.visible = vis;
+    }
+    set scale(xy: number)  { this.scaleX = this.scaleY = xy; }
   }
 
   /** Fill a container with the info from a Leader card.
@@ -383,30 +403,41 @@ export class Leader extends ChaosUnit implements LeaderSpec {
    *
    * plGem, upGem, upPlace
    *
-   * onboard: obvious from location of baseShape (baseShape on Card OR Card [popup] on baseShape)
+   * onBoard: obvious from location of baseShape (baseShape on Card OR Card [popup] on baseShape)
    */
   makeCard() {
-    const LeaderCard = class LeaderCard extends Tile {
-        declare baseShape: CardShape;
-        override makeShape(size?: number) { return new CardShape(C.grey224, C.WHITE) }
+    return new Leader.LeaderCard(`${this.Aname}`, this);
+  }
+
+  homeTile?: ReturnType<this['makeLeaderTile']>;    // typically on Panel, start & return Tile on this.homeHex
+  /** called from Panel; use a LeaderCard as baseShape of this Tile */ // TODO: merge back to Panel to break circle
+  makeLeaderTile(name: string) {
+    const ldr = this;
+    /** a place to drop Leader on Panel when not recruited to map */
+    const LeaderTile = class LeaderTile extends ChaosTile {
+      declare baseShape: LeaderCard;
+      constructor(Aname: string) {
+        const player = ldr.player;
+        super(Aname, 'Base', '-', player); // paints (baseShape) WHITE [Base]
+        if (ldr.isaRhyzu()) ldr.addRzIcon(this.baseShape);
+        const pColor = ldr.isRhyzu ? CO.rhy_zu : ldr.pColor;
+        this.paint(pColor)
+        const fot = this.getFoT(player);
+        fot.setXY(-this.radius * .66);    // Note: fot.isBase == true; --> x = 0; set y to place Icon btw stats & PhaseIcon
+      }
+      // disable cache, need full zoom/resolution
+      override reCache(scale?: number): void { super.reCache(0)  }
+      // LeaderCard for this Leader:
+      override makeShape(): Paintable {
+        return new Leader.LeaderCard(ldr.Aname, ldr, true);
+      }
     }
-    // Should probably use CardShape; and simple put Aname @ y = height-mlh
-    const card = new LeaderCard(`${this.Aname}Card`, this.player);
-    const baseShape = card.baseShape;
-    const color = this.isRhyzu ? CO.rhy_zu : this.pColor;
-    baseShape.paint(color, true);
-    const fontSize = this.radius * .3;
-    const top = -baseShape._rect.h/2, left = baseShape._rect.x, right = -left;
-    const aname = new CenterText(this.Aname, fontSize, C.WHITE);
-    aname.y = fontSize * .9 + top;
-    card.addChild(baseShape, aname);
-    this.addStats(card, fontSize, 2 * fontSize + top);
-    if (this.plGem) card.addChild(this.plGemIcon(fontSize, top, left))
-    if (this.upGem) card.addChild(this.upGemIcon(fontSize, top, left))
-    this.addText(card, fontSize, top, left);
-    card.scaleX = card.scaleY = 1;
-    card.visible = false;
-    return card;
+
+    const homeTile = new LeaderTile(name);
+    homeTile.moveTo(this.homeHex);  // homeTile on hex on map with mapCont
+    homeTile.addLeader(ldr);        // add to mapCont.overCont
+    this.homeTile = homeTile as any;// tsc needs reassurance that we can assign to this.homeTile.
+    return homeTile;
   }
 
   addText(card: Container, fontSize = 16, top = -80, left = -55) {
@@ -434,7 +465,7 @@ export class Leader extends ChaosUnit implements LeaderSpec {
     const font = F.fontSpec(this.radius * .3, 'sans-serif', '500');
     const wide = card.children[0].getBounds().width * .8; // extract the baseShape
     const border = [0, 0, .15, -.05] as [number, number, number, number];
-    return new Leader.TextInBox(ntext, font, wide, { bgColor: C.grey128, border, textColors: [CO.orange] });
+    return new Leader.TextInBox(ntext, font, wide, { bgColor: C.transparent, border, textColors: [CO.orange] });  // could be simple CenterText
   }
 
   plGemIcon(fontSize = 16, top = -80, left = -55) {
@@ -480,6 +511,22 @@ export class Leader extends ChaosUnit implements LeaderSpec {
     bg.strokec = C.coinGold; bg.paint(bg.colorn, true);
   }
 
+  // Note: common pattern in PriceToken (below)
+  /** the TargetMark for Leader  */
+  static targetMark = new class LeaderMark extends CardShape {
+    constructor(rad = TP.hexRad * 1.1) {
+      super('rgba(130, 130, 130, 0.4)', '', rad);
+      this.visible = false;
+    }
+  }();
+
+  override showTargetMark(hex: IHex2 | undefined, ctx: DragContext): void {
+    const map = (ctx.targetHex ? ctx.targetHex.map : this.gamePlay.hexMap) as HexMap2;
+    const mark = (this.constructor as typeof Leader).targetMark;
+    map?.showMark(ctx.targetHex, mark);
+    map?.mapCont.overCont?.addChild(mark); // move to overCont
+  }
+
   /** the ChaosTile the was holding Leader before dragStart. */
   ctxCtile(ctx?: DragContext) {
     return this.factOnTile?.tile ?? (ctx?.info.srcCont as FactionOnTile).tile;
@@ -514,23 +561,27 @@ export class Rhyzu extends Leader {
     this.paint(CO.rhy_zu, true);   // paint this.rzIcon
     this.baseShape.paint(undefined, true); // Icon
   }
-  override makeShape(size?: number): Paintable {
+  override makeShape(size?: number) {
     return super.makeShape(size, { strokec: C.BLACK, ss: .5 });  // Rhyzu Icon distinguished by black outline
   }
 
+  // update rzIcon color when setPlayer()
   override paint(colorn?: string, force?: boolean): void {
-    if (this.rzIcon) {       // super.constructor invokes paint before setRzIcon()
-      this.rzIcon.paint(this.onBoard ? this.pColor : CO.rhy_zu);
-      this.card.updateCache();
+    if (this.card.rzIcon) {       // super.constructor invokes paint before setRzIcon()
+      const iColor = this.onBoard ? this.pColor : CO.rhy_zu
+      this.card.rzIcon.paint(iColor);
+      this.card.reCache(0);
+      const homeTileBase = this.homeTile?.baseShape as LeaderCard | undefined;
+      homeTileBase?.rzIcon?.paint(iColor);
+      this.homeHex?.tile?.reCache(0);
       this.factOnTile?.update();
     }
     super.paint(CO.rhy_zu, force);   // --> baseShape.paint()
   }
 
-  /** rzIcon of this.card... this.card.children[7] */
-  rzIcon!: TextInRect;       // set *after* super()
+  /** rzIcon of this.card... set after return from super() */
   addRzIcon(card = this.card) {
-    const rzIcon = this.rzIcon = this.rhyzuIcon(card)
+    const rzIcon = card.rzIcon = this.rhyzuIcon(card);
     rzIcon.y = 0;
     card.addChild(rzIcon)
   }

@@ -449,7 +449,7 @@ export class Panel extends PlayerPanel {
         if (bldg == 1) bgf.addGemLock(-.25, .65);
         this.addChild(bgf); bgf.x = x; bgf.y = y;
         if (bldg == 2 || bldg == 3) {
-          bgf.reCache();
+          bgf.reCache(0);
           return; // no building in Factory slot 0
         }
         const fg = new BC(Aname, this.player, bgf, homeAry);
@@ -654,9 +654,10 @@ export class Panel extends PlayerPanel {
       this.localToLocal(hx, hy, homeHex.cont.parent, homeHex.cont);
       homeHex.legalMark.setOnHex(homeHex);
 
-      const homeTile = new LeaderTile(name);
-      homeTile.moveTo(homeHex);  // homeTile on hex on map with mapCont
-      homeTile.addLeader(ldr);   // add to mapCont.overCont
+      // const homeTile = new LeaderTile(name);
+      // homeTile.moveTo(homeHex);  // homeTile on hex on map with mapCont
+      // homeTile.addLeader(ldr);   // add to mapCont.overCont
+      ldr.makeLeaderTile(name);  // and place on ldr.homeHex
       return ldr;
     });
     return this.faction.leaders
