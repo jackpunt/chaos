@@ -9,8 +9,9 @@ import { ChaosTile, type BONUS, type FactionOnTile, type TERRAIN } from "./chaos
 import { factionNeutral, type FactionId } from "./factions";
 import { BgFound, Foundation } from "./foundation";
 import type { GamePlay } from "./game-play";
+import type { GameState } from "./game-state";
 import type { Player } from "./player";
-import { CO, priceNames, type PhaseName, type PriceName } from "./table-params";
+import { bonusIcon, CO, priceNames, type PhaseName, type PriceName } from "./table-params";
 
 
 type XYp = [x: number, y: number];
@@ -147,6 +148,17 @@ export class Fighter extends ChaosUnit {
 
 }
 
+// Meeple has unMove & faceUp
+
+// These are more Tile-like: See also: Foundation (TODO: merge)
+/** subclass may have a slot on ChaosHex, but does not confer faction 'presence' */
+class ChaosToken extends Tile {
+  declare gamePlay: GamePlay;
+  declare player: Player;
+  homeXY!: XY;                // sendHome location, if needed
+
+}
+
 /** maybe someday itemize them */
 export type LeaderName = string;
 
@@ -160,7 +172,7 @@ interface LeaderSpec {
   t1?: string;         // Text on card
   t2?: string;         // Upgrade Text; default: same as T1
   P?: PhaseName,       // default: 'Combat'
-  isRhyzu?: number;    // default 0 (not a Rhyzu) 1..6 --> PriceToken to summon
+  isRhyzu?: number;    // default 0 (not a Rhyzu) 1, 3, 6 --> PriceToken to summon
   plGem?: number;        // default: 0, isRhyzu --> 0
   upGem?: number;        // default: 0
   upPlace?: number;      // upPlace: 1 (except: Injura = 2, Demo = 0, isRhyzu = 0)
@@ -244,11 +256,11 @@ export class Leader extends ChaosUnit implements LeaderSpec {
     { facId: 4, name: 'Kajali', stats0: [2, 1, 0], stats2: [4, 2, 0], plGem: 1,
       t1: "OPPONENT CANNOT SELECT ANY BATTLES IN THIS REGION", },
     // Rhyzu: 4
-    { facId: 4, name: 'Uryk', stats0: [2, 2, 0], stats2: [3, 3, 0], isRhyzu: 1,
+    { facId: 4, name: 'Uryk', stats0: [2, 2, 0], stats2: [3, 3, 0], isRhyzu: 1,    // -E3, +E1
       t1: "CANNOT ENTER LAKES BATTLE VICTOR GAINS CONTROL OF URYK", },
-    { facId: 4, name: 'Halke', stats0: [2, 0, 2], stats2: [3, 0, 3], isRhyzu: 3,
+    { facId: 4, name: 'Halke', stats0: [2, 0, 2], stats2: [3, 0, 3], isRhyzu: 3,   // -E2, +E1
       t1: "CANNOT ENTER LAKES BATTLE VICTOR GAINS CONTROL OF HALKE", },
-    { facId: 4, name: 'Katarin', stats0: [3, 0, 0], stats2: [5, 0, 0], isRhyzu: 6, // [Ka]tarin vs [Ka]jali
+    { facId: 4, name: 'Katarin', stats0: [3, 0, 0], stats2: [5, 0, 0], isRhyzu: 6, // -G1, +G1
       t1: "CANNOT ENTER LAKES BATTLE VICTOR GAINS CONTROL OF KATARIN", },
     // Oxataya: 5
     { facId: 5, name: 'Tovati', stats0: [1, 2, 0], stats2: [3, 3, 0], upGem: 1,
@@ -268,6 +280,7 @@ export class Leader extends ChaosUnit implements LeaderSpec {
       t2: "MAY REDEPLOY UP TO 10 FIGHTERS FROM HER REGION IF VICTORIOUS", }, // may redploy 4, 10 fighters when victorious
   ];
 
+  static allLeaders: Leader[] = [];
   static allLeadersByName = new Map<LeaderName, Leader>();
 
   /** src & dst for D&D */
@@ -294,6 +307,7 @@ export class Leader extends ChaosUnit implements LeaderSpec {
 
   constructor(Aname: string, player: Player) {
     super(`${Aname}`, player); // Note: Tile/Meeple (Container) caches itself. so it all drags & drops
+    Leader.allLeaders.push(this);
     Leader.allLeadersByName.set(Aname, this);
 
     const lspec = Leader.leaderSpecs.find(spec => spec.name == Aname)!
@@ -353,7 +367,7 @@ export class Leader extends ChaosUnit implements LeaderSpec {
   }
 
   /** the small, D&D/on-map shape; it can expand to the larger leaderCard */
-  static LeaderIcon2 = class LeaderIcon2 extends PaintableCont {
+  static LeaderIcon = class LeaderIcon2 extends PaintableCont {
     constructor(inst: Leader, opts?: RectWithDispOptions) {
       const { strokec, ss } = { strokec: '', ss: 1, ...opts };
       const ntext = `${inst.Aname.substring(0,2)}`, wide = inst.radius * .35, fontSize = inst.radius * .25;
@@ -366,10 +380,10 @@ export class Leader extends ChaosUnit implements LeaderSpec {
   }
   declare baseShape: TextInRect & { backSide: Paintable };
   override makeShape(size?: number, opts?: RectWithDispOptions) {
-    return new Leader.LeaderIcon2(this, opts);
+    return new Leader.LeaderIcon(this, opts);
   }
 
-  //
+  /** Used as baseShape for LeaderTile and as pop-up enlargement for LeaderIcon */
   static LeaderCard = class LeaderCardC extends PaintableCont {
     cardShape: CardShape;
     rzIcon?: Paintable;
@@ -410,17 +424,24 @@ export class Leader extends ChaosUnit implements LeaderSpec {
   }
 
   homeTile?: ReturnType<this['makeLeaderTile']>;    // typically on Panel, start & return Tile on this.homeHex
-  /** called from Panel; use a LeaderCard as baseShape of this Tile */ // TODO: merge back to Panel to break circle
-  makeLeaderTile(name: string) {
+  /** make LeaderTile and place on this.homeHex
+   *
+   * Use LeaderCard as baseShape of LeaderTile
+   *
+   * called from Panel.makeLeaders();
+   *
+   * @param name appears on the LeaderTile
+   * @param player owner of LeaderTile [this.player]
+   * @param pColor color to paint LeaderTile [player.color]
+   * @returns LeaderTile on this.homeHex with this Leader on LeaderTile
+   */
+  makeLeaderTile(name: string, player = this.player, pColor = player.color) {
     const ldr = this;
     /** a place to drop Leader on Panel when not recruited to map */
     const LeaderTile = class LeaderTile extends ChaosTile {
       declare baseShape: LeaderCard;
       constructor(Aname: string) {
-        const player = ldr.player;
-        super(Aname, 'Base', '-', player); // paints (baseShape) WHITE [Base]
-        if (ldr.isaRhyzu()) ldr.addRzIcon(this.baseShape);
-        const pColor = ldr.isRhyzu ? CO.rhy_zu : ldr.pColor;
+        super(Aname, 'Ldr', '-', player); // isBase: paints (baseShape) { 'Ldr': C.WHITE }
         this.paint(pColor)
         const fot = this.getFoT(player);
         fot.setXY(-this.radius * .66);    // Note: fot.isBase == true; --> x = 0; set y to place Icon btw stats & PhaseIcon
@@ -431,6 +452,8 @@ export class Leader extends ChaosUnit implements LeaderSpec {
       override makeShape(): Paintable {
         return new Leader.LeaderCard(ldr.Aname, ldr, true);
       }
+      // not a drop target for Foundations
+      override ndxForFoundation(): number | undefined { return undefined }
     }
 
     const homeTile = new LeaderTile(name);
@@ -553,9 +576,54 @@ export class Leader extends ChaosUnit implements LeaderSpec {
 }
 
 export class Rhyzu extends Leader {
+  // cost/benefit during Income phase:
+  static rhyzuCost: BONUS[] = ['-', 'E3', '-', 'E2', '-', '-', 'G1']; // if Jrayek controls
+  static rhyzuInc:  BONUS[] = ['-', 'E1', '-', 'E1', '-', '-', 'G1']; // if opponent controls
+  /** Each Rhyzu(1, 3, 6) in order [0, 1, 2] */
+  static get allRhyzu() { return (Leader.allLeaders.filter(ldr => ldr.isaRhyzu()) as Rhyzu[]).sort((a, b) => a.isRhyzu - b.isRhyzu);}
+
+  // -------- created by Panel; not on Hex ---------
+  // Drop the Rhy-zu Leader on a Faction's Base|Panel and game can handle the token.
+  // move it to JReyek Panel in correct orientation (faceUp)
+  static Token = class Token extends ChaosToken {
+    static radius = TP.meepleRad * .8;
+    cost: NamedContainer;
+    inc: NamedContainer;
+    constructor(public leader: Rhyzu ) {
+      super(leader.Aname);    // player is undefined: blocks Tile.paintInConstructor
+      this.cost = new NamedContainer(`rhyzu_cost`);
+      const icon = bonusIcon(Rhyzu.rhyzuCost[leader.index])!
+      // this.cost.addChild(icon); // new CenterText(Rhyzu.rhyzuCost[leader.isRhyzu], undefined, 'red')
+      this.cost.addChild(new CenterText(Rhyzu.rhyzuCost[leader.isRhyzu], undefined, C.RED));
+      this.inc = new NamedContainer(`rhyzu_inc`);
+      this.inc.addChild(new CenterText(Rhyzu.rhyzuInc[leader.isRhyzu], undefined, C.coinGold))
+      this.addChild(this.cost, this.inc);
+      this.paint(); // set cost/inc not visible
+    }
+    override makeShape(size?: number): Paintable {
+      const ts = TP.meepleRad * .8;
+      return new RectShape({ x: -ts/2, y: -ts/2, w: ts, h: ts }, C.grey128, C.BLACK)
+    }
+    /** show cost/income (& controller?) */
+    override paint(colorn?: string, force?: boolean): void {
+      this.inc.visible = this.cost.visible = false;  // it is possible to remove Rhyzu from board...
+      if (this.leader.onBoard) {
+        const isJrayek = (this.leader.player?.facId == 4);
+        this.inc.visible = !isJrayek;
+        this.cost.visible = isJrayek;
+      }
+      super.paint(colorn, force);
+      this.reCache(0);
+    }
+  }
+
+  index: number; // index of Token
+  token: InstanceType<typeof Rhyzu.Token>;
 
   constructor(Aname: string, player: Player) {
-    super(Aname, player);
+    super(Aname, player);   // player initially Jrayek!
+    this.index = Rhyzu.allRhyzu.indexOf(this);
+    this.token = new Rhyzu.Token(this);
 
     this.addRzIcon(this.card); // fields (rzIcon) get [re]initialized after super()
     this.paint(CO.rhy_zu, true);   // paint this.rzIcon
@@ -579,6 +647,15 @@ export class Rhyzu extends Leader {
     super.paint(CO.rhy_zu, force);   // --> baseShape.paint()
   }
 
+  // Specialize player and color of LeaderTile
+  override makeLeaderTile(name: string, player = this.gamePlay.neutralPlayer, pColor = CO.rhy_zu) {
+    this.player = player;
+    const rv = super.makeLeaderTile(name, player, pColor);
+    this.addRzIcon(rv.baseShape);  // after this.makeShape in LeaderTile constructor
+    this.paint(pColor);            // and re-paint
+    return rv
+  }
+
   /** rzIcon of this.card... set after return from super() */
   addRzIcon(card = this.card) {
     const rzIcon = card.rzIcon = this.rhyzuIcon(card);
@@ -587,16 +664,22 @@ export class Rhyzu extends Leader {
   }
 
   setPlayer(player: Player) {
-    this.onBoard = true;  // once in play, always in play;
     this.player = player;
+    this.onBoard = (player.facId <= 5);   // NeutralPlayer signifies Rhyzu was returned from board (Jrayek fails to pay)
+    this.token.paint();   // show cost/income (& controller?)
     this.paint();
   }
 
   override isLegalTarget(toHex: Hex2, ctx?: DragContext): boolean {
-    if (toHex?.ctile?.terrain == 'Base') return true;
+    const ctile = toHex?.ctile;
+    if (ctile?.terrain == 'Ldr') return (ctile == this.homeTile);
+    if (ctile?.terrain == 'Base') return true;
     return super.isLegalTarget(toHex, ctx);
   }
   override dropFunc(targetHex: Hex2, ctx: DragContext): void {
+    if (targetHex == this.homeHex) {
+      this.setPlayer((ctx.gameState as GameState).gamePlay.neutralPlayer)
+    } else
     if (targetHex?.ctile?.terrain == 'Base') {
       this.setPlayer(targetHex.ctile.player!)
     }
@@ -866,35 +949,16 @@ export class Relic extends ChaosMeeple {
   }
 }
 
-// Meeple has unMove & faceUp
-
-// These are more Tile-like: See also: Foundation (TODO: merge)
-/** each subclass has a slot on ChaosHex, but does not confer faction 'presence' */
-class ChaosToken extends Tile {
-  declare gamePlay: GamePlay;
-  declare player: Player;
-  homeXY!: XY;                // sendHome location, if needed
-
-}
-
 // Has a slot on ChaosHex
 // Auto-drop mostly; player selects Strength or Fame when there is a choice.
 export class Morale extends ChaosToken {
-  status = 'M1' as "M1" | "M2";
+  status = 'M1' as "M1" | "M2";  // M2 when it flips? (Atk+2)
 }
 
 // Drop Stronghold on hex/foundation and game can move the Trap.
 // resetTile() during Income phase
 export class AI_Trap extends ChaosToken {
   status = 'T1' as "T1" | "T0";   // T0 when triggered
-}
-
-// -------- not on a usual hex ---------
-
-// Drop the Rhy-zu leader on a Faction's Base|Panel and game can handle the token.
-// move it to JReyek Panel in correct orientation (faceUp)
-export class RhyzuToken extends ChaosToken {
-
 }
 
 

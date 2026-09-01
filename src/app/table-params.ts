@@ -62,7 +62,15 @@ export function pentagon (xs: number, ys: number, fillc: string, tilt = 0, strok
 
 // TODO: maybe use TextTweaks to place the glyphs?
 /** Foundation bonus; also use for Income icons */
-/** E: energy, G: gem, C: card, R: recruit, U: upgrade(gold), *: gemlock */
+/** E: energy, G: gem, C: card, R: recruit, U: upgrade(gold), *: gemlock
+ *
+ * harv:
+ * - 'F' Fame
+ * - 'Up' Upgrade Attribute (Circadians)
+ * - 'M0' Leyrien's Morale in Base
+ * fs: fontSize
+ * tc: textColor
+ */
 export function bonusIcon(harv?: HARVEST | PriceBonus, fs = TP.hexRad * .15, tc?: string ) {
     if (!harv || harv.length > 3) return undefined;  // panel foundations
     const spotmap = { E: 'yellow', G: CO.gColor, C: 'white', R: 'orange', U: 'gold', '.': 'grey',

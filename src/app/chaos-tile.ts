@@ -86,7 +86,7 @@ class HarvestToken {
 }
 
 // 'Base' tile marks space where a Faction Base can be placed (replacing the place-keeper)
-const terrainIds = ['Mtn', 'Hills', 'Swamp', 'Plains', 'Lake', 'Base'] as const;
+const terrainIds = ['Mtn', 'Hills', 'Swamp', 'Plains', 'Lake', 'Base', 'Ldr'] as const;
 
 // 'energy' is E2, 'energy1' is E1, 'recruit1' is 'R1'
 // energy1 on AI Base; 'recruit1' on Oxytaya Base
@@ -133,6 +133,7 @@ const colorOfTerrain: Record<TERRAIN, string> = {
   Plains: C.nameToRgbaString(C.BROWN, .5),
   Lake: C.lightblue,
   Base: C.WHITE,  // color of temp Tiles placed on hexes reserved for 'Base' Tiles
+  Ldr: C.WHITE,
 }
 
 
@@ -235,11 +236,11 @@ export class FactionOnTile extends NamedContainer {
   get invert() { return -1 + (FactionOnTile.invert[this.index][TP.numPlayers - 2] ?? 0)};
   // x-offset of sector:
   get offset() { return -1 + (FactionOnTile.offset[this.index][TP.numPlayers - 2] ?? 0)};
-  get isBase() { return this.tile.terrain == 'Base' }
+  get isBase() { return this.tile.terrain == 'Base' || this.tile.terrain == 'Ldr' }
 
   /** move FoT to sector for isBase ? Base : player.index */
   setXY(rad = this.tile.radius) {
-    const index = this.index;
+    const index = this.index;     // table order determines FoT placement
     // sx, sy: sector placement;
     const sx = (this.isBase ?  0 : this.offset) * rad; // -1: left side; offset[][] = 0
     const sy = (this.isBase ? -1 : [0, 1].includes(index) ? -1 : [3, 4].includes(index) ? 1 : TP.numPlayers == 5 ? -1 : 1);
@@ -263,7 +264,7 @@ export class FactionOnTile extends NamedContainer {
       this.leaders.forEach((ldr, n) => {
         ldr.x = xl + n * gap;
         ldr.y = yl;
-        if (this.tile.terrain != 'Base') {
+        if (!this.isBase) {
           // re-parent from non-dragable mapTile to overCont:
           this.localToLocal(ldr.x, ldr.y, overCont, ldr);
           overCont.addChild(ldr);
@@ -361,7 +362,6 @@ export class ChaosTile extends MapTile {
 
   // paint the [terrain or base] color onto the baseShape;
   override paint(colorn = colorOfTerrain[this.terrain], force?: boolean): void {
-    colorn = (colorn as TERRAIN | undefined) ?? this.player?.color!;
     super.paint(colorn, force)
   }
 

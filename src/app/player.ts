@@ -383,9 +383,10 @@ export class Panel extends PlayerPanel {
     this.addBuildings(faction);
     this.addFoundations(faction, table);
     this.addRecruits(faction);
-    if (this.factionId == 4) this.addRhyzu();
     this.addPriceTokens(table, 7);
     this.setupBase(faction);
+    this.makeLeaders();
+    if (this.factionId == 4) this.addRhyzu();
     return this.children;
   }
   override bg0 = 'rgb(82, 81, 81)';
@@ -398,25 +399,19 @@ export class Panel extends PlayerPanel {
     this.addChild(img);
   }
 
-  // align row with PriceTokens, col with LeaderHex
+  /** place Rhyzu CostToken on IncomeStripe
+   * @param row: align with PriceTokens
+   * @param col: align with LeaderHex
+   */
   addRhyzu(row = 7, col = 8) {
-    this.addIncomeStripe(col, row, 3.7 * this.wh);
-    Rhyzu.rhyzuCost.filter(rc => rc !== '-').forEach((rc, n) => {
-      const ts = this.wh * .8;
-      const noToken = new RectShape({x: -ts/2, y: -ts/2, w: ts, h: ts}, C.grey128, C.BLACK)
-      this.addRhyzuToken(noToken, n)
-    })
-  }
-  rhyzuCostTokens: DisplayObject[] = [];
-  /** replace Rhyzu CostToken */
-  addRhyzuToken(token: DisplayObject, n = 0, row = 7, col = 8) {
-    this.removeChild(this.rhyzuCostTokens[n]);   // remove prior token
-    this.rhyzuCostTokens[n] = token;
     const wh = this.wh, x0 = wh * .55, y0 = wh * .55;
-    const ts = token.getBounds().width;
-    token.x = x0 + (col + 1 + n) * wh;
-    token.y = y0 + (row) * wh;
-    this.addChild(token);
+    this.addIncomeStripe(col, row, 3.7 * this.wh);
+    Rhyzu.allRhyzu.forEach((rz, ndx) => {
+      const rzToken = rz.token;
+      rzToken.x = x0 + (col + 1 + ndx) * wh;
+      rzToken.y = y0 + (row) * wh;
+      this.addChild(rzToken);
+    })
   }
 
   /** a row of icon pairs: [ % bonus ] */  // TODO: create Foundations for the Relic targets on Panel
@@ -634,9 +629,6 @@ export class Panel extends PlayerPanel {
     hex.legalMark.setOnHex(hex);
     baseTile.moveTo(hex);
     this.recruitToBase(); // the left-over fighters
-
-    // TODO: move to layoutPanel ?
-    this.makeLeaders();
   }
 
   // Make a homeHex for 3 or 4 leaders (TODO: 3 for Rhyzu)
