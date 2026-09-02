@@ -124,12 +124,14 @@ export class Player extends PlayerLib {
     const ic = Player.initialCoins;
 
     const cc = this.coinCounter = new NumCounter('coins', ic, C.YELLOW, fs); // TODO: lightening bolt?
+    cc.clickToInc();
     cc.x = 2 * gap; cc.y = cc.high / 2 + 2 * gap;
     cc.boxAlign('left');
     this.panel.addChild(cc);
 
     const ig = Player.initialGems;
     const gc = this.gemCounter = new NumCounter('gems', ig, C.RED, fs);
+    gc.clickToInc();
     gc.x = cc.wide + 3 * gap; gc.y = cc.high / 2 + 2 * gap;
     gc.boxAlign('left');
     this.panel.addChild(gc);

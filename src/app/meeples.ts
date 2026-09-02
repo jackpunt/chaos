@@ -773,10 +773,10 @@ export class ChaosBuilding extends ChaosPresence {
     if (ctx.targetHex) {
       this.markMap = ctx.targetHex.map;
       this.markMap.showMark(ctx.targetHex)
-      this.zoom(true);
+      // this.zoom(true);
     } else {
       this.markMap?.showMark(undefined);
-      this.zoom(false)
+      // this.zoom(false)
     }
   }
 
