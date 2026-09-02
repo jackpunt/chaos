@@ -143,10 +143,11 @@ export class GamePlay extends GamePlayLib {
   // Setup: place Relics on Foundations; player choice? [8/17]
   // Setup: layout FactionOnTile (v & ^) [8/20]
   // Setup: Rhyzu.setPlayer() & popup-card [8/28] (8/29)
-  // Setup: Leader as: Icon_on_FoT, Card-on-Panel, Card-popup
+  // Setup: Leader as: Icon_on_FoT, Card-on-Panel, Card-popup [9/1]
   // Setup: choose Leaders & starting Leader
   // Setup: place Leader & Fighters in Base (Fighters as Counter, leader w/clicktext [8/26])
-  // Setup: place Fighters & Leader on Map (on base Foundation Regions)
+  // Setup: place Leader on Map (on base Foundation Regions) -- manual
+  // Setup: place Fighters on Map (on base Foundation Regions)
   // Setup/phase: show FlareGun indication on faction Panel [8/26]
   // SetPrices: Move --> FlareGun (gunPlayer) [8/26]
   // SetPrices: Recurit, Build, MoveLast --> Energy & Gem & Card [8/26]
@@ -159,6 +160,7 @@ export class GamePlay extends GamePlayLib {
   // Harvest: click-to-Harvest (enable eligble Regions)
   // Recruit: click-to-Recruit (Oxataya: option to move Fighters to Strongholds)
   // Recruit: select Leader
+  // Move: select & show 'bridge' between src->dest Region.
   // Move: select warriors & Leaders, Drag to next Region.
   // Move: select Leader card to upgrade.
   // Combat: choose opponent; choose wheel, card; commit --> reveal, (Ochara!)

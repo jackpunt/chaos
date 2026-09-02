@@ -1,6 +1,7 @@
 import { C, permute, removeEltFromArray, S, stime } from "@thegraid/common-lib";
-import { AliasLoader, NamedContainer, type Paintable, RectShape, TextInRect } from "@thegraid/easeljs-lib";
-import { type DragContext, H, type HexDir, HexShape, type IHex2, MapTile, Player as PlayerLib, type Table, TP } from "@thegraid/hexlib";
+import { AliasLoader, NamedContainer, type Paintable, RectShape } from "@thegraid/easeljs-lib";
+import type { MouseEvent } from "@thegraid/easeljs-module";
+import { type DragContext, H, type HexDir, HexShape, type IHex2, MapTile, NumCounter, NumCounterBox, Player as PlayerLib, type Table, TP } from "@thegraid/hexlib";
 import { type ChaosHex2, type ChaosHex2 as Hex2, type HexMap2 } from "./chaos-hex";
 import { type ChaosTable } from "./chaos-table";
 import { type Faction } from "./factions";
@@ -153,16 +154,30 @@ export class FactionOnTile extends NamedContainer {
   get facId() { return this.player.facId; }
   get index() { return this.player.index; }
 
-  fighterIcon: TextInRect;
+  fighterIcon: NumCounter;
 
   constructor(public player: Player, public tile: ChaosTile) {
     super(`FoT-${player.facId}`);
-    const fontSize = tile.radius * .2;
-    this.fighterIcon = new TextInRect('0', { bgColor: this.player.color, fontSize, border: [.2, .2, .2, 0], corner: .1 } )
-    this.addChild(this.fighterIcon); // at (0, 0)
     this.setXY();   // move to sector for player
+    this.fighterIcon = this.makeFighterIcon();
+    this.tile.reCache(0);
     this.tile.addChild(this);
-    // this.update();
+  }
+
+  makeFighterIcon() {
+    const player = this.player;
+    const FighterCounter = class extends NumCounterBox {
+    }
+    const fontSize = this.tile.radius * .2;
+    const icon = new FighterCounter('fighters', 0, player.color, fontSize)
+    icon.mouseEnabled = true;
+    this.addChild(icon); // at (0, 0)
+    icon.on(S.click, (evt: MouseEvent) => {
+      console.log(stime(this, `.click:`), icon.value)
+      evt.stopPropagation();
+      return true;
+    })
+    return icon;
   }
 
   // methods to add/remove elements
@@ -183,7 +198,7 @@ export class FactionOnTile extends NamedContainer {
 
   addFighter(n = 1) {
     this.fighters = Math.max(0, this.fighters + n);
-    this.fighterIcon.label_text = `${this.fighters}`;
+    this.fighterIcon.value = this.fighters;
     this.update();
   }
 
@@ -195,7 +210,7 @@ export class FactionOnTile extends NamedContainer {
       removeEltFromArray(bldg, this.buildings);
     }
   }
-
+  /*  Sector layout:
   //  L1 L2 L3 .. LN
   //    ------
   //      FC
@@ -219,6 +234,7 @@ export class FactionOnTile extends NamedContainer {
   //    5555          4444
   //     55            44
   //
+  */
   //                2  3  4  5
   static invert = [[2, 2, 2, 2],
                    [2, 2, 2, 0],
@@ -237,7 +253,6 @@ export class FactionOnTile extends NamedContainer {
   // x-offset of sector:
   get offset() { return -1 + (FactionOnTile.offset[this.index][TP.numPlayers - 2] ?? 0)};
   get isBase() { return this.tile.terrain == 'Base' || this.tile.terrain == 'Ldr' }
-
   /** move FoT to sector for isBase ? Base : player.index */
   setXY(rad = this.tile.radius) {
     const index = this.index;     // table order determines FoT placement
@@ -271,7 +286,6 @@ export class FactionOnTile extends NamedContainer {
         } // during setup: Base is movable & we want Leaders to move with it
       })
     }
-    this.tile.cacheID && this.tile.updateCache();
     this.stage.update();
   }
 
