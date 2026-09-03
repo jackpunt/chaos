@@ -1,13 +1,13 @@
 import { C, permute, removeEltFromArray, S, stime } from "@thegraid/common-lib";
-import { AliasLoader, NamedContainer, type Paintable, RectShape } from "@thegraid/easeljs-lib";
-import type { MouseEvent } from "@thegraid/easeljs-module";
-import { type DragContext, H, type HexDir, HexShape, type IHex2, MapTile, NumCounter, NumCounterBox, Player as PlayerLib, type Table, TP } from "@thegraid/hexlib";
+import { AliasLoader, type DragInfo, NamedContainer, type Paintable, RectShape } from "@thegraid/easeljs-lib";
+import type { DisplayObject, MouseEvent } from "@thegraid/easeljs-module";
+import { type DragContext, H, type HexDir, HexShape, type IHex2, MapTile, Player as PlayerLib, type Table, TP } from "@thegraid/hexlib";
 import { type ChaosHex2, type ChaosHex2 as Hex2, type HexMap2 } from "./chaos-hex";
 import { type ChaosTable } from "./chaos-table";
 import { type Faction } from "./factions";
 import { Foundation } from "./foundation";
 import type { GamePlay } from "./game-play";
-import { AI_Trap, ChaosBuilding, Factory, Leader, Morale, Outposts, Relic, Stronghold } from "./meeples";
+import { AI_Trap, ChaosBuilding, Factory, Fighter, Leader, Morale, Outposts, Relic, Stronghold } from "./meeples";
 import type { Player } from "./player";
 import type { FactionOnTileState } from "./scenario-parser";
 import { bonusIcon, CO } from "./table-params";
@@ -154,26 +154,39 @@ export class FactionOnTile extends NamedContainer {
   get facId() { return this.player.facId; }
   get index() { return this.player.index; }
 
-  fighterIcon: NumCounter;
+  fighterIcon: Fighter;
 
   constructor(public player: Player, public tile: ChaosTile) {
-    super(`FoT-${player.facId}`);
+    super(`FoT-${player.facId}@${tile.Aname}`);
     this.setXY();   // move to sector for player
-    this.fighterIcon = this.makeFighterIcon();
+    this.fighterIcon = this.makeFighterIcon();  // a new Fighter()
     this.tile.reCache(0);
     this.tile.addChild(this);
+
+    // moveableFighter stuff:
+    const moveShape = new Fighter('moveableFighter', player); // ISA ChaosUnit > Tile
+    moveShape.mouseEnabled = true;
+    const overCont = player.gamePlay.hexMap.mapCont.overCont;
+    const dragger = player.gamePlay.table.dragger;
+    this.tile.localToLocal(0, 0, overCont, moveShape);
+    overCont.addChild(moveShape);
+    dragger.makeDragable(moveShape, this, this.dragFunc);
+    console.log(stime(this, `.new:`), moveShape.DragData);
+    //TODO: figure out how to make it move and drop on 'move' target tile.
+  }
+
+  dragFunc(dobj: DisplayObject, ctx?: DragInfo) {
+    console.log(stime(this, `.onClick`), dobj, ctx)
+    return;
   }
 
   makeFighterIcon() {
-    const player = this.player;
-    const FighterCounter = class extends NumCounterBox {
-    }
-    const fontSize = this.tile.radius * .2;
-    const icon = new FighterCounter('fighters', 0, player.color, fontSize)
-    icon.mouseEnabled = true;
+    // Fighter.baseShape ISA NumCounterBox
+    const icon = new Fighter(`${this.Aname}-Fighter`, this.player);
+    // icon.mouseEnabled = true;
     this.addChild(icon); // at (0, 0)
     icon.on(S.click, (evt: MouseEvent) => {
-      console.log(stime(this, `.click:`), icon.value)
+      console.log(stime(this, `.click:`), icon.baseShape.counter.value)
       evt.stopPropagation();
       return true;
     })
@@ -198,7 +211,7 @@ export class FactionOnTile extends NamedContainer {
 
   addFighter(n = 1) {
     this.fighters = Math.max(0, this.fighters + n);
-    this.fighterIcon.value = this.fighters;
+    this.fighterIcon.baseShape.counter.value = this.fighters;
     this.update();
   }
 
@@ -580,7 +593,7 @@ export class BaseTile extends ChaosTile {
   placeFactionBaseFoundations(adjRegions: [Hex2, Hex2]) {
     this.baseRegions = adjRegions;
     const faction = this.player!.faction;
-    const founds = permute(faction.bf).map((bonus, i) => new Foundation(`${faction.name}bf${i}`, bonus))
+    const founds = permute(faction.bf).map((bonus, i) => new Foundation(`${faction.name}_bf${i}`, bonus))
     adjRegions.forEach((hex, n) => hex.tile?.addFoundation(founds[n]));
     // block Oxataya from any adjacent Lake:
     if (this.player?.facId == 5) {

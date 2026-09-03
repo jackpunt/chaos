@@ -1,4 +1,4 @@
-import { type XY } from "@thegraid/common-lib";
+import { C, type XY } from "@thegraid/common-lib";
 import { CenterText, RectShape, type Paintable } from "@thegraid/easeljs-lib";
 import type { DisplayObject } from "@thegraid/easeljs-module";
 import { Tile, TP, type DragContext, type Table } from "@thegraid/hexlib";
@@ -60,7 +60,7 @@ export class Foundation extends Tile {
 
   /** for the bonus Foundations: */
   textBonus(bonus: BONUS, fs = this.radius * .5) {
-    const ctext = new CenterText(bonus, fs, 'white');
+    const ctext = new CenterText(bonus, fs, C.WHITE);
     ctext.y = (ctext.getMeasuredLineHeight() -ctext.getMeasuredHeight())/2; // raise to center: TODO count the newlines...
     return ctext;
   }

@@ -479,11 +479,9 @@ export class Panel extends PlayerPanel {
           bgf.reCache(0);
           return; // no building in Factory slot 0
         }
-        const fg = new BC(Aname, this.player, bgf, homeAry);
+        const fg = new BC(Aname, this.player, bgf, homeAry); // new BuildingClass
         fg.sendHome();
         fg.paint(this.pColor);
-        const bs = fg.backSide;
-        // if (bs) bs.visible = true
       })
       x00 += (wh) * nbldgs + wh * .29;
     })
@@ -591,6 +589,7 @@ export class Panel extends PlayerPanel {
     nr.forEach((nr, i, ary) =>  {
       const rc = new NumCounter(`nr[${i}]`, nr, c, fs, undefined, [C.BLACK, C.WHITE]);
       rctrs[i] = rc; // rctrs.push(rc);
+      this.baseRecruitCounter = rc;  // overwrite until we have the final counter
       rc.x = i * dx;
       cont.addChild(rc);
       if (i == base) {
@@ -607,12 +606,14 @@ export class Panel extends PlayerPanel {
     })
   }
 
+  baseRecruitCounter!: NumCounter;
+
   // increase fighters in Base by n (presumably also decrement some recruit counter)
   // override for Circadians, also for Oxytaya: allow recruit to Stronghold
   // at end of Recruit phase/action
-  recruitToBase(n = this.recruits[this.recruits.length - 1].value) {
+  recruitToBase(n = this.baseRecruitCounter.value) {
     this.baseTile.addFighter(this.player, n);
-    this.recruits[this.recruits.length - 1].setValue(0);
+    this.baseRecruitCounter.incValue(-n);
   }
 
   /** place for baseTile on panel */

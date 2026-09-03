@@ -2,7 +2,7 @@ import { C, F, S, stime, type XY, type XYWH } from "@thegraid/common-lib";
 import { CenterText, CircleShape, EllipseShape, NamedContainer, PathShape, RectShape, TextInRect, type Paintable, type RectWithDispOptions, type TextInRectOptions } from "@thegraid/easeljs-lib";
 import type { Container, MouseEvent, Rectangle } from "@thegraid/easeljs-module";
 import { Graphics } from "@thegraid/easeljs-module";
-import { Meeple, MeepleShape, Tile, TP, type DragContext, type Hex, type HexM, type IHex2 } from "@thegraid/hexlib";
+import { Meeple, MeepleShape, NumCounterBox, Tile, TP, type DragContext, type Hex, type HexM, type IHex2 } from "@thegraid/hexlib";
 import { CardShape } from "./card-shape";
 import { TokenHex, type ChaosHex2 as Hex2, type HexMap2 } from "./chaos-hex";
 import { ChaosTile, type BONUS, type FactionOnTile, type TERRAIN } from "./chaos-tile";
@@ -14,6 +14,8 @@ import type { Player } from "./player";
 import { bonusIcon, CO, priceNames, type PhaseName, type PriceName } from "./table-params";
 
 
+type BackSide = ChaosUnit['baseShape']['backSide'];
+/** an [x, y] pair or tuple */
 type XYp = [x: number, y: number];
 
 const chaosUnitType = ['Fighter', 'Leader'] as const;
@@ -21,9 +23,8 @@ export type ChaosUnitType = typeof chaosUnitType[number];
 
 const chaosBuildingType = ['Factory', 'Outposts', 'Stronghold'] as const;
 export type ChaosBuildingType = typeof chaosBuildingType[number];
-
-
 export class PaintableCont extends NamedContainer implements Paintable {
+
   constructor(Aname = '', cx = 0, cy = 0) {
     super(Aname, cx, cy);
   }
@@ -83,7 +84,7 @@ class PathShapeMeeple extends MeepleShape {
   }
 
   // TODO: makeOverlay for backside Shape
-  override makeOverlay(y0?: number): createjs.Shape {
+  override makeOverlay(y0?: number) {
     return super.makeOverlay(y0); // make an overlay shape for the backside of baseShape.
   }
 }
@@ -141,11 +142,34 @@ export class ChaosMeeple extends Meeple {
 export class ChaosPresence extends ChaosMeeple {}
 
 class ChaosUnit extends ChaosPresence {
-
 }
 
-export class Fighter extends ChaosUnit {
+/** A PaintaableCont holding a counter: NumCounterBox */
+class FighterCounter extends PaintableCont {
+  counter: NumCounterBox;
 
+  constructor(player?: Player, name = 'FighterBaseShape', fontSize = TP.hexRad * .2) {
+    super(name);
+    const color = player?.color;
+    const counter = new NumCounterBox('fighters', 0, color, fontSize);
+    this.counter = counter;
+    this.addChild(counter);
+  }
+}
+
+/** A ChasoUnit that displays as a counter.
+ *
+ * becomes the FoT.fighterIcon */
+export class Fighter extends ChaosUnit {
+  declare baseShape: FighterCounter;
+  get counter() { return this.baseShape.counter }
+  constructor(Aname: string, player?: Player) {
+    super(Aname, player);
+  }
+
+  override makeShape (fontSize = TP.hexRad * .2) {
+    return new FighterCounter(this.player);
+  }
 }
 
 // Meeple has unMove & faceUp
@@ -374,7 +398,7 @@ export class Leader extends ChaosUnit implements LeaderSpec {
       const bgColor = inst.player.color;
       super(`${inst.Aname}_icon`);
       const rs = new RectShape({ x: -wide/2, y: -wide/2, w: wide, h: wide, s: ss, r: 2}, bgColor, strokec)
-      const text = new CenterText(ntext, fontSize);
+      const text = new CenterText(ntext, fontSize, C.WHITE);
       this.addChild(rs, text);
     }
   }
@@ -1214,7 +1238,6 @@ export class PTokenShape extends RectShape {
   override paint(colorn?: string, force?: boolean): Graphics {
     return super.paint(colorn ?? this.colorn, force)
   }
-  backSide = new RectShape(this.getBounds(), 'rgba(225,255,255,.5)', 'black');
 }
 
 // Also: factory, outposts, stronghold, foundation, relic, discovery-marker?, fame-marker?
