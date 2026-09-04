@@ -11,7 +11,6 @@
     "newejs": "npm i ../../ts/createjs-module/thegraid-easeljs-module-*.tgz ; rm -rf .angular/cache ; date",
     "newlib": "npm i ../../ts/createjs-lib/thegraid-easeljs-lib-*.tgz ; rm -rf .angular/cache; date",
     "circles": "npx madge --circular --extensions ts --ts-config ./tsconfig.json ./src",
-    "pub": "npm publish --access public",
     "test": "ng test"
   },
   "prettier": {

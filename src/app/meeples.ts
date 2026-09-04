@@ -138,7 +138,7 @@ export class ChaosMeeple extends Meeple {
   }
 
 }
-/** marker class denoting Faction presence in a Region */
+/** marker class denoting Faction presence in a Region: ChaosUnit (Fighter, Leader) & ChaosBuilding */
 export class ChaosPresence extends ChaosMeeple {}
 
 class ChaosUnit extends ChaosPresence {
@@ -159,16 +159,14 @@ class FighterCounter extends PaintableCont {
 
 /** A ChasoUnit that displays as a counter.
  *
- * becomes the FoT.fighterIcon */
+ * becomes the FoT.fighterIcon
+ */
 export class Fighter extends ChaosUnit {
   declare baseShape: FighterCounter;
   get counter() { return this.baseShape.counter }
-  constructor(Aname: string, player?: Player) {
-    super(Aname, player);
-  }
 
-  override makeShape (fontSize = TP.hexRad * .2) {
-    return new FighterCounter(this.player);
+  override makeShape (fontSize?: number) {
+    return new FighterCounter(this.player, 'FighterBaseShape', fontSize);
   }
 }
 
@@ -302,13 +300,14 @@ export class Leader extends ChaosUnit implements LeaderSpec {
     { facId: 5, name: 'Latanja', stats0: [2, 0, 0], stats2: [3, 1, 0], upGem: 1,
       t1: "MAY REDEPLOY UP TO 4 FIGHTERS FROM HER REGION IF VICTORIOUS",
       t2: "MAY REDEPLOY UP TO 10 FIGHTERS FROM HER REGION IF VICTORIOUS", }, // may redploy 4, 10 fighters when victorious
+    { facId: 6 as FactionId, name: 'Fake', stats0: [0, 0, 0], stats2: [1,1,1], t1: "FAKE-1", t2: "FAKE-2"},
   ];
 
   static allLeaders: Leader[] = [];
   static allLeadersByName = new Map<LeaderName, Leader>();
 
   /** src & dst for D&D */
-  factOnTile?: FactionOnTile; // TODO: construct on a newHex2(the Leader card on Panel)
+  factOnTile?: FactionOnTile;
 
   facId: FactionId;
   get stats() { return this.upgraded ? this.stats2 : this.stats0 }
@@ -448,7 +447,7 @@ export class Leader extends ChaosUnit implements LeaderSpec {
   }
 
   homeTile?: ReturnType<this['makeLeaderTile']>;    // typically on Panel, start & return Tile on this.homeHex
-  /** make LeaderTile and place on this.homeHex
+  /** make LeaderTile, place on this.homeHex, and tile.addLeader(this)
    *
    * Use LeaderCard as baseShape of LeaderTile
    *

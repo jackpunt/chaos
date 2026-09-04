@@ -1,5 +1,5 @@
 import { C, permute, removeEltFromArray, S, stime } from "@thegraid/common-lib";
-import { AliasLoader, type DragInfo, NamedContainer, type Paintable, RectShape } from "@thegraid/easeljs-lib";
+import { AliasLoader, NamedContainer, type Paintable, RectShape } from "@thegraid/easeljs-lib";
 import type { DisplayObject, MouseEvent } from "@thegraid/easeljs-module";
 import { type DragContext, H, type HexDir, HexShape, type IHex2, MapTile, Player as PlayerLib, type Table, TP } from "@thegraid/hexlib";
 import { type ChaosHex2, type ChaosHex2 as Hex2, type HexMap2 } from "./chaos-hex";
@@ -159,37 +159,39 @@ export class FactionOnTile extends NamedContainer {
   constructor(public player: Player, public tile: ChaosTile) {
     super(`FoT-${player.facId}@${tile.Aname}`);
     this.setXY();   // move to sector for player
-    this.fighterIcon = this.makeFighterIcon();  // a new Fighter()
+    this.fighterIcon = this.makeFighterIcon();  // a new Fighter() with Counter
     this.tile.reCache(0);
     this.tile.addChild(this);
-
-    // moveableFighter stuff:
-    const moveShape = new Fighter('moveableFighter', player); // ISA ChaosUnit > Tile
-    moveShape.mouseEnabled = true;
-    const overCont = player.gamePlay.hexMap.mapCont.overCont;
-    const dragger = player.gamePlay.table.dragger;
-    this.tile.localToLocal(0, 0, overCont, moveShape);
-    overCont.addChild(moveShape);
-    dragger.makeDragable(moveShape, this, this.dragFunc);
-    console.log(stime(this, `.new:`), moveShape.DragData);
-    //TODO: figure out how to make it move and drop on 'move' target tile.
   }
 
-  dragFunc(dobj: DisplayObject, ctx?: DragInfo) {
-    console.log(stime(this, `.onClick`), dobj, ctx)
-    return;
+  makeMoveableFighter(player = this.player) {
+    // moveableFighter stuff:
+    const moveShape = new class MoveableFighter extends Fighter { // ISA ChaosUnit > Tile
+      constructor(Aname: string, player?: Player) {
+        super(Aname, player)
+        this.counter.mouseEnabled = true;
+        this.y = 20;
+      }
+
+      override isLegalTarget(toHex: Hex2, ctx?: DragContext): boolean {
+        if (toHex == this.player.panel.baseHex) return true;
+        if (toHex.ctile?.terrain == 'Mtn' || toHex.ctile?.terrain == 'Base') return false;
+        return super.isLegalTarget(toHex, ctx);
+      }
+
+      override dropFunc(targetHex: IHex2, ctx: DragContext): void {
+        super.dropFunc(targetHex, ctx);
+      }
+    } ('moveableFighter', player);
+    this.addChild(moveShape);
+    return moveShape;
   }
 
   makeFighterIcon() {
-    // Fighter.baseShape ISA NumCounterBox
+    // Fighter.baseShape.counter ISA NumCounterBox
     const icon = new Fighter(`${this.Aname}-Fighter`, this.player);
-    // icon.mouseEnabled = true;
     this.addChild(icon); // at (0, 0)
-    icon.on(S.click, (evt: MouseEvent) => {
-      console.log(stime(this, `.click:`), icon.baseShape.counter.value)
-      evt.stopPropagation();
-      return true;
-    })
+    // icon.counter.clickToInc();
     return icon;
   }
 
@@ -197,10 +199,11 @@ export class FactionOnTile extends NamedContainer {
   addLeader(ldr: Leader, add = true) {
     if (add) {
       if (!this.leaders.includes(ldr)) {
+        // similar to Hex with tile/meep; we have array of slots for Leaders:
         this.leaders.push(ldr);
         ldr.factOnTile = this;
       }
-      this.addChild(ldr); // move to top...
+      this.addChild(ldr); // move to top... (possibly from overCont)
     } else {
       removeEltFromArray(ldr, this.leaders);
       this.removeChild(ldr)
@@ -293,7 +296,7 @@ export class FactionOnTile extends NamedContainer {
         ldr.x = xl + n * gap;
         ldr.y = yl;
         if (!this.isBase) {
-          // re-parent from non-dragable mapTile to overCont:
+          // re-parent from non-dragable mapTile.FoT to overCont:
           this.localToLocal(ldr.x, ldr.y, overCont, ldr);
           overCont.addChild(ldr);
         } // during setup: Base is movable & we want Leaders to move with it

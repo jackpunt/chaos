@@ -1,16 +1,16 @@
 import { arrayN, C, Constructor, stime, type XY } from "@thegraid/common-lib";
 import { AliasLoader, CenterText, CircleShape, NamedContainer, RectShape, TextInRect, UtilButton, type Paintable, type PaintableShape } from "@thegraid/easeljs-lib";
 import type { DisplayObject } from "@thegraid/easeljs-module";
-import { HexMap, LegalMark, newPlanner, NumCounter, Player as PlayerLib, PlayerPanel, TP, type IHex2, type MapCont, type Tile, type TileSource } from "@thegraid/hexlib";
+import { HexMap, LegalMark, newPlanner, NumCounter, Player as PlayerLib, PlayerPanel, TP, type IHex2, type MapCont, type Tile } from "@thegraid/hexlib";
 import { CardShape } from "./card-shape";
-import { ChaosHex2, ChaosHex2 as Hex2 } from "./chaos-hex";
+import { ChaosHex2 as Hex2 } from "./chaos-hex";
 import { type ChaosTable, type ChaosTable as Table } from "./chaos-table";
 import { BaseTile, ChaosTile, type BONUS, type HARVEST } from "./chaos-tile";
 import { Faction, factionColors, type FactionId, type FactionName } from "./factions";
 import { BgFound, Foundation } from "./foundation";
 import { type Battle, type GamePlay } from "./game-play";
 import { type PlayerId } from "./game-state";
-import { ChaosPresence, Factory, Leader, Outposts, PriceToken, PTokenShape, Rhyzu, Stronghold, type ChaosUnitType, type Fighter, type PriceId } from "./meeples";
+import { ChaosPresence, Factory, Leader, Outposts, PriceToken, PTokenShape, Rhyzu, Stronghold, type ChaosUnitType, type PriceId } from "./meeples";
 import { ResearchCell, ResGrid } from "./research-cell";
 import { bonusIcon, CO, pricePhases } from "./table-params";
 import { CardBack, CardHex, CardPanel, TacticsCard } from "./tactics-card";
@@ -29,16 +29,6 @@ export type FoundationId = typeof foundationIds[number];
 /** strings to annotate PricingSlot */
 export const PriceBonus = ['', 'G1', '', 'E2', 'C'];
 
-/** per-Player bits on PlayerPanel */
-class PlayerBits {
-  leaders: Leader[] = [ ];              // LeaderCard is a Tile, leader.homeHex is tile.hex (tile: card, meep: leader)
-  fighters!: TileSource<Fighter>[];     // TileSource[n] for each stage of Recruit (Base is ChaosTile, sans foundations)
-  factorys!: TileSource<Factory>;       // Spread TileSource.filterUnits((u)=>!u.hex.isOnMap) across board
-  outposts!: TileSource<Outposts>;      // Spread TileSource.filterUnits((u)=>!u.hex.isOnMap) across board
-  strongholds!: TileSource<Stronghold>; // Spread TileSource.filterUnits((u)=>!u.hex.isOnMap) across board
-  foundations!: Record<FoundationId, ChaosHex2>; // the 5 foundations in their places
-  // extend with Morale[], AI_Trap[], RhyzuToken[], Intel Cards
-}
 
 export class Player extends PlayerLib {
   static initialCoins = 6;
@@ -632,6 +622,8 @@ export class Panel extends PlayerPanel {
     hex.legalMark.setOnHex(hex);
     baseTile.moveTo(hex);
     this.recruitToBase(); // the left-over fighters
+    // test/demo of adding a dragable Meeple:
+    baseTile.getFoT(this.player).makeMoveableFighter();
   }
 
   // Make a homeHex for 3 or 4 leaders (TODO: 3 for Rhyzu)
