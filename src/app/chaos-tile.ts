@@ -1,6 +1,6 @@
 import { C, permute, removeEltFromArray, S, stime } from "@thegraid/common-lib";
 import { AliasLoader, NamedContainer, type Paintable, RectShape } from "@thegraid/easeljs-lib";
-import type { DisplayObject, MouseEvent } from "@thegraid/easeljs-module";
+import type { DisplayObject } from "@thegraid/easeljs-module";
 import { type DragContext, H, type HexDir, HexShape, type IHex2, MapTile, Player as PlayerLib, type Table, Tile, TP } from "@thegraid/hexlib";
 import { type ChaosHex2, type ChaosHex2 as Hex2, type HexMap2 } from "./chaos-hex";
 import { type ChaosTable } from "./chaos-table";
@@ -228,20 +228,10 @@ export class FactionOnTile extends NamedContainer {
   }
 
   makeFighterIcon() {
-    // Fighter.baseShape.counter ISA NumCounterBox
+    // Fighter.baseShape.counter ISA NumCounterBox with click-to-inc:
     const icon = new Fighter(`${this.Aname}-Fighter`, this.player);
     this.addChild(icon); // at (0, 0); explicitly on FoT; never on overCont
-    icon.counter.clickToInc(true, 5);  // <-- 'click' event;
-    // block drag of whole tile:
-    // stop before 'pressup' & 'pressmove' bubble to parent Tile
-    icon.counter.on('pressmove', (evt: Object)=> {
-      (evt as MouseEvent).stopImmediatePropagation();
-      (evt as MouseEvent).stopPropagation();
-    })
-    icon.counter.on('pressup', (evt: Object)=> {
-      (evt as MouseEvent).stopImmediatePropagation();
-      (evt as MouseEvent).stopPropagation();
-    })
+    icon.counter.clickToInc(true, 5);
     return icon;
   }
 

@@ -2,7 +2,7 @@ import { C, F, S, stime, type XY, type XYWH } from "@thegraid/common-lib";
 import { CenterText, CircleShape, EllipseShape, NamedContainer, PathShape, PolyShape, RectShape, TextInRect, type Paintable, type PaintableShape, type RectWithDispOptions, type TextInRectOptions } from "@thegraid/easeljs-lib";
 import type { Container, MouseEvent, Rectangle } from "@thegraid/easeljs-module";
 import { Graphics } from "@thegraid/easeljs-module";
-import { Meeple, MeepleShape, NumCounterBox, Tile, TP, type DragContext, type Hex, type HexM, type IHex2, type Table } from "@thegraid/hexlib";
+import { Meeple, MeepleShape, NumCounterBox, Tile, TP, type DragContext, type Hex, type HexM, type IHex2, type NumCounter, type Table } from "@thegraid/hexlib";
 import { CardShape } from "./card-shape";
 import { TokenHex, type ChaosHex2 as Hex2, type HexMap2 } from "./chaos-hex";
 import { ChaosTile, type BONUS, type FactionOnTile, type TERRAIN } from "./chaos-tile";
@@ -144,23 +144,39 @@ export class ChaosPresence extends ChaosMeeple {}
 class ChaosUnit extends ChaosPresence {
 }
 
-/** A PaintaableCont holding a counter: NumCounterBox */
+/** a hexagonal shape with a clickToInc NumCounter */
+class NumCounterHex extends NumCounterBox {
+  protected override makeBox0(color: string, high: number, wide: number): PaintableShape {
+    return new PolyShape({ rad: Math.max(high, wide)/2, nsides: 6, fillc: color })
+  }
+  protected override boxSize(text: createjs.Text): { width: number; height: number; } {
+    const { width, height } = super.boxSize(text)
+    return {width: height, height: 1.5 * width}
+  }
+  // override to prevent bubbling of click -> pressmove & pressup; TODO: move to NumCounter?
+  override clickToInc(incr?: NumCounter | boolean, shiftVal?: number): void {
+    super.clickToInc(incr, shiftVal); // <-- 'click' event (mousedown on target -> mouseup on target)
+    // 'mousedown' would start a 'pressmove', 'mouseup' would trigger 'pressup' (and drag)
+    // stop 'pressup' & 'pressmove' before they bubble to parent Tile
+    this.on('pressmove', (evt: Object)=> {
+      // stopImmediatePropagation() blocks other listeners on this object & phase;
+      // stopPropagation() blocks other objects in bubble-up/bubble down
+      (evt as MouseEvent).stopPropagation();     // no drag from FighterIcon
+    })
+    this.on('pressup', (evt: Object)=> {
+      (evt as MouseEvent).stopPropagation();     // no click-to-drag
+    })
+  }
+}
+
+/** A PaintaableCont holding a counter: NumCounterHex */
 class FighterCounter extends PaintableCont {
   counter: NumCounterBox;
 
   constructor(player?: Player, name = 'FighterBaseShape', fontSize = TP.hexRad * .2) {
     super(name);
     const color = player?.color;
-    const counter = new class NumCounterHex extends NumCounterBox{
-      protected override makeBox0(color: string, high: number, wide: number): PaintableShape {
-        return new PolyShape({ rad: Math.max(high, wide)/2, nsides: 6, fillc: color })
-      }
-      protected override boxSize(text: createjs.Text): { width: number; height: number; } {
-        const { width, height } = super.boxSize(text)
-        return {width: height, height: 1.5 * width}
-      }
-
-    }('fighters', 0, color, fontSize);
+    const counter = new NumCounterHex ('fighters', 0, color, fontSize);
     this.counter = counter;
     this.addChild(counter);
   }
