@@ -2,6 +2,10 @@ import type { Constructor } from "@thegraid/common-lib";
 import type { Container } from "@thegraid/easeljs-module";
 import type { HexMap2 } from "./chaos-hex";
 
+
+type AnyFunction = (...args: any[]) => any;
+// type Constructor<T = any> = abstract new (...args: any[]) => T; // better defn of Constructor: allow 'abstract' classes
+
 export namespace mixins {
 // export type Constructor<T = {}> = new (...args: any[]) => T;
 export function dynamicMixin(classA: Constructor<any>, classB: Constructor<any>)
@@ -107,4 +111,33 @@ export function mixinHexMap(classA: Constructor<Container>, classB: Constructor<
     Object.setPrototypeOf(bRoot, aRest);
 
   }
+}
+
+/** find and invoke (this as Target).method(...args); */
+
+export function superMethod<
+  T extends object,
+  Target,
+  K extends keyof Target
+>(
+  instance: T,
+  targetClass: Constructor<Target>,
+  methodName: K,
+  ...args: Target[K] extends AnyFunction ? Parameters<Target[K]> : never
+): Target[K] extends AnyFunction ? ReturnType<Target[K]> : never {
+  let proto = Object.getPrototypeOf(instance);
+
+  while (proto && proto !== Object.prototype) {
+    if (proto.constructor === targetClass) {
+      const fn = proto[methodName];
+      if (typeof fn === 'function') {
+        return fn.apply(instance, args);
+      }
+    }
+    proto = Object.getPrototypeOf(proto);
+  }
+
+  throw new TypeError(
+    `Method '${String(methodName)}' not found on prototype of ${targetClass.name}`
+  );
 }
