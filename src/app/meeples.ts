@@ -1,8 +1,8 @@
 import { C, F, S, stime, type XY, type XYWH } from "@thegraid/common-lib";
-import { CenterText, CircleShape, EllipseShape, NamedContainer, PathShape, RectShape, TextInRect, type Paintable, type RectWithDispOptions, type TextInRectOptions } from "@thegraid/easeljs-lib";
+import { CenterText, CircleShape, EllipseShape, NamedContainer, PathShape, PolyShape, RectShape, TextInRect, type Paintable, type PaintableShape, type RectWithDispOptions, type TextInRectOptions } from "@thegraid/easeljs-lib";
 import type { Container, MouseEvent, Rectangle } from "@thegraid/easeljs-module";
 import { Graphics } from "@thegraid/easeljs-module";
-import { Meeple, MeepleShape, NumCounterBox, Tile, TP, type DragContext, type Hex, type HexM, type IHex2 } from "@thegraid/hexlib";
+import { Meeple, MeepleShape, NumCounterBox, Tile, TP, type DragContext, type Hex, type HexM, type IHex2, type Table } from "@thegraid/hexlib";
 import { CardShape } from "./card-shape";
 import { TokenHex, type ChaosHex2 as Hex2, type HexMap2 } from "./chaos-hex";
 import { ChaosTile, type BONUS, type FactionOnTile, type TERRAIN } from "./chaos-tile";
@@ -151,7 +151,16 @@ class FighterCounter extends PaintableCont {
   constructor(player?: Player, name = 'FighterBaseShape', fontSize = TP.hexRad * .2) {
     super(name);
     const color = player?.color;
-    const counter = new NumCounterBox('fighters', 0, color, fontSize);
+    const counter = new class NumCounterHex extends NumCounterBox{
+      protected override makeBox0(color: string, high: number, wide: number): PaintableShape {
+        return new PolyShape({ rad: Math.max(high, wide)/2, nsides: 6, fillc: color })
+      }
+      protected override boxSize(text: createjs.Text): { width: number; height: number; } {
+        const { width, height } = super.boxSize(text)
+        return {width: height, height: 1.5 * width}
+      }
+
+    }('fighters', 0, color, fontSize);
     this.counter = counter;
     this.addChild(counter);
   }
@@ -164,10 +173,15 @@ class FighterCounter extends PaintableCont {
 export class Fighter extends ChaosUnit {
   declare baseShape: FighterCounter;
   get counter() { return this.baseShape.counter }
+  constructor(Aname: string, player: Player) {
+    super(Aname, player)
+    this.reCache(0);
+  }
 
   override makeShape (fontSize?: number) {
     return new FighterCounter(this.player, 'FighterBaseShape', fontSize);
   }
+  override makeDragable(table: Table): void { } // so .startGame() will not make it dragable!
 }
 
 // Meeple has unMove & faceUp
