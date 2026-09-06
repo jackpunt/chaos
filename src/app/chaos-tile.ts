@@ -1,13 +1,14 @@
 import { C, permute, removeEltFromArray, S, stime } from "@thegraid/common-lib";
 import { AliasLoader, NamedContainer, type Paintable, RectShape } from "@thegraid/easeljs-lib";
 import type { DisplayObject, MouseEvent } from "@thegraid/easeljs-module";
-import { type DragContext, H, type HexDir, HexShape, type IHex2, MapTile, Player as PlayerLib, type Table, TP } from "@thegraid/hexlib";
+import { type DragContext, H, type HexDir, HexShape, type IHex2, MapTile, Player as PlayerLib, type Table, Tile, TP } from "@thegraid/hexlib";
 import { type ChaosHex2, type ChaosHex2 as Hex2, type HexMap2 } from "./chaos-hex";
 import { type ChaosTable } from "./chaos-table";
 import { type Faction } from "./factions";
 import { Foundation } from "./foundation";
 import type { GamePlay } from "./game-play";
 import { AI_Trap, ChaosBuilding, Factory, Fighter, Leader, Morale, Outposts, Relic, Stronghold } from "./meeples";
+import { superMethod } from "./mixins";
 import type { Player } from "./player";
 import type { FactionOnTileState } from "./scenario-parser";
 import { bonusIcon, CO } from "./table-params";
@@ -157,41 +158,90 @@ export class FactionOnTile extends NamedContainer {
   fighterIcon: Fighter;
 
   constructor(public player: Player, public tile: ChaosTile) {
-    super(`FoT-${player.facId}@${tile.Aname}`);
+    super(`FoT_${player.facId}:${tile.Aname}`);
     this.setXY();   // move to sector for player
     this.fighterIcon = this.makeFighterIcon();  // a new Fighter() with Counter
     this.tile.reCache(0);
     this.tile.addChild(this);
   }
+  override addChild(dObj: DisplayObject) {
+    return this.addChildOver(dObj);
+  }
+
+  /** if (FoT.isBase) addChild(dObj) so dObj moves with Base Tile. */
+  addChildOver(dObj: DisplayObject): DisplayObject {
+    if (this.isBase) {
+      return super.addChild(dObj);
+    } else {
+      const overCont = this.tile.hex!.map.mapCont.overCont
+       // re-parent from non-dragable mapTile.FoT to overCont:
+      this.localToLocal(dObj.x, dObj.y, overCont, dObj);
+      return overCont.addChild(dObj);
+    }
+
+  }
 
   makeMoveableFighter(player = this.player) {
     // moveableFighter stuff:
     const moveShape = new class MoveableFighter extends Fighter { // ISA ChaosUnit > Tile
-      constructor(Aname: string, player?: Player) {
+      /** this MoveableFighter is "Moveable" from this.srcHex */
+      srcHex: Hex2;
+      constructor(Aname: string, player: Player) {
         super(Aname, player)
+        this.srcHex = player.panel.baseHex as Hex2;
+        this.hex = this.srcHex;
         this.counter.mouseEnabled = true;
-        this.y = 20;
+        this.sendHome();
+      }
+      // offset (x,y) when showing on player.baseTile; All this for the test/demo, not req'd for actual Move indication.
+      override sendHome(): void {
+        this.x = 0; this.y = 20;
+        this.fromHex = player.panel.baseHex;
+        player.panel.baseTile.getFoT(player).addChild(this);
+      }
+      // class Fighter disables makeDragable; bypass & restore makeDragable()
+      override makeDragable(table: Table): void {
+        superMethod(this, Tile, 'makeDragable', table);
       }
 
       override isLegalTarget(toHex: Hex2, ctx?: DragContext): boolean {
-        if (toHex == this.player.panel.baseHex) return true;
-        if (toHex.ctile?.terrain == 'Mtn' || toHex.ctile?.terrain == 'Base') return false;
+        if (toHex == this.srcHex) return true; // ok to drop back to srcHex
+        if (toHex.ctile == this.player.panel.baseTile && ctx?.lastShift) return true; // to Base only if SHIFT: no legal mark on 'Base' hex on map!
+        if (toHex.ctile?.terrain == 'Mtn' || toHex.ctile?.terrain == 'Base') return false; // never to Mtn or [other] Base
         return super.isLegalTarget(toHex, ctx);
       }
+      override dragStart(ctx: DragContext): void {
+        this.srcHex = this.player.gamePlay.table.hexUnderObj(this, false) ?? this.srcHex;
+        super.dragStart(ctx)
+      }
 
-      override dropFunc(targetHex: IHex2, ctx: DragContext): void {
-        super.dropFunc(targetHex, ctx);
+      // TODO: create Move 'bridge' between src and dest Hexes.
+      override dropFunc(targetHex: Hex2, ctx: DragContext): void {
+        if ((targetHex ?? this.srcHex).ctile?.terrain == 'Base') {
+          this.sendHome(); // the only legal Base is player.baseTile; !targetHex IIF: from Base
+        } else {
+          super.dropFunc(targetHex, ctx);
+        }
       }
     } ('moveableFighter', player);
-    this.addChild(moveShape);
     return moveShape;
   }
 
   makeFighterIcon() {
     // Fighter.baseShape.counter ISA NumCounterBox
     const icon = new Fighter(`${this.Aname}-Fighter`, this.player);
-    this.addChild(icon); // at (0, 0)
-    // icon.counter.clickToInc();
+    this.addChild(icon); // at (0, 0); explicitly on FoT; never on overCont
+    icon.counter.clickToInc(true, 5);  // <-- 'click' event;
+    // block drag of whole tile:
+    // stop before 'pressup' & 'pressmove' bubble to parent Tile
+    icon.counter.on('pressmove', (evt: Object)=> {
+      (evt as MouseEvent).stopImmediatePropagation();
+      (evt as MouseEvent).stopPropagation();
+    })
+    icon.counter.on('pressup', (evt: Object)=> {
+      (evt as MouseEvent).stopImmediatePropagation();
+      (evt as MouseEvent).stopPropagation();
+    })
     return icon;
   }
 
@@ -203,7 +253,7 @@ export class FactionOnTile extends NamedContainer {
         this.leaders.push(ldr);
         ldr.factOnTile = this;
       }
-      this.addChild(ldr); // move to top... (possibly from overCont)
+      this.addChildOver(ldr); // on overCont or top of FoT
     } else {
       removeEltFromArray(ldr, this.leaders);
       this.removeChild(ldr)
@@ -295,11 +345,7 @@ export class FactionOnTile extends NamedContainer {
       this.leaders.forEach((ldr, n) => {
         ldr.x = xl + n * gap;
         ldr.y = yl;
-        if (!this.isBase) {
-          // re-parent from non-dragable mapTile.FoT to overCont:
-          this.localToLocal(ldr.x, ldr.y, overCont, ldr);
-          overCont.addChild(ldr);
-        } // during setup: Base is movable & we want Leaders to move with it
+        this.addChildOver(ldr); // to overCont or this depending on this.isBase
       })
     }
     this.stage.update();
@@ -523,9 +569,8 @@ export class BaseTile extends ChaosTile {
   }
 
   override dropFunc(targetHex: Hex2, ctx: DragContext): void {
-    if (targetHex == this.hex) return;
     super.dropFunc(targetHex, ctx);
-    // TODO: choose hexes for base foundations
+    if (!targetHex) return;
     this.addBaseFoundationsAndLink(targetHex, ctx);
   }
 
