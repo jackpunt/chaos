@@ -1,8 +1,7 @@
 import { C, F, S, stime, type XY, type XYWH } from "@thegraid/common-lib";
-import { CenterText, CircleShape, EllipseShape, NamedContainer, PathShape, PolyShape, RectShape, TextInRect, type Paintable, type PaintableShape, type RectWithDispOptions, type TextInRectOptions } from "@thegraid/easeljs-lib";
-import type { Container, MouseEvent, Rectangle } from "@thegraid/easeljs-module";
-import { Graphics } from "@thegraid/easeljs-module";
-import { Meeple, MeepleShape, NumCounterBox, Tile, TP, type DragContext, type Hex, type HexM, type IHex2, type NumCounter, type Table } from "@thegraid/hexlib";
+import { CenterText, CircleShape, EllipseShape, NamedContainer, PathShape, PolyShape, RectShape, TextInRect, type Paintable, type PaintableShape, type RectWithDispOptions, type TextInRectOptions, type ValueEvent } from "@thegraid/easeljs-lib";
+import { Container, Graphics, MouseEvent, Rectangle } from "@thegraid/easeljs-module";
+import { Meeple, MeepleShape, NumCounter, NumCounterBox, Tile, TP, type DragContext, type Hex, type HexM, type IHex2 } from "@thegraid/hexlib";
 import { CardShape } from "./card-shape";
 import { TokenHex, type ChaosHex2 as Hex2, type HexMap2 } from "./chaos-hex";
 import { ChaosTile, type BONUS, type FactionOnTile, type TERRAIN } from "./chaos-tile";
@@ -133,8 +132,8 @@ export class ChaosMeeple extends Meeple {
   homeXY!: XY;                // sendHome location, if needed
 
   /** invoke from startDrag() to prevent movement */
-  stopDrag() {
-    this.player.gamePlay.table.stopDragging()
+  stopDrag(targetHex?: Hex2) {
+    this.player.gamePlay.table.stopDragging(targetHex)
   }
 
 }
@@ -149,29 +148,43 @@ class NumCounterHex extends NumCounterBox {
   protected override makeBox0(color: string, high: number, wide: number): PaintableShape {
     return new PolyShape({ rad: Math.max(high, wide)/2, nsides: 6, fillc: color })
   }
-  protected override boxSize(text: createjs.Text): { width: number; height: number; } {
+  override boxSize(text: createjs.Text): { width: number; height: number; } {
     const { width, height } = super.boxSize(text)
-    return {width: height, height: 1.5 * width}
+    return { width: height, height: 1.5 * width }
   }
-  // override to prevent bubbling of click -> pressmove & pressup; TODO: move to NumCounter?
-  override clickToInc(incr?: NumCounter | boolean, shiftVal?: number): void {
-    super.clickToInc(incr, shiftVal); // <-- 'click' event (mousedown on target -> mouseup on target)
-    // 'mousedown' would start a 'pressmove', 'mouseup' would trigger 'pressup' (and drag)
-    // stop 'pressup' & 'pressmove' before they bubble to parent Tile
-    this.on('pressmove', (evt: Object)=> {
-      // stopImmediatePropagation() blocks other listeners on this object & phase;
-      // stopPropagation() blocks other objects in bubble-up/bubble down
-      (evt as MouseEvent).stopPropagation();     // no drag from FighterIcon
-    })
-    this.on('pressup', (evt: Object)=> {
-      (evt as MouseEvent).stopPropagation();     // no click-to-drag
-    })
+  // augment clickToInc to supercede clidkToDrag; we don't want both effects on FighterIcon
+  override clickToInc(incr: NumCounter | boolean = true, shiftVal = 10) {
+    // Note: table.dropFunc(tile) { tile.dropFunc0() -> { tile.dropFund(); map.showMark(undef) }; tile.markLegal(table); }
+    // Note: tile.dropFunc0(hex) { tile.dropFunc(hex); map.showMark(undefined); }  <-- remove targetMark
+
+    // Inject stopf at beginning of _listeners list, so it runs (once) before the other _listeners
+    // 'immediate' prevents the rest of the list from running; stopProp prevents bubbling to other layers.
+    // so this 'click' = mouseup -> pressup is completely swallowed; mousemove -> pressmove
+    const stopNextEvent = (type: string) => {
+      const stopf = (evt: Object) => { (evt as MouseEvent).stopImmediatePropagation(); (evt as MouseEvent).stopPropagation() }
+      this.on(type, stopf, this, true);   // <-- ONCE = true; stopf will be auto-removed
+      const lisnrs =  ((this as any)._listeners[type] as Function[]); // see: p.dispatchEvent(); p.handlePointerUp()
+      lisnrs.unshift(lisnrs.pop()!);      // from last place to first place
+    }
+    const incf = (evt: NativeMouseEvent) => (evt?.ctrlKey ? -1 : 1) * (evt?.shiftKey ? shiftVal : 1);
+    if (incr) {
+      this.mouseEnabled = true;
+      const lisnf = (evt: Object) => {
+        this.incValue(incf((evt as MouseEvent).nativeEvent));
+        stopNextEvent('pressup');  // immediately intercede to block the next pressup & pressmove events:
+      }
+      this.on(S.click, lisnf);
+      if (incr instanceof NumCounter) {
+        this.on('incr', (evt: Object) => incr.incValue((evt as ValueEvent).value as number));
+      }
+    }
   }
 }
 
-/** A PaintaableCont holding a counter: NumCounterHex */
-class FighterCounter extends PaintableCont {
+/** A PaintableCont holding a counter: NumCounterHex */
+export class FighterCounter extends PaintableCont {
   counter: NumCounterBox;
+  hexRad!: number;
 
   constructor(player?: Player, name = 'FighterBaseShape', fontSize = TP.hexRad * .2) {
     super(name);
@@ -179,6 +192,7 @@ class FighterCounter extends PaintableCont {
     const counter = new NumCounterHex ('fighters', 0, color, fontSize);
     this.counter = counter;
     this.addChild(counter);
+    this.hexRad = counter.boxSize(counter.text).width;
   }
 }
 
@@ -189,15 +203,58 @@ class FighterCounter extends PaintableCont {
 export class Fighter extends ChaosUnit {
   declare baseShape: FighterCounter;
   get counter() { return this.baseShape.counter }
-  constructor(Aname: string, player: Player) {
-    super(Aname, player)
+  get fotHex() { return this.fot?.tile.hex as Hex2 }
+
+  constructor(Aname: string, public fot: FactionOnTile) {
+    super(Aname, fot.player)
     this.reCache(0);
   }
 
   override makeShape (fontSize?: number) {
     return new FighterCounter(this.player, 'FighterBaseShape', fontSize);
   }
-  override makeDragable(table: Table): void { } // so .startGame() will not make it dragable!
+  // override makeDragable(table: Table): void { } // so .startGame() will not make it dragable!
+}
+
+export class MoveableFighter extends Fighter { // ISA ChaosUnit > Tile
+  /** this MoveableFighter is "Moveable" from this.srcHex = fighter.fot.tile.hex */
+  srcHex: Hex2;
+  constructor(fighter: Fighter) {
+    const player = fighter.player;
+    super(`${fighter.Aname}:mover`, fighter.fot); // the source FoT
+    this.srcHex = this.fromHex = fighter.fotHex;
+    this.textVis(false);
+    this.counter.mouseEnabled = true;  // ?  for mousemove ?
+    this.fot.addChild(this);
+    // MoveableFighter appears at location of its originating Fighter
+  }
+
+  // offset (x,y) when showing on player.baseTile; All this for the test/demo, not req'd for actual Move indication.
+  override sendHome(): void {
+    this.x = 0; this.y = 0;
+    this.fromHex = this.srcHex;
+    this.srcHex.ctile?.getFoT(this.player).addChild(this);
+  }
+  // class Fighter disables makeDragable; bypass & restore makeDragable()
+  // override makeDragable(table: Table): void {
+  //   superMethod(this, Tile, 'makeDragable', table);
+  // }
+
+  override isLegalTarget(toHex: Hex2, ctx?: DragContext): boolean {
+    if (toHex == this.srcHex) return true; // ok to drop back to srcHex --> and delete itself
+    if (toHex.ctile?.terrain == 'Base')    // move Base IFF own base && shiftKey (can teleport)
+      return (toHex.ctile.player == this.player && !!ctx?.lastShift)
+    return this.srcHex.linkHexes.includes(toHex);
+  }
+
+  // TODO: create Move 'bridge' between src and dest Hexes.
+  override dropFunc(targetHex: Hex2, ctx: DragContext): void {
+    if ((targetHex ?? this.srcHex).ctile?.terrain == 'Base') {
+      this.sendHome(); // the only legal Base is player.baseTile; !targetHex IIF: from Base
+    } else {
+      super.dropFunc(targetHex, ctx);
+    }
+  }
 }
 
 // Meeple has unMove & faceUp

@@ -622,8 +622,6 @@ export class Panel extends PlayerPanel {
     hex.legalMark.setOnHex(hex);
     baseTile.moveTo(hex);
     this.recruitToBase(); // the left-over fighters
-    // test/demo of adding a dragable Meeple:
-    baseTile.getFoT(this.player).makeMoveableFighter();
   }
 
   // Make a homeHex for 3 or 4 leaders (TODO: 3 for Rhyzu)

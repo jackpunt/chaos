@@ -1,14 +1,13 @@
-import { C, permute, removeEltFromArray, S, stime } from "@thegraid/common-lib";
+import { C, permute, removeEltFromArray, S, stime, type XY } from "@thegraid/common-lib";
 import { AliasLoader, NamedContainer, type Paintable, RectShape } from "@thegraid/easeljs-lib";
-import type { DisplayObject } from "@thegraid/easeljs-module";
-import { type DragContext, H, type HexDir, HexShape, type IHex2, MapTile, Player as PlayerLib, type Table, Tile, TP } from "@thegraid/hexlib";
+import type { DisplayObject, MouseEvent } from "@thegraid/easeljs-module";
+import { type DragContext, H, type Hex1, type HexDir, HexShape, type IHex2, MapTile, Player as PlayerLib, type Table, TP } from "@thegraid/hexlib";
 import { type ChaosHex2, type ChaosHex2 as Hex2, type HexMap2 } from "./chaos-hex";
 import { type ChaosTable } from "./chaos-table";
 import { type Faction } from "./factions";
 import { Foundation } from "./foundation";
 import type { GamePlay } from "./game-play";
-import { AI_Trap, ChaosBuilding, Factory, Fighter, Leader, Morale, Outposts, Relic, Stronghold } from "./meeples";
-import { superMethod } from "./mixins";
+import { AI_Trap, ChaosBuilding, Factory, Fighter, Leader, Morale, MoveableFighter, Outposts, Relic, Stronghold } from "./meeples";
 import type { Player } from "./player";
 import type { FactionOnTileState } from "./scenario-parser";
 import { bonusIcon, CO } from "./table-params";
@@ -181,57 +180,56 @@ export class FactionOnTile extends NamedContainer {
 
   }
 
-  makeMoveableFighter(player = this.player) {
-    // moveableFighter stuff:
-    const moveShape = new class MoveableFighter extends Fighter { // ISA ChaosUnit > Tile
-      /** this MoveableFighter is "Moveable" from this.srcHex */
-      srcHex: Hex2;
-      constructor(Aname: string, player: Player) {
-        super(Aname, player)
-        this.srcHex = player.panel.baseHex as Hex2;
-        this.hex = this.srcHex;
-        this.counter.mouseEnabled = true;
-        this.sendHome();
-      }
-      // offset (x,y) when showing on player.baseTile; All this for the test/demo, not req'd for actual Move indication.
-      override sendHome(): void {
-        this.x = 0; this.y = 20;
-        this.fromHex = player.panel.baseHex;
-        player.panel.baseTile.getFoT(player).addChild(this);
-      }
-      // class Fighter disables makeDragable; bypass & restore makeDragable()
-      override makeDragable(table: Table): void {
-        superMethod(this, Tile, 'makeDragable', table);
-      }
-
-      override isLegalTarget(toHex: Hex2, ctx?: DragContext): boolean {
-        if (toHex == this.srcHex) return true; // ok to drop back to srcHex
-        if (toHex.ctile == this.player.panel.baseTile && ctx?.lastShift) return true; // to Base only if SHIFT: no legal mark on 'Base' hex on map!
-        if (toHex.ctile?.terrain == 'Mtn' || toHex.ctile?.terrain == 'Base') return false; // never to Mtn or [other] Base
-        return super.isLegalTarget(toHex, ctx);
-      }
-      override dragStart(ctx: DragContext): void {
-        this.srcHex = this.player.gamePlay.table.hexUnderObj(this, false) ?? this.srcHex;
-        super.dragStart(ctx)
-      }
-
-      // TODO: create Move 'bridge' between src and dest Hexes.
-      override dropFunc(targetHex: Hex2, ctx: DragContext): void {
-        if ((targetHex ?? this.srcHex).ctile?.terrain == 'Base') {
-          this.sendHome(); // the only legal Base is player.baseTile; !targetHex IIF: from Base
-        } else {
-          super.dropFunc(targetHex, ctx);
-        }
-      }
-    } ('moveableFighter', player);
-    return moveShape;
-  }
 
   makeFighterIcon() {
+    /** distance from origin */
+    const dist = (pt: XY) => Math.sqrt(pt.x * pt.x + pt.y * pt.y)
     // Fighter.baseShape.counter ISA NumCounterBox with click-to-inc:
-    const icon = new Fighter(`${this.Aname}-Fighter`, this.player);
+    const FighterIcon = class extends Fighter {
+      override isLegalTarget(toHex: Hex1, ctx?: DragContext): boolean {
+        const fromHex = this.fotHex;
+        return toHex == fromHex || !!fromHex?.linkHexes.includes(toHex);
+      }
+      // FighterIcon spawns a MoveableFighter when it drags:
+      override dragFunc(hex?: Hex2, ctx?: DragContext): void {
+        const pt = this.parent.localToLocal(this.x, this.y, this.fot);
+        if (dist(pt) < this.baseShape.hexRad) return;  // has not been dragged very far.
+        this.stopDrag(this.fotHex);  // ctd --> dispatchPressup(this)
+        this.player.gamePlay.table.dropFunc(this, ctx?.info)
+        this.dragMover(ctx!);
+      }
+      override dropFunc(targetHex: IHex2, ctx: DragContext): void {
+        this.x = this.y = 0;  // restore to original place on FoT
+        this.fot.addChild(this);
+      }
+
+      dragMover(ctx: DragContext) {
+        const mf = new MoveableFighter(this);
+        const table = this.player.gamePlay.table;
+        const dragger = table.dragger;
+        dragger.makeDragable(mf);      // mf.makeDragable(this.player.gamePlay.table); // without clickToDrag()
+        // table.stopDragging(ctx.targetHex); // leave this icon on FoT; dragger.stopDrag() & data.dragStopped = true;
+        table.startDragging(mf, ctx.info.dxy); // dragger.dragTarget(mf, ctx.info.dxy)
+      }
+    }
+    const icon = new FighterIcon(`${this.Aname}:FighterIcon`, this);
+    const counter = icon.counter;
     this.addChild(icon); // at (0, 0); explicitly on FoT; never on overCont
-    icon.counter.clickToInc(true, 5);
+    counter.clickToInc(true, 5);  // disabled pressmove & pressup
+    // this.on('pressmove', (evt: Object)=>{
+    //   const mevt = evt as MouseEvent;
+    //   const mf = new FactionOnTile.MoveableFighter('moveableFighter', this.player);
+    //   this.player.gamePlay.table.dragger.dragTarget(mf, { x: mevt.localX, y: mevt.localY })
+    // });
+    // this.on('pressmove', (evt: Object)=> {
+    //   // stopImmediatePropagation() blocks other listeners on this object & phase;
+    //   // stopPropagation() blocks other objects in bubble-up/bubble down
+    //   (evt as MouseEvent).stopPropagation();     // no drag from FighterIcon
+    // })
+    // this.on('pressup', (evt: Object)=> {
+    //   (evt as MouseEvent).stopPropagation();     // no click-to-drag
+    // })
+
     return icon;
   }
 
