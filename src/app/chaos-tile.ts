@@ -1,13 +1,13 @@
 import { C, permute, removeEltFromArray, S, stime, type XY } from "@thegraid/common-lib";
 import { AliasLoader, NamedContainer, type Paintable, RectShape } from "@thegraid/easeljs-lib";
-import type { DisplayObject, MouseEvent } from "@thegraid/easeljs-module";
+import type { DisplayObject } from "@thegraid/easeljs-module";
 import { type DragContext, H, type Hex1, type HexDir, HexShape, type IHex2, MapTile, Player as PlayerLib, type Table, TP } from "@thegraid/hexlib";
 import { type ChaosHex2, type ChaosHex2 as Hex2, type HexMap2 } from "./chaos-hex";
 import { type ChaosTable } from "./chaos-table";
 import { type Faction } from "./factions";
 import { Foundation } from "./foundation";
 import type { GamePlay } from "./game-play";
-import { AI_Trap, ChaosBuilding, Factory, Fighter, Leader, Morale, MoveableFighter, Outposts, Relic, Stronghold } from "./meeples";
+import { AI_Trap, ChaosBuilding, Factory, Fighter, FighterCounter, Leader, Morale, MoveableFighter, NumCounterHexWithClick, Outposts, Relic, Stronghold } from "./meeples";
 import type { Player } from "./player";
 import type { FactionOnTileState } from "./scenario-parser";
 import { bonusIcon, CO } from "./table-params";
@@ -186,6 +186,10 @@ export class FactionOnTile extends NamedContainer {
     const dist = (pt: XY) => Math.sqrt(pt.x * pt.x + pt.y * pt.y)
     // Fighter.baseShape.counter ISA NumCounterBox with click-to-inc:
     const FighterIcon = class extends Fighter {
+      override makeShape(fontSize?: number): FighterCounter {
+        super.makeShape
+        return new FighterCounter(this.player, 'FighterHexWithClick', fontSize, NumCounterHexWithClick); // super.makeShape(...
+      }
       override isLegalTarget(toHex: Hex1, ctx?: DragContext): boolean {
         const fromHex = this.fotHex;
         return toHex == fromHex || !!fromHex?.linkHexes.includes(toHex);
@@ -212,24 +216,11 @@ export class FactionOnTile extends NamedContainer {
         table.startDragging(mf, ctx.info.dxy); // dragger.dragTarget(mf, ctx.info.dxy)
       }
     }
+
     const icon = new FighterIcon(`${this.Aname}:FighterIcon`, this);
     const counter = icon.counter;
     this.addChild(icon); // at (0, 0); explicitly on FoT; never on overCont
     counter.clickToInc(true, 5);  // disabled pressmove & pressup
-    // this.on('pressmove', (evt: Object)=>{
-    //   const mevt = evt as MouseEvent;
-    //   const mf = new FactionOnTile.MoveableFighter('moveableFighter', this.player);
-    //   this.player.gamePlay.table.dragger.dragTarget(mf, { x: mevt.localX, y: mevt.localY })
-    // });
-    // this.on('pressmove', (evt: Object)=> {
-    //   // stopImmediatePropagation() blocks other listeners on this object & phase;
-    //   // stopPropagation() blocks other objects in bubble-up/bubble down
-    //   (evt as MouseEvent).stopPropagation();     // no drag from FighterIcon
-    // })
-    // this.on('pressup', (evt: Object)=> {
-    //   (evt as MouseEvent).stopPropagation();     // no click-to-drag
-    // })
-
     return icon;
   }
 

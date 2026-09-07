@@ -1,7 +1,7 @@
-import { C, F, S, stime, type XY, type XYWH } from "@thegraid/common-lib";
-import { CenterText, CircleShape, EllipseShape, NamedContainer, PathShape, PolyShape, RectShape, TextInRect, type Paintable, type PaintableShape, type RectWithDispOptions, type TextInRectOptions, type ValueEvent } from "@thegraid/easeljs-lib";
+import { C, Constructor, F, S, stime, type XY, type XYWH } from "@thegraid/common-lib";
+import { CenterText, CircleShape, EllipseShape, NamedContainer, PathShape, PolyShape, RectShape, TextInRect, type Paintable, type PaintableShape, type RectWithDispOptions, type TextInRectOptions } from "@thegraid/easeljs-lib";
 import { Container, Graphics, MouseEvent, Rectangle } from "@thegraid/easeljs-module";
-import { Meeple, MeepleShape, NumCounter, NumCounterBox, Tile, TP, type DragContext, type Hex, type HexM, type IHex2 } from "@thegraid/hexlib";
+import { Meeple, MeepleShape, NumCounterBox, Tile, TP, type DragContext, type Hex, type HexM, type IHex2 } from "@thegraid/hexlib";
 import { CardShape } from "./card-shape";
 import { TokenHex, type ChaosHex2 as Hex2, type HexMap2 } from "./chaos-hex";
 import { ChaosTile, type BONUS, type FactionOnTile, type TERRAIN } from "./chaos-tile";
@@ -143,19 +143,21 @@ export class ChaosPresence extends ChaosMeeple {}
 class ChaosUnit extends ChaosPresence {
 }
 
-/** a hexagonal shape with a clickToInc NumCounter */
+/** a hexagonal shape around counter value */
 class NumCounterHex extends NumCounterBox {
   protected override makeBox0(color: string, high: number, wide: number): PaintableShape {
     return new PolyShape({ rad: Math.max(high, wide)/2, nsides: 6, fillc: color })
   }
-  override boxSize(text: createjs.Text): { width: number; height: number; } {
+  // Expose boxSize so we can find width (radius)
+  override boxSize(text: createjs.Text = this.text): { width: number; height: number; } {
     const { width, height } = super.boxSize(text)
     return { width: height, height: 1.5 * width }
   }
-  // augment clickToInc to supercede clidkToDrag; we don't want both effects on FighterIcon
-  override clickToInc(incr: NumCounter | boolean = true, shiftVal = 10) {
-    // Note: table.dropFunc(tile) { tile.dropFunc0() -> { tile.dropFund(); map.showMark(undef) }; tile.markLegal(table); }
-    // Note: tile.dropFunc0(hex) { tile.dropFunc(hex); map.showMark(undefined); }  <-- remove targetMark
+}
+
+export class NumCounterHexWithClick extends NumCounterHex {
+  override incValueOnClick(evt: MouseEvent, shiftVal?: number, baseVal?: number): void {
+    super.incValueOnClick(evt, shiftVal, baseVal);
 
     // Inject stopf at beginning of _listeners list, so it runs (once) before the other _listeners
     // 'immediate' prevents the rest of the list from running; stopProp prevents bubbling to other layers.
@@ -166,33 +168,22 @@ class NumCounterHex extends NumCounterBox {
       const lisnrs =  ((this as any)._listeners[type] as Function[]); // see: p.dispatchEvent(); p.handlePointerUp()
       lisnrs.unshift(lisnrs.pop()!);      // from last place to first place
     }
-    const incf = (evt: NativeMouseEvent) => (evt?.ctrlKey ? -1 : 1) * (evt?.shiftKey ? shiftVal : 1);
-    if (incr) {
-      this.mouseEnabled = true;
-      const lisnf = (evt: Object) => {
-        this.incValue(incf((evt as MouseEvent).nativeEvent));
-        stopNextEvent('pressup');  // immediately intercede to block the next pressup & pressmove events:
-      }
-      this.on(S.click, lisnf);
-      if (incr instanceof NumCounter) {
-        this.on('incr', (evt: Object) => incr.incValue((evt as ValueEvent).value as number));
-      }
-    }
+    stopNextEvent('pressup');  // immediately intercede to block the next pressup & pressmove events:
   }
 }
 
 /** A PaintableCont holding a counter: NumCounterHex */
 export class FighterCounter extends PaintableCont {
-  counter: NumCounterBox;
+  counter: NumCounterHex;
   hexRad!: number;
 
-  constructor(player?: Player, name = 'FighterBaseShape', fontSize = TP.hexRad * .2) {
+  constructor(player?: Player, name = 'FighterBaseShape', fontSize = TP.hexRad * .2, NCH: Constructor<NumCounterHex> = NumCounterHex) {
     super(name);
     const color = player?.color;
-    const counter = new NumCounterHex ('fighters', 0, color, fontSize);
+    const counter = new NCH('fighters', 0, color, fontSize);
     this.counter = counter;
     this.addChild(counter);
-    this.hexRad = counter.boxSize(counter.text).width;
+    this.hexRad = counter.boxSize().width;
   }
 }
 
@@ -211,7 +202,7 @@ export class Fighter extends ChaosUnit {
   }
 
   override makeShape (fontSize?: number) {
-    return new FighterCounter(this.player, 'FighterBaseShape', fontSize);
+    return new FighterCounter(this.player, 'FighterShape', fontSize);
   }
   // override makeDragable(table: Table): void { } // so .startGame() will not make it dragable!
 }
