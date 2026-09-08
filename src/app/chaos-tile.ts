@@ -1,13 +1,13 @@
 import { C, permute, removeEltFromArray, S, stime, type XY } from "@thegraid/common-lib";
 import { AliasLoader, NamedContainer, type Paintable, RectShape } from "@thegraid/easeljs-lib";
-import type { DisplayObject } from "@thegraid/easeljs-module";
+import type { DisplayObject, MouseEvent } from "@thegraid/easeljs-module";
 import { type DragContext, H, type Hex1, type HexDir, HexShape, type IHex2, MapTile, Player as PlayerLib, type Table, TP } from "@thegraid/hexlib";
 import { type ChaosHex2, type ChaosHex2 as Hex2, type HexMap2 } from "./chaos-hex";
 import { type ChaosTable } from "./chaos-table";
 import { type Faction } from "./factions";
 import { Foundation } from "./foundation";
 import type { GamePlay } from "./game-play";
-import { AI_Trap, ChaosBuilding, Factory, Fighter, FighterCounter, Leader, Morale, MoveableFighter, NumCounterHexWithClick, Outposts, Relic, Stronghold } from "./meeples";
+import { AI_Trap, ChaosBuilding, Factory, Fighter, FighterCounter, Leader, Morale, MoveableFighter, Outposts, Relic, Stronghold } from "./meeples";
 import type { Player } from "./player";
 import type { FactionOnTileState } from "./scenario-parser";
 import { bonusIcon, CO } from "./table-params";
@@ -157,7 +157,7 @@ export class FactionOnTile extends NamedContainer {
   fighterIcon: Fighter;
 
   constructor(public player: Player, public tile: ChaosTile) {
-    super(`FoT_${player.facId}:${tile.Aname}`);
+    super(`FoT_${player.facId}-${tile.Aname}`);
     this.setXY();   // move to sector for player
     this.fighterIcon = this.makeFighterIcon();  // a new Fighter() with Counter
     this.tile.reCache(0);
@@ -184,23 +184,46 @@ export class FactionOnTile extends NamedContainer {
   makeFighterIcon() {
     /** distance from origin */
     const dist = (pt: XY) => Math.sqrt(pt.x * pt.x + pt.y * pt.y)
-    // Fighter.baseShape.counter ISA NumCounterBox with click-to-inc:
+    // Fighter.baseShape.counter ISA NumCounterHex with clickToInc:
     const FighterIcon = class extends Fighter {
       override makeShape(fontSize?: number): FighterCounter {
-        super.makeShape
-        return new FighterCounter(this.player, 'FighterHexWithClick', fontSize, NumCounterHexWithClick); // super.makeShape(...
+        return new FighterCounter(this.player, 'FighterHexWithClick', fontSize); // super.makeShape(...
       }
+
+      override makeDragable(table: Table): void {
+        table.dragger.makeDragable(this, table, table.dragFunc, table.dropFunc);
+        // do NOT enable click-to-drag!
+        this.on(S.click, this.clickToDrop as any, this);
+      }
+
+      // so (nLegal > 1); although really we don't want this until dragMover()
       override isLegalTarget(toHex: Hex1, ctx?: DragContext): boolean {
         const fromHex = this.fotHex;
         return toHex == fromHex || !!fromHex?.linkHexes.includes(toHex);
       }
       // FighterIcon spawns a MoveableFighter when it drags:
       override dragFunc(hex?: Hex2, ctx?: DragContext): void {
+        this.isDragging = true;
         const pt = this.parent.localToLocal(this.x, this.y, this.fot);
         if (dist(pt) < this.baseShape.hexRad) return;  // has not been dragged very far.
-        this.stopDrag(this.fotHex);  // ctd --> dispatchPressup(this)
-        this.player.gamePlay.table.dropFunc(this, ctx?.info)
+        this.stopDrag(this.fotHex);  // ctd --> dispatchClick(this) [mouseup?] --> ? dropFunc() ?
+        // this.player.gamePlay.table.dragger.stopDrag()
+        this.dropMe(ctx);
         this.dragMover(ctx!);
+      }
+
+      isDragging = false;
+      clickToDrop(evt: MouseEvent) {
+        if (this.isDragging) {
+          this.dropMe();
+        }
+        evt.stopPropagation();   // do not clickToDrag the tile!
+      }
+      dropMe(ctx?: DragContext) {
+         // table.dropFunc(tile , info? [ignored], hex = hexUnderObject())
+        this.player.gamePlay.table.dropFunc(this, ctx?.info);
+        // table.dropFunc0() --> { tile.dropFunc(); tile.markLegal(table); ... }
+        this.isDragging = false;
       }
       override dropFunc(targetHex: IHex2, ctx: DragContext): void {
         this.x = this.y = 0;  // restore to original place on FoT
@@ -217,7 +240,7 @@ export class FactionOnTile extends NamedContainer {
       }
     }
 
-    const icon = new FighterIcon(`${this.Aname}:FighterIcon`, this);
+    const icon = new FighterIcon(`${this.Aname}-FighterIcon`, this);
     const counter = icon.counter;
     this.addChild(icon); // at (0, 0); explicitly on FoT; never on overCont
     counter.clickToInc(true, 5);  // disabled pressmove & pressup
@@ -447,6 +470,7 @@ export class ChaosTile extends MapTile {
 
   // allocate room for 3 foundations; TODO: if user places more...?
   // "Each Region can contain no more than 3 Foundations"
+  // --> Leader: no Foundation required: cons a null-foundation; (still limit 3 buildings?)
   addFoundation(f: Foundation, commit = true) {
     const ndx = this.ndxForFoundation();
     if (commit && ndx != undefined) {

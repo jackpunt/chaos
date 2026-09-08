@@ -1,4 +1,4 @@
-import { C, Constructor, F, S, stime, type XY, type XYWH } from "@thegraid/common-lib";
+import { C, F, S, stime, type XY, type XYWH } from "@thegraid/common-lib";
 import { CenterText, CircleShape, EllipseShape, NamedContainer, PathShape, PolyShape, RectShape, TextInRect, type Paintable, type PaintableShape, type RectWithDispOptions, type TextInRectOptions } from "@thegraid/easeljs-lib";
 import { Container, Graphics, MouseEvent, Rectangle } from "@thegraid/easeljs-module";
 import { Meeple, MeepleShape, NumCounterBox, Tile, TP, type DragContext, type Hex, type HexM, type IHex2 } from "@thegraid/hexlib";
@@ -155,32 +155,15 @@ class NumCounterHex extends NumCounterBox {
   }
 }
 
-export class NumCounterHexWithClick extends NumCounterHex {
-  override incValueOnClick(evt: MouseEvent, shiftVal?: number, baseVal?: number): void {
-    super.incValueOnClick(evt, shiftVal, baseVal);
-
-    // Inject stopf at beginning of _listeners list, so it runs (once) before the other _listeners
-    // 'immediate' prevents the rest of the list from running; stopProp prevents bubbling to other layers.
-    // so this 'click' = mouseup -> pressup is completely swallowed; mousemove -> pressmove
-    const stopNextEvent = (type: string) => {
-      const stopf = (evt: Object) => { (evt as MouseEvent).stopImmediatePropagation(); (evt as MouseEvent).stopPropagation() }
-      this.on(type, stopf, this, true);   // <-- ONCE = true; stopf will be auto-removed
-      const lisnrs =  ((this as any)._listeners[type] as Function[]); // see: p.dispatchEvent(); p.handlePointerUp()
-      lisnrs.unshift(lisnrs.pop()!);      // from last place to first place
-    }
-    stopNextEvent('pressup');  // immediately intercede to block the next pressup & pressmove events:
-  }
-}
-
 /** A PaintableCont holding a counter: NumCounterHex */
 export class FighterCounter extends PaintableCont {
   counter: NumCounterHex;
   hexRad!: number;
 
-  constructor(player?: Player, name = 'FighterBaseShape', fontSize = TP.hexRad * .2, NCH: Constructor<NumCounterHex> = NumCounterHex) {
+  constructor(player?: Player, name = 'FighterBaseShape', fontSize = TP.hexRad * .2) {
     super(name);
     const color = player?.color;
-    const counter = new NCH('fighters', 0, color, fontSize);
+    const counter = new NumCounterHex('fighters', 0, color, fontSize);
     this.counter = counter;
     this.addChild(counter);
     this.hexRad = counter.boxSize().width;
