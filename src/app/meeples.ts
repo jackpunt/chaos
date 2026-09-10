@@ -156,6 +156,10 @@ class NumCounterHex extends NumCounterBox {
     const { width, height } = super.boxSize(text)
     return { width: height, height: 1.5 * width }
   }
+  override incValueOnClick(evt: MouseEvent, shiftVal = 5, baseVal?: number): void {
+    super.incValueOnClick(evt, shiftVal, baseVal)
+    evt.stopImmediatePropagation();   // QQQ: promote to base class?
+  }
 }
 
 /** A PaintableCont holding a counter: NumCounterHex */
@@ -623,7 +627,7 @@ export class Leader extends ChaosUnit implements LeaderSpec {
   }
 
   // Note: common pattern in PriceToken (below)
-  /** the TargetMark for Leader  */
+  /** a CardShape targetMark for Leader  */
   static targetMark = new class LeaderMark extends CardShape {
     constructor(rad = TP.hexRad * 1.1) {
       super('rgba(130, 130, 130, 0.4)', '', rad);
@@ -652,6 +656,7 @@ export class Leader extends ChaosUnit implements LeaderSpec {
 
   override dragStart(ctx: DragContext): void {
     super.dragStart(ctx);
+    ctx.targetHex = this.fromHex = this.ctxCtile(ctx).chex;  // how to find ldr.fromHex
     // remove leaderIcon from ctile:
     this.ctxCtile(ctx)?.addLeader(this, false);
   }

@@ -191,61 +191,18 @@ export class FactionOnTile extends NamedContainer {
       }
 
       override makeDragable(table: Table): void {
+        // also: do not drag!
         table.dragger.makeDragable(this, table, table.dragFunc, table.dropFunc);
         // do NOT enable click-to-drag!
-        this.on(S.click, this.clickToDrop as any, this);
+      }
+      override dragStart(ctx: DragContext): void {
+        this.stopDrag()
       }
 
       // so (nLegal > 1); although really we don't want this until dragMover()
       override isLegalTarget(toHex: Hex1, ctx?: DragContext): boolean {
         const fromHex = this.fotHex;
         return toHex == fromHex || !!fromHex?.linkHexes.includes(toHex);
-      }
-      override dragStart(ctx: DragContext): void {
-        const oop = this.stage.getObjectsUnderPoint(this.stage.mouseX, this.stage.mouseY, 2);
-        if (oop[0].parent.parent != (this.baseShape)) {
-          this.stopDrag(); // cancel/ignore residual o.target binding //FighterIcon.dragStart({this.id}) --> stopDrag() [not under mouse]
-          return;
-        }
-        this.isDragging = true;
-      }
-      // FighterIcon spawns a MoveableFighter when it drags:
-      override dragFunc(hex?: Hex2, ctx?: DragContext): void {
-        if (!this.isDragging) return;   // only one mover per dragStart
-        const pt = this.parent.localToLocal(this.x, this.y, this.fot);
-        if (dist(pt) < this.baseShape.hexRad * 1.5) return;  // has not been dragged very far.
-        const pxy = { x: this.x, y: this.y };          // before dropFunc moves to (0,0)
-        this.stopDrag(this.fotHex);  // !ctd; so there is no click; just stops sending pressmove
-        // this.player.gamePlay.table.dragger.invokeClickr(this); // click to drop: leave Icon on FoT
-        // this.dragMover(ctx!);
-      }
-
-      /** true when Icon is dragging (dist < radius) */
-      isDragging = false;    // true from dragFunc() --> dropMe()
-      clickToDrop(evt: MouseEvent) {
-        if (this.isDragging) {
-          console.log(stime(this, `.clickToDrop: --> dropMe()`))
-          this.dropMe();
-        }
-        evt.stopPropagation();   // do not clickToDrag the tile!
-      }
-      dropMe(ctx?: DragContext) {
-         // table.dropFunc(tile , info? [ignored], hex = hexUnderObject())
-        this.player.gamePlay.table.dropFunc(this, ctx?.info);
-        // table.dropFunc0() --> { tile.dropFunc(); tile.markLegal(table); table.dragContext.tile = undefined; }
-      }
-      override dropFunc(targetHex: IHex2, ctx: DragContext): void {
-        this.isDragging = false;
-        this.x = this.y = 0;  // restore to original place on FoT
-        this.fot.addChild(this);
-      }
-
-      dragMover(ctx: DragContext) {
-        const mf = new MoveableFighter(this);
-        const table = this.player.gamePlay.table;
-        const dragger = table.dragger;
-        dragger.makeDragable(mf);      // mf.makeDragable(this.player.gamePlay.table); // without clickToDrag()
-        table.startDragging(mf, ctx.info.dxy); // dragger.dragTarget(mf, ctx.info.dxy)
       }
     }
 
@@ -257,6 +214,11 @@ export class FactionOnTile extends NamedContainer {
   }
 
   // methods to add/remove elements
+  /**
+   * Add or Remove a Leader from FoT
+   * @param ldr
+   * @param add true/false => add/remove
+   */
   addLeader(ldr: Leader, add = true) {
     if (add) {
       if (!this.leaders.includes(ldr)) {
@@ -510,16 +472,19 @@ export class ChaosTile extends MapTile {
     return false;   // User/GUI cannot rearrange MapTile
   }
 
-  // Delegate FoT actions to the associated FoT: TODO: set FoT location on creation, not every fot.update!
+  // Delegate FoT actions to the associated FoT.
   getFoT(player: Player) {
     return this.factions[player.index] ?? (this.factions[player.index] = new FactionOnTile(player, this));
   }
+  /** add or remove Leader on FoT */
   addLeader(ldr: Leader, add?: boolean) {
     this.getFoT(ldr.player).addLeader(ldr, add)
   }
+  /** add or remove n Figheters onn FoT */
   addFighter(player: Player, n = 1 ) {
     this.getFoT(player).addFighter(n)
   }
+  /** add or remove a Building on FoT (graphically on ctile.foundations) */
   addBuilding(bldg: ChaosBuilding, add?: boolean) {
     this.getFoT(bldg.player).addBuilding(bldg, add)
   }
