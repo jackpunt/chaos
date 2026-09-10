@@ -183,7 +183,7 @@ export class FactionOnTile extends NamedContainer {
 
   makeFighterIcon() {
     /** distance from origin */
-    const dist = (pt: XY) => Math.sqrt(pt.x * pt.x + pt.y * pt.y)
+    function dist(pt: XY) { return Math.sqrt(pt.x * pt.x + pt.y * pt.y) }
     // Fighter.baseShape.counter ISA NumCounterHex with clickToInc:
     const FighterIcon = class extends Fighter {
       override makeShape(fontSize?: number): FighterCounter {
@@ -201,20 +201,30 @@ export class FactionOnTile extends NamedContainer {
         const fromHex = this.fotHex;
         return toHex == fromHex || !!fromHex?.linkHexes.includes(toHex);
       }
+      override dragStart(ctx: DragContext): void {
+        const oop = this.stage.getObjectsUnderPoint(this.stage.mouseX, this.stage.mouseY, 2);
+        if (oop[0].parent.parent != (this.baseShape)) {
+          this.stopDrag(); // cancel/ignore residual o.target binding //FighterIcon.dragStart({this.id}) --> stopDrag() [not under mouse]
+          return;
+        }
+        this.isDragging = true;
+      }
       // FighterIcon spawns a MoveableFighter when it drags:
       override dragFunc(hex?: Hex2, ctx?: DragContext): void {
-        this.isDragging = true;
+        if (!this.isDragging) return;   // only one mover per dragStart
         const pt = this.parent.localToLocal(this.x, this.y, this.fot);
-        if (dist(pt) < this.baseShape.hexRad) return;  // has not been dragged very far.
-        this.stopDrag(this.fotHex);  // ctd --> dispatchClick(this) [mouseup?] --> ? dropFunc() ?
-        // this.player.gamePlay.table.dragger.stopDrag()
-        this.dropMe(ctx);
-        this.dragMover(ctx!);
+        if (dist(pt) < this.baseShape.hexRad * 1.5) return;  // has not been dragged very far.
+        const pxy = { x: this.x, y: this.y };          // before dropFunc moves to (0,0)
+        this.stopDrag(this.fotHex);  // !ctd; so there is no click; just stops sending pressmove
+        // this.player.gamePlay.table.dragger.invokeClickr(this); // click to drop: leave Icon on FoT
+        // this.dragMover(ctx!);
       }
 
-      isDragging = false;
+      /** true when Icon is dragging (dist < radius) */
+      isDragging = false;    // true from dragFunc() --> dropMe()
       clickToDrop(evt: MouseEvent) {
         if (this.isDragging) {
+          console.log(stime(this, `.clickToDrop: --> dropMe()`))
           this.dropMe();
         }
         evt.stopPropagation();   // do not clickToDrag the tile!
@@ -222,10 +232,10 @@ export class FactionOnTile extends NamedContainer {
       dropMe(ctx?: DragContext) {
          // table.dropFunc(tile , info? [ignored], hex = hexUnderObject())
         this.player.gamePlay.table.dropFunc(this, ctx?.info);
-        // table.dropFunc0() --> { tile.dropFunc(); tile.markLegal(table); ... }
-        this.isDragging = false;
+        // table.dropFunc0() --> { tile.dropFunc(); tile.markLegal(table); table.dragContext.tile = undefined; }
       }
       override dropFunc(targetHex: IHex2, ctx: DragContext): void {
+        this.isDragging = false;
         this.x = this.y = 0;  // restore to original place on FoT
         this.fot.addChild(this);
       }
@@ -235,7 +245,6 @@ export class FactionOnTile extends NamedContainer {
         const table = this.player.gamePlay.table;
         const dragger = table.dragger;
         dragger.makeDragable(mf);      // mf.makeDragable(this.player.gamePlay.table); // without clickToDrag()
-        // table.stopDragging(ctx.targetHex); // leave this icon on FoT; dragger.stopDrag() & data.dragStopped = true;
         table.startDragging(mf, ctx.info.dxy); // dragger.dragTarget(mf, ctx.info.dxy)
       }
     }
@@ -527,6 +536,7 @@ export class BaseTile extends ChaosTile {
     image.x -= TP.hexRad * .15;
     image.y += TP.hexRad * .4;
     this.addChild(image)
+    this.rightClickable((evt) => {console.log(stime(this, `.onRightClick: button=`), evt.nativeEvent.button)})
   }
  override addHarvest() {
     const icon = bonusIcon(this.harvest)!;
