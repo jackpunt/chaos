@@ -133,6 +133,9 @@ export class ChaosMeeple extends Meeple {
 
   /** invoke from startDrag() to prevent movement */
   stopDrag(targetHex?: Hex2) {
+    const table = this.player.gamePlay.table, test = true;
+    if (test && (table.dragger.dragCont.getChildAt(0) != this)) debugger;
+    // --> dragger.stopDrag(); which looks at dragCont.children[0]
     this.player.gamePlay.table.stopDragging(targetHex)
   }
 
@@ -196,6 +199,7 @@ export class MoveableFighter extends Fighter { // ISA ChaosUnit > Tile
   constructor(fighter: Fighter) {
     const player = fighter.player;
     super(`${fighter.Aname}:mover`, fighter.fot); // the source FoT
+    this.Aname = `${fighter.Aname}:mover-${this.id}`;
     this.srcHex = this.fromHex = fighter.fotHex;
     this.textVis(false);
     this.counter.mouseEnabled = true;  // ?  for mousemove ?
