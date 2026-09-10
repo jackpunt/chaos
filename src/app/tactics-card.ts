@@ -180,7 +180,8 @@ export class TacticsCard extends Tile {
   /** look for LegalMark in curPlayer.panel.cardPanel */
   hexUnderObj(dragObj: DisplayObject, legalOnly = true) {
     const mapCont = this.gamePlay.curPlayer.panel.mapCont;   // == panel.cardPanel
-    const dxy = dragObj.DragData?.dragInfo?.dxy ?? { x: 0, y: 0 };
+    const data = this.gamePlay.table.dragger.getDragData(dragObj);
+    const dxy = data?.dragInfo?.dxy ?? { x: 0, y: 0 };
     const pt = dragObj.parent.localToLocal(dragObj.x + dxy.x, dragObj.y + dxy.y, mapCont.markCont);
     // as if hexUnderPoint(py.x, pt.y, legalOnly) {
     const mark = mapCont.getObjectUnderPoint(pt.x, pt.y, 1); // find mark on PlayerPanel.cardPanel
