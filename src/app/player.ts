@@ -10,7 +10,7 @@ import { Faction, factionColors, type FactionId, type FactionName } from "./fact
 import { BgFound, Foundation } from "./foundation";
 import { type Battle, type GamePlay } from "./game-play";
 import { type PlayerId } from "./game-state";
-import { ChaosPresence, Factory, Leader, Outposts, PriceToken, PTokenShape, Rhyzu, Stronghold, type ChaosUnitType, type PriceId } from "./meeples";
+import { ChaosBuilding, ChaosPresence, ChaosUnit, Factory, Leader, Outposts, PriceToken, PTokenShape, Rhyzu, Stronghold, type ChaosUnitType, type PriceId } from "./meeples";
 import { ResearchCell, ResGrid } from "./research-cell";
 import { bonusIcon, CO, pricePhases } from "./table-params";
 import { CardBack, CardHex, CardPanel, TacticsCard } from "./tactics-card";
@@ -140,19 +140,24 @@ export class Player extends PlayerLib {
   }
 
   /** units providing presence on map */
-  get presence() { return this.allOnMap(ChaosPresence) } // player.allOnMap(ChaosPresence)
+  get presence() { return this.allOf(ChaosPresence) } // player.allOnMap(ChaosPresence)
+
+  /** Tiles constaining Units or Buildings of this Player */
+  get inRegions() { return this.presence.map(pres => pres.inRegion).filter(reg => reg !== undefined)}
+  /** Tiles constaining Units or Buildings of this Player */
+  get regionSet() { return [...new Set(this.inRegions)] }
 
   /** where player has presence but not control (multip players present) */
-  get conflict() { return [] as Hex2[] } // presence.filter( !control )
+  get conflict() { return [] as ChaosTile[] } // presence.filter( !control )
 
   /** where player has presence and no conflict */
-  get control() { return [] as Hex2[] }  // presence.filter( ... )
+  get control() { return [] as ChaosTile[] }  // presence.filter( ... )
 
   /** Hex2[] on which to place Tiles */
 
-  // /** all Buildings on panel? make racks for each Building type? use simple array/stack? */
-  get units() { return /*this.unitRack.map(hex => hex.tile) */ [] }
-  get buildings() { return this.panel.buildingHomes}
+  get units() { return this.allOf(ChaosUnit) }
+  /** all Buildings(player) on the map */
+  get buildings() { return this.allOf(ChaosBuilding)}
 
   /** shortcut to panel.cardRack */
   get cardRack() { return this.panel.cardRack; }
@@ -221,7 +226,7 @@ export class Panel extends PlayerPanel {
   // QQQ: is UnitRack based on Hex2[] or TileSource?
   // ANS: Hex2[], and ChaosMeeple has specialized unit.sendHome()
   readonly unitHomes: Partial<Record<ChaosUnitType, Hex2[]>> = {};
-  readonly buildingHomes: Hex2[][] = [];  // fill per spec -> Building.homeAry
+  readonly bgFoundHomes: Hex2[][] = [];  // fill per spec -> Building.homeAry [TBD...]
 
   /** the 'hand' of TacticsCards */
   readonly cardRack: CardHex[] = [];

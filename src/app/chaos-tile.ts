@@ -1,13 +1,13 @@
 import { C, permute, removeEltFromArray, S, stime, type XY } from "@thegraid/common-lib";
-import { AliasLoader, NamedContainer, type Paintable, RectShape } from "@thegraid/easeljs-lib";
-import type { DisplayObject, MouseEvent } from "@thegraid/easeljs-module";
-import { type DragContext, H, type Hex1, type HexDir, HexShape, type IHex2, MapTile, Player as PlayerLib, type Table, TP } from "@thegraid/hexlib";
+import { AliasLoader, NamedContainer, type Paintable, PolyShape, RectShape } from "@thegraid/easeljs-lib";
+import type { DisplayObject } from "@thegraid/easeljs-module";
+import { type DragContext, H, type Hex1, type HexDir, HexShape, type IHex2, MapTile, type NumCounter, Player as PlayerLib, type Table, TP } from "@thegraid/hexlib";
 import { type ChaosHex2, type ChaosHex2 as Hex2, type HexMap2 } from "./chaos-hex";
 import { type ChaosTable } from "./chaos-table";
 import { type Faction } from "./factions";
 import { Foundation } from "./foundation";
 import type { GamePlay } from "./game-play";
-import { AI_Trap, ChaosBuilding, Factory, Fighter, FighterCounter, Leader, Morale, MoveableFighter, Outposts, Relic, Stronghold } from "./meeples";
+import { AI_Trap, ChaosBuilding, ChaosToken, Factory, Fighter, FighterCounter, Leader, Morale, Outposts, Relic, Stronghold } from "./meeples";
 import type { Player } from "./player";
 import type { FactionOnTileState } from "./scenario-parser";
 import { bonusIcon, CO } from "./table-params";
@@ -137,31 +137,56 @@ const colorOfTerrain: Record<TERRAIN, string> = {
   Ldr: C.WHITE,
 }
 
+class MoveShape extends ChaosToken {
+  constructor(player: Player, vis = true) {
+    super(`FoT_${player.facId}-mover`, player)
+    this.paint(C.nameToRgbaString(this.player.color, .2))
+    this.makeDragable(player.gamePlay.table);
+    this.visible = vis;  // only visible in Move phase
+  }
+  override makeShape(size?: number) {
+    const rad = TP.hexRad * .2, fillc = C.WHITE;
+    return new  PolyShape({ rad, nsides: 6, fillc })
+  }
+}
 
-/** per-Player bits on map Tile/Hex; add one for each Faction, in apprpriate place
+
+/** per-Player bits in Region/ChaosTile; add one for each Player, in apprpriate place.
  *
- * @param player: indicates color of glyphs and sector (unless tile.isBase) for this Faction
+ * @param player: indicates color of glyphs and sector (unless tile.isBase) for the Faction
  * @param tile: parent of FoT; (glyphs are on overCont above tile)
  */
 export class FactionOnTile extends NamedContainer {
 
+  buildings: ChaosBuilding[] = [];      // if this Faction has buildings on tile
+  /**  number of fighters on tile */
+  get fighters() { return this.fighterCounter.value };
+  set fighters(n: number) { this.fighterCounter.value = n }
   leaders: Leader[] = [ ];              // 2+ slots (own + Rhyzu), Zcharo: 4, Oxytaya: 4
-  fighters = 0;                         // number of fighters in slot, followed by Leader(s)
   strength = 0;                         // Apparent strength of Faction
   pins = 0;
-  buildings: ChaosBuilding[] = [];      // if this Faction has buildings on tile
 
   get facId() { return this.player.facId; }
   get index() { return this.player.index; }
 
+  player: Player;
+  tile: ChaosTile;
   fighterIcon: Fighter;
+  fighterCounter: NumCounter;
+  moveShape: MoveShape;
 
-  constructor(public player: Player, public tile: ChaosTile) {
+  constructor(player: Player, tile: ChaosTile) {
     super(`FoT_${player.facId}-${tile.Aname}`);
+    this.player = player;
+    this.tile = tile;
     this.setXY();   // move to sector for player
+    // QQQ: how can makeFighterIcon do addChildOver() before tile.addChild(this)?
     this.fighterIcon = this.makeFighterIcon();  // a new Fighter() with Counter
+    this.fighterCounter = this.fighterIcon.baseShape.counter;
     this.tile.reCache(0);
     this.tile.addChild(this);
+    this.moveShape = new MoveShape(player, false);
+    this.addChild(this.moveShape);  // update after BaseTile moves...
   }
   override addChild(dObj: DisplayObject) {
     return this.addChildOver(dObj);
@@ -237,7 +262,6 @@ export class FactionOnTile extends NamedContainer {
 
   addFighter(n = 1) {
     this.fighters = Math.max(0, this.fighters + n);
-    this.fighterIcon.baseShape.counter.value = this.fighters;
     this.update();
   }
 
@@ -346,8 +370,10 @@ export class FactionOnTile extends NamedContainer {
 }
 
 
-/** MapTile
- * ChaosTile: Tile with Terrain & Harvest icon.
+/**
+ * A MapTile with Terrain & Harvest icon; AKA: Region
+ *
+ * Has a FactionOnTile(player) for each Faction present.
  *
  * also: the extension tiles: 3 each of Yellow, Blue, Red
  *
@@ -374,7 +400,7 @@ export class ChaosTile extends MapTile {
   harvest!: HARVEST;          // can place harvest buff token to change
   harvest_buff?: HARVEST;     // TODO: need additional HARVEST types
 
-  /** hold all the Faction Units; index by FactionId (or PlayerId?) */
+  /** Details of Faction Presence on Tile; index by PlayerId */
   factions: FactionOnTile[] = [];
 
   /** set if there is a Relic on this Tile; */
@@ -472,10 +498,16 @@ export class ChaosTile extends MapTile {
     return false;   // User/GUI cannot rearrange MapTile
   }
 
-  // Delegate FoT actions to the associated FoT.
+  /** return the FoT(player) if this tile has one. */
+  hasFot(player:Player) {
+    return this.factions[player.index]
+  }
+
+  /** get FoT(player) creating it if mecessary */
   getFoT(player: Player) {
     return this.factions[player.index] ?? (this.factions[player.index] = new FactionOnTile(player, this));
   }
+  // Delegate FoT actions to the associated FoT.
   /** add or remove Leader on FoT */
   addLeader(ldr: Leader, add?: boolean) {
     this.getFoT(ldr.player).addLeader(ldr, add)

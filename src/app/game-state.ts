@@ -86,7 +86,7 @@ export class GameState extends GameStateLib {
     super.start(startPhase, startArgs);
   }
 
-  override startPhase = 'PlaceBase';
+  override startPhase = 'Move'; // TODO: 'PlaceBase'
   override startArgs: any[] = [];
 
   // this.gamePlay.curPlayer
@@ -265,6 +265,7 @@ export class GameState extends GameStateLib {
         this.doneButton('Move');
         // for each MovePoint: click to drop 'move actions' on hex border from src to dest region
         // adjust nFighters, annotate with Leaders that also Move
+        this.gamePlay.moveFaction(this.curPlayer.faction); // then call gameState.phase.done()
        },
       done: () => this.startOrPhase('Combat', undefined, true), // first time: set lBI
     },

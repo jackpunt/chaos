@@ -4,6 +4,7 @@ import { GamePlay as GamePlayLib, SetupElt, TP as TPLib } from "@thegraid/hexlib
 import type { HexMap2 } from "./chaos-hex";
 import type { ChaosTable } from "./chaos-table";
 import type { BONUS, ChaosTile, TERRAIN } from "./chaos-tile";
+import type { Faction } from "./factions";
 import { BgFound } from "./foundation";
 import type { GameSetup } from "./game-setup";
 import { GameState, type PlayerId } from "./game-state";
@@ -152,17 +153,17 @@ export class GamePlay extends GamePlayLib {
   // SetPrices: Move --> FlareGun (gunPlayer) [8/26]
   // SetPrices: Recurit, Build, MoveLast --> Energy & Gem & Card [8/26]
   // Each Phase: start with Pricer (or Neutral --> gunPlayer) [8/26]
-  // Each Phase: player to pay or pass
+  // Each Phase: player to pay or pass; pay for auxillary
   // Discover: advancement bonus; give E,G,C; Move(3) R2;
   // Discover: present Production Tokens, allow selection & placement for Harvest(2); Build(1,3) Foundation
   // Discover: click to select Primary & Auxillary Research. (inc ResearchLevel)
   // Build: D&D a Foundation; D&D a Building; w/gemLocks
   // Harvest: click-to-Harvest (enable eligble Regions)
   // Recruit: click-to-Recruit (Oxataya: option to move Fighters to Strongholds)
-  // Recruit: select Leader
+  // Recruit: Aux: select/deploy (& pay gem) Leader
   // Move: select & show 'bridge' between src->dest Region.
   // Move: select warriors & Leaders, Drag to next Region.
-  // Move: select Leader card to upgrade.
+  // Move: Aux: select Leader card to upgrade (& pay gem).
   // Combat: choose opponent; choose wheel, card; commit --> reveal, (Ochara!)
   // Combat: auto resolve, remove casualties/buildings, assign Fame (AI, Zcharo, JReyak, Oxataya)
   // Combat: GUI for Retreat/Redeploy
@@ -172,6 +173,17 @@ export class GamePlay extends GamePlayLib {
   // Income: Faction specific Income: Ley,
   // Relics: Win?; assign Relic do Bonus (Research, Upgrade-Circadian)
   // ... next round
+
+  moveFaction(faction: Faction) {
+    const player = faction.player;
+    const regions = faction.player.regionSet;
+    regions.forEach(reg => {
+      reg.getFoT(player).moveShape.visible = true;
+    })
+    // TODO: D&D stuff for MoveShape
+    // TODO: after 'done' find & clear all the MoveShape on all MapTile
+    // start() -> saveState(player, phase); state.restart() -> restore state(player, phase)
+  }
 
   findBattles(pid: PlayerId) {
     return [] as Battle[];

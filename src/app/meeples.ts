@@ -140,10 +140,16 @@ export class ChaosMeeple extends Meeple {
   }
 
 }
-/** marker class denoting Faction presence in a Region: ChaosUnit (Fighter, Leader) & ChaosBuilding */
-export class ChaosPresence extends ChaosMeeple {}
 
-class ChaosUnit extends ChaosPresence {
+/** A ChaosMeeple denoting Faction presence in a Region: ChaosUnit (Fighter, Leader) & ChaosBuilding */
+export class ChaosPresence extends ChaosMeeple {
+  /** @returns ChaosTile if presense is on the map. */
+  get inRegion(): ChaosTile | undefined {
+    return undefined;
+  }
+}
+
+export class ChaosUnit extends ChaosPresence {
 }
 
 /** a hexagonal shape around counter value */
@@ -189,6 +195,10 @@ export class Fighter extends ChaosUnit {
   declare baseShape: FighterCounter;
   get counter() { return this.baseShape.counter }
   get fotHex() { return this.fot?.tile.hex as Hex2 }
+  override get inRegion() {
+    // as if BaseTile.hex.isOnMap
+    return this.counter.value > 0 ? this.fot.tile : undefined;
+  }
 
   constructor(Aname: string, public fot: FactionOnTile) {
     super(Aname, fot.player)
@@ -247,7 +257,7 @@ export class MoveableFighter extends Fighter { // ISA ChaosUnit > Tile
 
 // These are more Tile-like: See also: Foundation (TODO: merge)
 /** subclass may have a slot on ChaosHex, but does not confer faction 'presence' */
-class ChaosToken extends Tile {
+export class ChaosToken extends Tile {
   declare gamePlay: GamePlay;
   declare player: Player;
   homeXY!: XY;                // sendHome location, if needed
@@ -420,6 +430,10 @@ export class Leader extends ChaosUnit implements LeaderSpec {
     this.upPlace = (name == 'Injura' ? 2 : name == 'Demo' ? 0 : isRhyzu ? 0 : 1);
     this.card = this.makeCard();
     this.rightClickable()
+  }
+
+  override get inRegion(): ChaosTile | undefined {
+    return this.factOnTile?.tile.chex.isOnMap ? this.factOnTile?.tile : undefined;
   }
 
   // make card visible, and scale up:
@@ -814,6 +828,10 @@ export class ChaosBuilding extends ChaosPresence {
     super(Aname, player);
     this.homeAry = homeAry;
     this.nameText.y += this.radius/4;
+  }
+
+  override get inRegion(): ChaosTile | undefined {
+    return this.found.hex?.isOnMap ? (this.found.hex as Hex2).tile : undefined
   }
 
   override makeShape(size = this.radius/2): Paintable {
@@ -1245,7 +1263,7 @@ export class PriceToken extends ChaosMeeple {
       const priceIndex = this.gamePlay.table.priceHex.findIndex(ph => ph == targetHex)
       this.setTokenOnPhase(priceIndex);
       // do not advance state when Shift used by alternate player...
-      if (this.player == this.gamePlay.curPlayer) {
+      if (this.gamePlay.isPhase('SetPrices') && this.player == this.gamePlay.curPlayer) {
         this.gamePlay.gameState.state.done!(this.player.index);
       }
     }
