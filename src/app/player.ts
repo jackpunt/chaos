@@ -557,6 +557,7 @@ export class Panel extends PlayerPanel {
           // if (spec.r3 == 'C') draw a card into hand
           const card = this.player.gamePlay.table.takeCard();
           this.cardPanel.addCard(card);
+          this.toggleCards(true);
           this.stage.update()
         }
       }
@@ -587,7 +588,8 @@ export class Panel extends PlayerPanel {
       } else {
         const rcb = addButton(`->`, rc.x + dx/2, 0);
         rcb.on('click', () => {
-          if (ravail.value > 1) {
+          if (ravail.value > 0 && rctrs[i].value > 0) {
+            ravail.incValue(-1);
             rctrs[i].incValue(-1);
             rctrs[i+1].incValue(1);
           }
@@ -712,12 +714,14 @@ export class Panel extends PlayerPanel {
     cButton.x = x0 + s1 * 1;
     cButton.y = y0 + s1 * 3.8; //height - 1.7 * dydr;
     this.addChild(cButton);
-    cButton.on('click', () => {
-      cardPanel.visible = !cardPanel.visible;  // toggle visibility
-      this.avail.visible = !cardPanel.visible; // cardPanel & avail mutually exclusive
-      this.stage.update()
-    })
+    cButton.on('click', () => this.toggleCards());
     return cardPanel;
+  }
+  toggleCards(vis = !this.cardPanel.visible) {
+    const cardPanel = this.cardPanel;
+    cardPanel.visible = vis;                 // toggle visibility
+    this.avail.visible = !cardPanel.visible; // cardPanel & avail mutually exclusive
+    this.stage.update();
   }
 
   priceTokens = [] as PriceToken[];

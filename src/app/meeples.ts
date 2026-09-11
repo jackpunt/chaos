@@ -170,7 +170,11 @@ export class FighterCounter extends PaintableCont {
   constructor(player?: Player, name = 'FighterBaseShape', fontSize = TP.hexRad * .2) {
     super(name);
     const color = player?.color;
-    const counter = new NumCounterHex('fighters', 0, color, fontSize);
+    const counter = new class extends NumCounterHex {
+      override incValue(incr: number): void {
+        super.incValue(incr < 0 ? Math.max(incr, -this.value) : incr)
+      }
+    }('fighters', 0, color, fontSize);
     this.counter = counter;
     this.addChild(counter);
     this.hexRad = counter.boxSize().width;
