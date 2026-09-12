@@ -86,7 +86,7 @@ export class GameState extends GameStateLib {
     super.start(startPhase, startArgs);
   }
 
-  override startPhase = 'Move'; // TODO: 'PlaceBase'
+  override startPhase = 'PlaceBaseAndMove'; // TODO: 'PlaceBase'
   override startArgs: any[] = [];
 
   // this.gamePlay.curPlayer
@@ -148,6 +148,26 @@ export class GameState extends GameStateLib {
 
   /** define this.states */
   override readonly states: { [index: string]: Phase } = {
+    PlaceBaseAndMove: {
+      // start(-1) ==> consider from Oxataya
+      start: (pid = -1) => {         // and look backward from there
+        const plyr = this.vaultPlayerBeforePid(pid)!; // last player in vault list, before pid (highest facId)
+        if (plyr) {
+          this.setCurPlayerNdx(plyr.index);
+          this.doneButton(`PlaceBase: ${plyr.facName}`); // no args? no data?
+          this.curPlayer.autoPlaceBase(()=>this.table.doneClicked());
+        } else {
+          this.gunPlayer = this.gamePlay.allPlayers[pid];  // last to place Base is first with the Gun.
+          this.phase('Move');
+        }
+      },
+      // done(this.player.index)
+      done: (pid = this.curPlayer.index) => {
+        this.state.start(pid); // loop for each player
+      }
+    },
+
+
     PlaceBase: {
       // start(-1) ==> consider from Oxataya
       start: (pid = -1) => {         // and look backward from there

@@ -1,4 +1,4 @@
-import { arrayN, C, Constructor, stime, type XY } from "@thegraid/common-lib";
+import { arrayN, C, Constructor, permute, stime, type XY } from "@thegraid/common-lib";
 import { AliasLoader, CenterText, CircleShape, NamedContainer, RectShape, TextInRect, UtilButton, type Paintable, type PaintableShape } from "@thegraid/easeljs-lib";
 import type { DisplayObject } from "@thegraid/easeljs-module";
 import { HexMap, LegalMark, newPlanner, NumCounter, Player as PlayerLib, PlayerPanel, TP, type IHex2, type MapCont, type Tile } from "@thegraid/hexlib";
@@ -188,6 +188,16 @@ export class Player extends PlayerLib {
     const cards = this.cards.map(card => card?.name);
     const recruits = this.panel.recruits.map(ctr => ctr.value);
     return {coins, gems, cards, recruits }
+  }
+
+  // find a 'Base' tile on map and move (D&D) our BaseTile to it.
+  autoPlaceBase(doneFunc: () => void) {
+    const emptyHexes = this.gamePlay.hexMap.filterEachHex(hex => !hex.tile); // suitable for placing a Base tile
+    const targetHex = permute(emptyHexes)[0];
+    const baseTile = this.panel.baseTile;
+    this.gamePlay.table.dragStartAndDrop(baseTile, targetHex);
+    // base.dropFunc(targetHex, {} as DragContext); // drop & placeFoundationsAndLink do not use ctx.
+    setTimeout(doneFunc, 300);
   }
 
   chooseBattle(battles: Battle[], cb: (battle: Battle) => void) {
