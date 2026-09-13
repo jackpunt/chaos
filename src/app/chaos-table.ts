@@ -78,7 +78,7 @@ export class ChaosTable extends Table {
     this.addDoneButton();
     this.doneButton.label.font = F.fontSpec(this.sr(20));
     this.doneButton.label.lineWidth = TP.hexRad * 1.15;
-    this.setToRowCol(this.doneButton, 1.3, 5.9);
+    this.setToRowCol(this.doneButton, 1.48, 5.9);
 
     this.vault = this.makeTokenVault();
     this.makeNeutralPanel();    // See also: Panel.layoutNeutralPanel()
@@ -92,21 +92,13 @@ export class ChaosTable extends Table {
 
   cardBack!: CardBack;    // created & set from tactics-card.makeCardSources
 
-  /**
-   * Do whatever when DoneButton is clicked; --> phaseDone()
-   */
+  // override to place on overCont and activate.
   override addDoneButton() {
     const cont = this.hexMap.mapCont.overCont;
     const rv = super.addDoneButton(cont, 0, 0); // see: gameState.doneButton('Done')
-    this.orig_doneClick = this.orig_doneClick ?? this.doneClicked; // override
-    this.doneClicked = (evt) => {
-      // insert advice to doneClicked here:
-      this.orig_doneClick(evt);          // this.gamePlay.phaseDone();
-    };
     this.doneButton.activate(true)
     return rv;
   }
-  orig_doneClick!: (evt?: any) => void;
 
   override get panelHeight() { return Math.max(super.panelHeight, 3.8) }
   override get panelWidth() { return 7 }
@@ -167,7 +159,6 @@ export class ChaosTable extends Table {
 
   override startGame() {
     super.startGame();         // allTiles.makeDragable(); setNextPlayer()
-    this.gamePlay.gameState.start();   // gamePlay.phase(startPhase); enable GUI to drive game
   }
 
 
