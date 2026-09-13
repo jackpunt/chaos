@@ -31,6 +31,7 @@ export class GameState extends GameStateLib {
   }
 
   // presumably this highlights the proper Faction/Panel
+  // TODO: ChaosTable should override setNextPlayer() hexlib does way too much.
   setCurPlayerNdx(ndx = this.gunPlayer.index) {
     this.gamePlay.setCurPlayer(this.gamePlay.allPlayers[ndx]);
     return ndx;
@@ -82,7 +83,7 @@ export class GameState extends GameStateLib {
   override start(startPhase?: string, startArgs?: any[]): void {
     this.nPlayers = this.gamePlay.allPlayers.length;
     this.playerByFacId = factionNames.map((fn, facId) => this.gamePlay.allPlayers.find(plyr => (plyr.facId == facId)))
-    this.gunPlayer = this.playerByFacId.find(plyr => plyr !== undefined)!;
+    this.gunPlayer = this.playerByFacId.find(plyr => plyr !== undefined)!; // first/lowest numbered faction
     super.start(startPhase, startArgs);
   }
 
@@ -137,6 +138,11 @@ export class GameState extends GameStateLib {
     return;
   }
 
+  // provide common default label:
+  override doneButton(label = `${this.state.Aname}:\n${this.curPlayer.facName}`, color?: string, afterPopup?: () => void) {
+    return super.doneButton(label);
+  }
+
   yesDone = () => { setTimeout(() => this.done(true), 50); }
   reStart = () => { setTimeout(() => this.state.start(), 50); }
 
@@ -154,7 +160,7 @@ export class GameState extends GameStateLib {
         const plyr = this.vaultPlayerBeforePid(pid)!; // last player in vault list, before pid (highest facId)
         if (plyr) {
           this.setCurPlayerNdx(plyr.index);
-          this.doneButton(`PlaceBase: ${plyr.facName}`); // no args? no data?
+          this.doneButton(`PlaceBase:\n${plyr.facName}`); // no args? no data?
           this.curPlayer.autoPlaceBase(()=>this.table.doneClicked());
         } else {
           this.gunPlayer = this.gamePlay.allPlayers[pid];  // last to place Base is first with the Gun.
@@ -174,7 +180,7 @@ export class GameState extends GameStateLib {
         const plyr = this.vaultPlayerBeforePid(pid)!; // last player in vault list, before pid (highest facId)
         if (plyr) {
           this.setCurPlayerNdx(plyr.index);
-          this.doneButton(`PlaceBase: ${plyr.facName}`);
+          this.doneButton();
         } else {
           this.gunPlayer = this.gamePlay.allPlayers[pid];  // last to place Base is first with the Gun.
           this.phase('PlaceRelic');
@@ -190,7 +196,7 @@ export class GameState extends GameStateLib {
       start: (index = TP.numPlayers) => {
         if (index > 0) {
           this.setCurPlayerNdx(index - 1 as PlayerId);
-          this.doneButton(`PlaceRelic: ${this.curPlayer.facName}`);
+          this.doneButton();
         } else {
           this.gamePlay.placeInitialRelics();
           this.phase('BeginRound', 1); // begin with Round = 1
@@ -220,7 +226,7 @@ export class GameState extends GameStateLib {
       start: (ndx = this.phaseNdx) => {
         console.log(stime(this, `SetPrices.start: ndx=${ndx}`))
         this.setCurPlayerNdx(ndx);
-        this.doneButton(`${this.state.Aname}: ${this.curPlayer.facName}`);
+        this.doneButton();
         // PriceToken.dropFunc()
       },
       done: () => {
@@ -245,7 +251,7 @@ export class GameState extends GameStateLib {
     Discovery: {
       start: (ndx = this.phaseNdx) => {
         this.setCurPlayerNdx(ndx);
-        this.doneButton(this.state.Aname);
+        this.doneButton();
         // click on ResearchCell --> done()
         // maybe buy auxilary (% or C)
       },
@@ -255,7 +261,7 @@ export class GameState extends GameStateLib {
     Build: {
       start: (ndx = this.phaseNdx) => {
         this.setCurPlayerNdx(ndx);
-        this.doneButton(this.state.Aname);
+        this.doneButton();
         // for each Build point: D&D a Building or Foundation --> done()
         // maybe buy a aux Build | Card
       },
@@ -264,7 +270,7 @@ export class GameState extends GameStateLib {
     Harvest: {
       start: (ndx = this.phaseNdx) => {
         this.setCurPlayerNdx(ndx);
-        this.doneButton('Harvest');
+        this.doneButton();
         // add Energy; for each Gear: select BONUS
         // auto if no choices
       },
@@ -273,7 +279,7 @@ export class GameState extends GameStateLib {
     Recruit: {
       start: (ndx = this.phaseNdx) => {
         this.setCurPlayerNdx(ndx);
-        this.doneButton('Recruit');
+        this.doneButton();
         // set Panel.recruit points; wait for done?
        },
       done: () => this.startOrPhase('Move'),
@@ -282,12 +288,15 @@ export class GameState extends GameStateLib {
       // TODO: discriminate MoveFirst/MoveLast; phaseNdx currently gunplayer!
       start: (ndx = this.phaseNdx) => {
         this.setCurPlayerNdx(ndx);
-        this.doneButton('Move');
+        this.doneButton();
         // for each MovePoint: click to drop 'move actions' on hex border from src to dest region
         // adjust nFighters, annotate with Leaders that also Move
         this.gamePlay.moveFaction(this.curPlayer.faction); // then call gameState.phase.done()
        },
-      done: () => this.startOrPhase('Combat', undefined, true), // first time: set lBI
+      done: () => {
+        this.gamePlay.unMoveFaction(this.curPlayer.faction);
+        this.startOrPhase('Combat', undefined, true); // first time: set lBI
+      },
     },
     Combat: {
       start: (ndx = this.phaseNdx, init: boolean = false) => {
@@ -333,7 +342,7 @@ export class GameState extends GameStateLib {
     Income: {
       start: (ndx = this.phaseNdx) => {
         this.setCurPlayerNdx(ndx);
-        this.doneButton('Income');
+        this.doneButton();
         // auto mostly? choice of E/G, G/%
         // Region Bonus: (C + E), redeploy, select Attribute card(s) | Gems
         // Leyrien
