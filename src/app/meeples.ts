@@ -1,7 +1,7 @@
 import { C, F, S, stime, type XY, type XYWH } from "@thegraid/common-lib";
 import { CenterText, CircleShape, EllipseShape, NamedContainer, PathShape, PolyShape, RectShape, TextInRect, type Paintable, type PaintableShape, type RectWithDispOptions, type TextInRectOptions } from "@thegraid/easeljs-lib";
 import { Container, Graphics, MouseEvent, Rectangle } from "@thegraid/easeljs-module";
-import { Meeple, MeepleShape, NumCounterBox, Tile, TP, type DragContext, type Hex, type HexM, type IHex2 } from "@thegraid/hexlib";
+import { Meeple, MeepleShape, NumCounterBox, rightClickable, Tile, TP, type DragContext, type Hex, type HexM, type IHex2 } from "@thegraid/hexlib";
 import { CardShape } from "./card-shape";
 import { TokenHex, type ChaosHex2 as Hex2, type HexMap2 } from "./chaos-hex";
 import { ChaosTile, type BONUS, type FactionOnTile, type TERRAIN } from "./chaos-tile";
@@ -155,7 +155,9 @@ export class ChaosUnit extends ChaosPresence {
 /** a hexagonal shape around counter value */
 class NumCounterHex extends NumCounterBox {
   protected override makeBox0(color: string, high: number, wide: number): PaintableShape {
-    return new PolyShape({ rad: Math.max(high, wide)/2, nsides: 6, fillc: color })
+    const rv = new PolyShape({ rad: Math.max(high, wide)/2, nsides: 6, fillc: color })
+    rightClickable(this, (evt) => this.incValueOnClick(evt, -5, -1))
+    return rv;
   }
   // Expose boxSize so we can find width (radius)
   override boxSize(text: createjs.Text = this.text): { width: number; height: number; } {
@@ -438,6 +440,7 @@ export class Leader extends ChaosUnit implements LeaderSpec {
 
   // make card visible, and scale up:
   override onRightClick(evt: MouseEvent) {
+    evt.stopImmediatePropagation();
     const tile = this.factOnTile!.tile;
     const card = this.card, parCont = tile.hex!.map.mapCont.overCont;
     this.baseShape.parent.localToLocal(this.baseShape.x, this.baseShape.y, parCont, card);
@@ -446,7 +449,7 @@ export class Leader extends ChaosUnit implements LeaderSpec {
     card.visible = true;
     card.reCache(0);
     card.stage.update();
-    card.on(S.click, () => { card.visible = false; card.reCache(0); card.stage.update()}, this, true)
+    card.on(S.click, () => { card.visible = false; card.stage.update()}, this, true)
   }
 
   /**
