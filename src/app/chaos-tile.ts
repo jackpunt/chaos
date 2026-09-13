@@ -34,6 +34,12 @@ declare module '@thegraid/easeljs-module' {
   }
 }
 
+/** distance from origin */
+function dist(pt: XY, p0={ x: 0, y: 0 }) {
+  const dx = pt.x - p0.x;
+  const dy = pt.y - p0.y;
+  return Math.sqrt(dx *  dx + dy * dy);
+}
 
 /** Graphic target to indicate which Region Pair user wants for base foundations */
 class PairTarget extends RectShape {
@@ -137,17 +143,41 @@ const colorOfTerrain: Record<TERRAIN, string> = {
   Ldr: C.WHITE,
 }
 
-class MoveShape extends ChaosToken {
-  constructor(player: Player, vis = true) {
+export class MoveShape extends ChaosToken {
+  constructor(player: Player, public srcTile: ChaosTile) {
     super(`FoT_${player.facId}-mover`, player)
     this.paint(C.nameToRgbaString(this.player.color, .2))
     this.makeDragable(player.gamePlay.table);
-    this.visible = vis;  // only visible in Move phase
+    this.visible = false;  // only visible in Move phase
   }
   override makeShape(size?: number) {
     const rad = TP.hexRad * .2, fillc = C.WHITE;
     return new  PolyShape({ rad, nsides: 6, fillc })
   }
+  override sendHome(): void {
+    this.srcTile.getFoT(this.player).addChildOver(this);
+  }
+  override dragStart(ctx: DragContext): void {
+    super.dragStart(ctx);
+    this.fromHex = this.srcTile.chex;
+  }
+  override isLegalTarget(toHex: Hex2, ctx: DragContext): boolean {
+    return this.fromHex.linkHexes.includes(toHex);
+  }
+  override dropFunc(targetHex: Hex2, ctx: DragContext) {
+    const toRegion = targetHex?.ctile;
+    if (toRegion != this.srcTile) {
+      const newPair = [this.srcTile, toRegion] as [ChaosTile, ChaosTile];
+      // if (player.movePairs.find(p =>[srcTile, toRegion] == [p.from, p.to])) return;
+      // add newPair to player.movePairs
+      // Arrow from FoT to Fot. with a FighterCounter (FC) showing number of Fighters transfered.
+      // Internally: an FoT with the moved Leaders recorded but shown only on the toRegion.
+      // click the arrow/FC to increment/decrement the by local FC and the target FC.
+
+    }
+    this.sendHome();
+  }
+
 }
 
 
@@ -185,15 +215,13 @@ export class FactionOnTile extends NamedContainer {
     this.fighterCounter = this.fighterIcon.baseShape.counter;
     this.tile.reCache(0);
     this.tile.addChild(this);
-    this.moveShape = new MoveShape(player, false);
+    this.moveShape = new MoveShape(player, tile);
     this.addChild(this.moveShape);  // update after BaseTile moves...
-  }
-  override addChild(dObj: DisplayObject) {
-    return this.addChildOver(dObj);
   }
 
   /** if (FoT.isBase) addChild(dObj) so dObj moves with Base Tile. */
-  addChildOver(dObj: DisplayObject): DisplayObject {
+  addChildOver(dObj: DisplayObject, x = 0, y = 0): DisplayObject {
+    dObj.x = x; dObj.y = y;
     if (this.isBase) {
       return super.addChild(dObj);
     } else {
@@ -207,8 +235,6 @@ export class FactionOnTile extends NamedContainer {
 
 
   makeFighterIcon() {
-    /** distance from origin */
-    function dist(pt: XY) { return Math.sqrt(pt.x * pt.x + pt.y * pt.y) }
     // Fighter.baseShape.counter ISA NumCounterHex with clickToInc:
     const FighterIcon = class extends Fighter {
       override makeShape(fontSize?: number): FighterCounter {
@@ -251,7 +277,6 @@ export class FactionOnTile extends NamedContainer {
         this.leaders.push(ldr);
         ldr.factOnTile = this;
       }
-      this.addChildOver(ldr); // on overCont or top of FoT
     } else {
       removeEltFromArray(ldr, this.leaders);
       this.removeChild(ldr)
@@ -315,6 +340,7 @@ export class FactionOnTile extends NamedContainer {
   get invert() { return -1 + (FactionOnTile.invert[this.index][TP.numPlayers - 2] ?? 0)};
   // x-offset of sector:
   get offset() { return -1 + (FactionOnTile.offset[this.index][TP.numPlayers - 2] ?? 0)};
+  /** place where we always use top-center sector */
   get isBase() { return this.tile.terrain == 'Base' || this.tile.terrain == 'Ldr' }
   /** move FoT to sector for isBase ? Base : player.index */
   setXY(rad = this.tile.radius) {
@@ -340,9 +366,7 @@ export class FactionOnTile extends NamedContainer {
       const gap = lineWidth/this.leaders.length;
       const xl = gap/2 - lineWidth/2;
       this.leaders.forEach((ldr, n) => {
-        ldr.x = xl + n * gap;
-        ldr.y = yl;
-        this.addChildOver(ldr); // to overCont or this depending on this.isBase
+        this.addChildOver(ldr, xl + n * gap, yl); // to overCont or this depending on this.isBase
       })
     }
     this.stage.update();
@@ -533,7 +557,6 @@ export class BaseTile extends ChaosTile {
     image.x -= TP.hexRad * .15;
     image.y += TP.hexRad * .4;
     this.addChild(image)
-    this.rightClickable((evt) => {console.log(stime(this, `.onRightClick: button=`), evt.nativeEvent.button)})
   }
  override addHarvest() {
     const icon = bonusIcon(this.harvest)!;
@@ -579,7 +602,9 @@ export class BaseTile extends ChaosTile {
   }
 
   override dropFunc(targetHex: Hex2, ctx: DragContext): void {
-    super.dropFunc(targetHex, ctx);
+    const dragMoved = dist(this, this.fromHex) > 1; // coordinate tranlation causes minor change
+    super.dropFunc(targetHex, ctx);     // this.placeTile(targetHex)
+    if (!dragMoved) return;  // not dragged (cantbemoved/dragStop), do not reset foundations
     if (!targetHex) return;
     this.addBaseFoundationsAndLink(targetHex, ctx);
   }
@@ -667,8 +692,9 @@ export class BaseTile extends ChaosTile {
 
   /** on this.dragStart(); undo previous placement */
   rmBaseFoundationsAndUnlink(ctx: DragContext) {
-    const hex = this.fromHex, map = hex.map as HexMap2;
-    if (!hex.isOnMap) return;
+    const hex = this.fromHex;
+    if (!hex?.isOnMap) return;
+    const map = hex.map as HexMap2;
     // remove any Mtn between hex and nHex; link thru Mtn is already removed...
     map.linkDirs.forEach(dir => {
       const nHex = map.getHex(map.nextRowCol(hex, dir));

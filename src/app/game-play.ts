@@ -175,14 +175,21 @@ export class GamePlay extends GamePlayLib {
   // ... next round
 
   moveFaction(faction: Faction) {
-    const player = faction.player;
-    const regions = faction.player.regionSet;
-    regions.forEach(reg => {
-      reg.getFoT(player).moveShape.visible = true;
+    this.moveRegions = faction.player.regionSet;
+    this.moveRegions.forEach(reg => {
+      reg.getFoT(faction.player).moveShape.visible = true;
     })
     // TODO: D&D stuff for MoveShape
     // TODO: after 'done' find & clear all the MoveShape on all MapTile
     // start() -> saveState(player, phase); state.restart() -> restore state(player, phase)
+  }
+  /** regions with moveShape.visible */
+  moveRegions!: ChaosTile[];
+
+  unMoveFaction(faction: Faction) {
+    this.moveRegions.forEach(reg => {
+      reg.getFoT(faction.player).moveShape.visible = false;
+    })
   }
 
   findBattles(pid: PlayerId) {
