@@ -1,6 +1,7 @@
 import { C, F, type WH } from "@thegraid/common-lib";
-import { CenterText, NamedContainer, RectShape } from "@thegraid/easeljs-lib";
-import type { DisplayObject } from "@thegraid/easeljs-module";
+import { CenterText, NamedContainer, RectShape, type DragInfo, type Paintable } from "@thegraid/easeljs-lib";
+import type { Container, DisplayObject } from "@thegraid/easeljs-module";
+import type { ChaosTable } from "./chaos-table";
 import { type Faction } from "./factions";
 import { CO, gemlockIcon, TP, type PricePhase } from "./table-params";
 
@@ -21,34 +22,59 @@ export const ResGrid: ResGrid = {
   Move: [['M2', 'E5:U'], ['M3', 'E5:U'], ['M4', 'E4:U', '', true], ['M5', 'E4:U', 'R2 | C'], ['M6', 'E4:U']],
 }
 
-/** Level with Graphic indicator */
+/** RectShape that appears on ResearchCell to indicate its level in the given phaseRow */
 export class ResearchLevel extends RectShape {
   _level = 0;
   get level() { return this._level }
   set level(level: number) {
     this._level = level;
-    this.cellRow[level].addChild(this);
-  }
-
-  constructor(faction: Faction, public cellRow: ResearchCell[]) {
-    const dx = TP.hexRad * .9/5-2, dy = dx;
-    super({x: -dx/2, y: -dy/2, w: dx, h: dy}, faction.player.color);
-    this.level = 0;
     // set location within ResearchCell:
     const { width, height } = this.getBounds()
-    this.x = (faction.player.index - (TP.numPlayers-1)/2) * width;
+    this.x = (this.faction.player.index - (TP.numPlayers-1)/2) * width;
     this.y = - height * .5;
+    this.phaseRow[level].addChild(this); // phaseRow contains ResearchCell
   }
+  /** parent container holding the ResearchCells. (coordinate base) */
+  refCont!: Container;
+
+  constructor(public faction: Faction, public phaseRow: ResearchCell[], level = 0) {
+    const dx = TP.hexRad * .9/5-2, dy = dx;
+    super({ x: -dx/2, y: -dy/2, w: dx, h: dy });
+    this.level = level;    // place in ResearchCell per level
+    // TODO: just click to advance curPlayer's token to next level
+    this.makeDragable(faction.player.gamePlay.table); // maybe not
+    this.paint(faction.player.color);
+  }
+
+  showTokenAtLevel(faction: Faction) {
+  }
+
+  makeDragable(table: ChaosTable) {
+    this.refCont = table.neutralPanel.researchLines;
+    table.dragger.makeDragable(this, this, this.dragFunc, this.dropFunc)
+  }
+  override_makeShape(size?: number): Paintable {
+    const dx = TP.hexRad * .9/5-2, dy = dx;
+    return new RectShape({ x: -dx/2, y: -dy/2, w: dx, h: dy })
+  }
+
+  dragFunc(dispObj: DisplayObject, info?: DragInfo): void {
+  }
+  dropFunc(dispObj: DisplayObject, info?: DragInfo): void {
+    if (!info) { debugger; return }
+    // Assert dispObj == this (unless it is a Container(this)...)
+    const parent = info.srcCont.parent; // ResearchCell holding the RectShape
+    const pt = dispObj.parent.localToLocal(dispObj.x, dispObj.y, parent); // dragCont --> parent
+    const objs = parent.getObjectsUnderPoint(pt.x, pt.y, 1).filter(obj => obj !=dispObj);
+    const rect = objs.find(obj => this.phaseRow.includes(obj.parent as ResearchCell));
+    const cell = rect?.parent as ResearchCell | undefined;
+    this.level = cell?.level ?? this.level;  // ResearchCell.addChild(this)
+  }
+
 }
 
 export class ResearchCell extends NamedContainer {
-  /** all the ResearchCells: [row=phase][col=level] */
-  static researchCells: ResearchCell[][] = [];
-
-  static initializeResearchCells(faction: Faction) {
-    const cells = ResearchCell.researchCells; // initialized in [neutral] Panel.addResearchLines()
-    return cells.map(cellrow => new ResearchLevel(faction, cellrow)) // start at level 0
-  }
+  level = 0;
 
   ps: string;      // primary
   as: string;      // auxilliary
@@ -60,8 +86,9 @@ export class ResearchCell extends NamedContainer {
   gemlock = false; // true if gemLock req'd to achieve
   gemlockIcon?: DisplayObject;
 
-  constructor(Aname: string, spec: ResSpec, public wh: WH = { width: TP.hexRad * .8, height: TP.hexRad*1 }) {
+  constructor(Aname: string, level: number, spec: ResSpec, public wh: WH = { width: TP.hexRad * .8, height: TP.hexRad*1 }) {
     super(Aname);
+    this.level = level;
     const [p, a, i, gl] = spec;
     this.ps = p;
     this.as = a;
