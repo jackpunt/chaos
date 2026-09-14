@@ -260,9 +260,9 @@ export class HexMap2 extends HexMap<ChaosHex2> {
       const tunnelFrom = (dir12: HexDir, hex1: IHex2, hex2: IHex2, fillc = C.BLUE) => {
         hex1.links[dir12] = hex2;
         hex2.links[H.dirRev[dir12]] = hex1;
-        const tilt = H.dirRot[dir12], rx = TP.hexRad * .33, ry = TP.hexRad * .4;
+        const tilt = H.dirRot[dir12], rx = TP.hexRad * .33, ry = 0;
         const icon = pentagon(rx, ry, fillc, tilt); (icon as NamedObject).Aname = 'tunnel';
-        hex1.edgePoint(dir12, 1.35, icon);
+        hex1.edgePoint(dir12, 1.1, icon);
         map.mapCont.tileCont.addChild(icon); // QQQ: Is .tileCont the correct layer?
       }
       tunnelFrom(dir12, hex1, hex2, fillc)

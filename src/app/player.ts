@@ -11,7 +11,7 @@ import { BgFound, Foundation } from "./foundation";
 import { type Battle, type GamePlay } from "./game-play";
 import { type PlayerId } from "./game-state";
 import { ChaosBuilding, ChaosPresence, ChaosUnit, Factory, Leader, Outposts, PriceToken, PTokenShape, Rhyzu, Stronghold, type ChaosUnitType, type PriceId } from "./meeples";
-import { ResearchCell, ResGrid } from "./research-cell";
+import { ResearchCell, ResearchLevel, ResGrid } from "./research-cell";
 import { bonusIcon, CO, pricePhases } from "./table-params";
 import { CardBack, CardHex, CardPanel, TacticsCard } from "./tactics-card";
 
@@ -125,7 +125,7 @@ export class Player extends PlayerLib {
     gc.x = cc.wide + 3 * gap; gc.y = cc.high / 2 + 2 * gap;
     gc.boxAlign('left');
     this.panel.addChild(gc);
-    this.faction.researchLevels = ResearchCell.initializeResearchCells(this.faction)
+    this.panel.initializeResearchLevels(this.faction);
   }
 
   /** count gems for this player */
@@ -146,6 +146,8 @@ export class Player extends PlayerLib {
   get inRegions() { return this.presence.map(pres => pres.inRegion).filter(reg => reg !== undefined)}
   /** Tiles constaining Units or Buildings of this Player */
   get regionSet() { return [...new Set(this.inRegions)] }
+
+  movePairs: [srcTile: Tile, toRegion: Tile][] = [];
 
   /** where player has presence but not control (multip players present) */
   get conflict() { return [] as ChaosTile[] } // presence.filter( !control )
@@ -196,8 +198,7 @@ export class Player extends PlayerLib {
     const targetHex = permute(emptyHexes)[0];
     const baseTile = this.panel.baseTile;
     this.gamePlay.table.dragStartAndDrop(baseTile, targetHex);
-    // base.dropFunc(targetHex, {} as DragContext); // drop & placeFoundationsAndLink do not use ctx.
-    setTimeout(doneFunc, 300);
+    doneFunc();
   }
 
   chooseBattle(battles: Battle[], cb: (battle: Battle) => void) {
@@ -344,18 +345,35 @@ export class Panel extends PlayerPanel {
   }
 
 
+  /** set faction's ResearchLevel on each phase */
+  initializeResearchCells(faction: Faction) {
+    const cells = faction.player.gamePlay.neutralPlayer.panel.researchCells; // initialized in [neutral] Panel.addResearchLines()
+    return cells.map(phaseRow => new ResearchLevel(faction, phaseRow)) // start at level 0
+  }
+    // invoked from Player.addPlayerBits *after* NeutralPanel is created.
+  initializeResearchLevels(faction: Faction) {
+    // Array of RLs for each Phase: Discovery, Build, Harvest, Recruit, Move
+    const researchLevelsByPhase = faction.player.panel.initializeResearchCells(faction);
+    const [Discovery, Build, Harvest, Recruit, Move] = researchLevelsByPhase;
+    faction.researchLevelOfPhase = { Discovery, Build, Harvest, Recruit, Move };  }
+
+  /** (only on neutralPanel) all the ResearchCells: [row=phase][col=level] */
+  researchCells!: ResearchCell[][];
+
+  /** invoked on neutralPanel */
   addResearchLines() {
+    this.researchCells = [];
     const rls = new NamedContainer('ResLines');
     const wh = this.wh;
     const dy = wh * this.rowh;
     const dx = wh * 1.35;
     pricePhases.forEach((pName, i) => {
-      const row = ResearchCell.researchCells[i] = [] as ResearchCell[];
+      const phaseRow = this.researchCells[i] = [] as ResearchCell[];
       const resSpecs = ResGrid[pName];
       resSpecs.forEach((rs, j) => {
         rs[3] ||=  (j == 4);   // add gemLock to level-4
         const cell = new ResearchCell(`RC${pName}_${j}`, rs, { width: wh * 1.2, height: wh * 1.2 })
-        row.push(cell);        // cell into next column
+        phaseRow.push(cell);        // cell into next column
         cell.x = j * dx;
         cell.y = i * dy;
         rls.addChild(cell);

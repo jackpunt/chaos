@@ -45,12 +45,13 @@ export namespace CO {
 
 /** A PathShape: pentagon with a right-angle point */
 export function pentagon (xs: number, ys: number, fillc: string, tilt = 0, strokec = '') {
+  const y0 = xs * .5;
   const points = [
       [-xs/2, ys/2],
       [ xs/2, ys/2],
-      [ xs/2, 0],
-      [ 0, -ys/2],
-      [-xs/2, 0 ],
+      [ xs/2, -y0],
+      [ 0, -y0 -xs*.5],
+      [-xs/2, -y0],
       [-xs/2, ys/2],
     ] as [x: number, y: number][];
 

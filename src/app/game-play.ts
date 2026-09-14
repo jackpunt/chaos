@@ -3,7 +3,7 @@ import { KeyBinder } from "@thegraid/easeljs-lib";
 import { GamePlay as GamePlayLib, SetupElt, TP as TPLib } from "@thegraid/hexlib";
 import type { HexMap2 } from "./chaos-hex";
 import type { ChaosTable } from "./chaos-table";
-import type { BONUS, ChaosTile, TERRAIN } from "./chaos-tile";
+import { PairTarget, type BONUS, type ChaosTile, type TERRAIN } from "./chaos-tile";
 import type { Faction } from "./factions";
 import { BgFound } from "./foundation";
 import type { GameSetup } from "./game-setup";
@@ -174,22 +174,26 @@ export class GamePlay extends GamePlayLib {
   // Relics: Win?; assign Relic do Bonus (Research, Upgrade-Circadian)
   // ... next round
 
-  moveFaction(faction: Faction) {
+  /** Faction's tyun to Move, with nMove movepoints */
+  moveFaction(faction: Faction, nMove = faction.researchLevelOfPhase['Move'].level) {
     this.moveRegions = faction.player.regionSet;
     this.moveRegions.forEach(reg => {
-      reg.getFoT(faction.player).moveShape.visible = true;
+      reg.getFoT(faction.player).moveIcon.visible = true;
     })
-    // TODO: D&D stuff for MoveShape
-    // TODO: after 'done' find & clear all the MoveShape on all MapTile
+    // TODO: D&D stuff for MoveShape [8/12]
+    // TODO: after 'done' find & clear all the MoveShape on all MapTile [8/12]
     // start() -> saveState(player, phase); state.restart() -> restore state(player, phase)
+    // TODO: create "bridge" [srcTile, toRegion] with counter
+    // TODO: more in chaos-tile.MoveShape
   }
   /** regions with moveShape.visible */
   moveRegions!: ChaosTile[];
 
   unMoveFaction(faction: Faction) {
     this.moveRegions.forEach(reg => {
-      reg.getFoT(faction.player).moveShape.visible = false;
+      reg.getFoT(faction.player).moveIcon.visible = false;
     })
+    PairTarget.removeTargets();
   }
 
   findBattles(pid: PlayerId) {

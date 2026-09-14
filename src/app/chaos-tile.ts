@@ -10,7 +10,7 @@ import type { GamePlay } from "./game-play";
 import { AI_Trap, ChaosBuilding, ChaosToken, Factory, Fighter, FighterCounter, Leader, Morale, Outposts, Relic, Stronghold } from "./meeples";
 import type { Player } from "./player";
 import type { FactionOnTileState } from "./scenario-parser";
-import { bonusIcon, CO } from "./table-params";
+import { bonusIcon, CO, pentagon } from "./table-params";
 
 declare module '@thegraid/easeljs-module' {
   interface Graphics {
@@ -41,8 +41,8 @@ function dist(pt: XY, p0={ x: 0, y: 0 }) {
   return Math.sqrt(dx *  dx + dy * dy);
 }
 
-/** Graphic target to indicate which Region Pair user wants for base foundations */
-class PairTarget extends RectShape {
+/** A Graphic target straddling the border between two Regions */
+export class PairTarget extends NamedContainer {
   static targets: PairTarget[] = [];
   static removeTargets() {
     PairTarget.targets.forEach(pt => pt.parent.removeChild(pt));
@@ -50,15 +50,15 @@ class PairTarget extends RectShape {
   }
 
   /** create PairTarget and add to PairTarget.targets; and show on overCont. */
-  constructor(public pair: [ChaosHex2, ChaosHex2]) {
+  constructor(public pair: [ChaosHex2, ChaosHex2], public dObj: DisplayObject) {
     const map = pair[0].map as HexMap2;
     const dir01 = pair[0].findLinkHex(hex => (hex == pair[1]));
     if (!dir01) {
       throw(`new PairTarget: hexes ${pair} are not adjacent`);
     }
-
     const dx = TP.hexRad * .3, dy = dx*2;
-    super({ x: -dx/2, y: -dy/2, w: dx, h: dy }, CO.mauve, '');
+    super(`PairTarget#${PairTarget.targets.length}`);
+    this.addChild(dObj);
     PairTarget.targets.push(this);
 
     this.rotation = (H.dirRot[dir01]);
@@ -143,7 +143,7 @@ const colorOfTerrain: Record<TERRAIN, string> = {
   Ldr: C.WHITE,
 }
 
-export class MoveShape extends ChaosToken {
+export class MoveIcon extends ChaosToken {
   constructor(player: Player, public srcTile: ChaosTile) {
     super(`FoT_${player.facId}-mover`, player)
     this.paint(C.nameToRgbaString(this.player.color, .2))
@@ -165,18 +165,49 @@ export class MoveShape extends ChaosToken {
     return this.fromHex.linkHexes.includes(toHex);
   }
   override dropFunc(targetHex: Hex2, ctx: DragContext) {
-    const toRegion = targetHex?.ctile;
-    if (toRegion != this.srcTile) {
-      const newPair = [this.srcTile, toRegion] as [ChaosTile, ChaosTile];
+    const toRegion = targetHex?.ctile, srcTile = this.srcTile;
+    if (toRegion && toRegion != srcTile) {
+      // TODO: MoveShape details:
       // if (player.movePairs.find(p =>[srcTile, toRegion] == [p.from, p.to])) return;
       // add newPair to player.movePairs
       // Arrow from FoT to Fot. with a FighterCounter (FC) showing number of Fighters transfered.
       // Internally: an FoT with the moved Leaders recorded but shown only on the toRegion.
       // click the arrow/FC to increment/decrement the by local FC and the target FC.
-
+      // record state of Units before; keybinder to reset Units to beginning of phase.
+      const newPair = MoveInPlay.isNewMovePair(this.player, srcTile, toRegion);
+      if (!newPair) return;
+      const dObj = pentagon(TP.hexRad*.4, TP.hexRad*.3, this.player.color, 0, '');
+      const pariGraphic = new PairTarget([newPair.from.chex, newPair.to.chex], dObj) // TODO: the 'arrow' & FoT w/counter
     }
     this.sendHome();
   }
+
+}
+
+/** Player uses a MovePoint to move Units from srcTile to toRegion  */
+export class MoveInPlay extends NamedContainer {
+  static movesInPlay: Map<Player, MoveInPlay[]> = new Map<Player, MoveInPlay[]>;
+
+  static isNewMovePair(player: Player, from: ChaosTile, to: ChaosTile) {
+    const movePairs = MoveInPlay.movesInPlay.get(player) ?? [];
+    if (movePairs.find(p => p.from == from && p.to == to)) return undefined;
+    const newPair = new MoveInPlay(player, from, to);
+    movePairs.push(newPair);
+    return newPair;
+  }
+
+  from!: ChaosTile;
+  to!: ChaosTile;
+  constructor(player: Player, from: ChaosTile, to: ChaosTile) {
+    super(`${from.name}-${to.name}`)
+    this.from = from;
+    this.to = to;
+  }
+
+  clearMovePairs() {
+
+  }
+
 
 }
 
@@ -203,7 +234,7 @@ export class FactionOnTile extends NamedContainer {
   tile: ChaosTile;
   fighterIcon: Fighter;
   fighterCounter: NumCounter;
-  moveShape: MoveShape;
+  moveIcon: MoveIcon;
 
   constructor(player: Player, tile: ChaosTile) {
     super(`FoT_${player.facId}-${tile.Aname}`);
@@ -215,8 +246,8 @@ export class FactionOnTile extends NamedContainer {
     this.fighterCounter = this.fighterIcon.baseShape.counter;
     this.tile.reCache(0);
     this.tile.addChild(this);
-    this.moveShape = new MoveShape(player, tile);
-    this.addChild(this.moveShape);  // update after BaseTile moves...
+    this.moveIcon = new MoveIcon(player, tile);
+    this.addChild(this.moveIcon);  // update after BaseTile moves...
   }
 
   /** if (FoT.isBase) addChild(dObj) so dObj moves with Base Tile. */
@@ -551,17 +582,15 @@ export class BaseTile extends ChaosTile {
     super(`${faction.name}Base`, 'Base', faction.bh, faction.player);
 
     const image = AliasLoader.loader.getBitmap(faction.name);
-    const si = .8;
+    const si = .75;
     image.scaleX *= si;
     image.scaleY *= si;
-    image.x -= TP.hexRad * .15;
-    image.y += TP.hexRad * .4;
+    image.y += this.radius * .1;
     this.addChild(image)
   }
  override addHarvest() {
     const icon = bonusIcon(this.harvest)!;
-    icon.x = this.radius * .37;
-    icon.y = this.radius * .37;
+    icon.y = this.radius * .65;
     this.addChild(icon);
   }
 
@@ -663,7 +692,10 @@ export class BaseTile extends ChaosTile {
     }
     pairs.forEach(pair => {
       try {
-        const pairTarget = new PairTarget(pair);
+        // Graphic target to indicate which Region Pair user wants for base foundations
+        const dx = TP.hexRad * .3, dy = dx*2;
+        const rect = new RectShape({ x: -dx/2, y: -dy/2, w: dx, h: dy }, CO.mauve, '');
+        const pairTarget = new PairTarget(pair, rect);
         pairTarget.on(S.click, (evt) => cb(pairTarget))
       } catch (msg) {
         console.warn(stime(this, `.addBaseFoundataionsAndLink: ${msg}`))
