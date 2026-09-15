@@ -174,7 +174,7 @@ export class GamePlay extends GamePlayLib {
   // Relics: Win?; assign Relic do Bonus (Research, Upgrade-Circadian)
   // ... next round
 
-  /** Faction's tyun to Move, with nMove movepoints */
+  /** Faction's turn to Move, with nMove movepoints */
   moveFaction(faction: Faction, nMove = faction.researchLevelOfPhase['Move'].level) {
     this.moveRegions = faction.player.regionSet;
     this.moveRegions.forEach(reg => {

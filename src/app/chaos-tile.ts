@@ -4,6 +4,7 @@ import type { DisplayObject } from "@thegraid/easeljs-module";
 import { type DragContext, H, type Hex1, type HexDir, HexShape, type IHex2, MapTile, type NumCounter, Player as PlayerLib, type Table, TP } from "@thegraid/hexlib";
 import { type ChaosHex2, type ChaosHex2 as Hex2, type HexMap2 } from "./chaos-hex";
 import { type ChaosTable } from "./chaos-table";
+import { NumCounterHex } from "./counters";
 import { type Faction } from "./factions";
 import { Foundation } from "./foundation";
 import type { GamePlay } from "./game-play";
@@ -167,45 +168,51 @@ export class MoveIcon extends ChaosToken {
   override dropFunc(targetHex: Hex2, ctx: DragContext) {
     const toRegion = targetHex?.ctile, srcTile = this.srcTile;
     if (toRegion && toRegion != srcTile) {
-      // TODO: MoveShape details:
-      // if (player.movePairs.find(p =>[srcTile, toRegion] == [p.from, p.to])) return;
-      // add newPair to player.movePairs
-      // Arrow from FoT to Fot. with a FighterCounter (FC) showing number of Fighters transfered.
-      // Internally: an FoT with the moved Leaders recorded but shown only on the toRegion.
-      // click the arrow/FC to increment/decrement the by local FC and the target FC.
-      // record state of Units before; keybinder to reset Units to beginning of phase.
-      const newPair = MoveInPlay.isNewMovePair(this.player, srcTile, toRegion);
-      if (!newPair) return;
-      const dObj = pentagon(TP.hexRad*.4, TP.hexRad*.3, this.player.color, 0, '');
-      const pariGraphic = new PairTarget([newPair.from.chex, newPair.to.chex], dObj) // TODO: the 'arrow' & FoT w/counter
+      this.player.newMoveInPlay(srcTile, toRegion);
     }
     this.sendHome();
   }
-
 }
+      // TODO: MoveInPlay details:
+      // Arrow from FoT to Fot. Add FoT on dest
+      // with a FighterCounter (FC) t0 show number of Fighters transfered.
+      // Move [all] Units from src to dest;
+      // rightclick to return units to srcTile
+      // Internally: an FoT with the moved Leaders recorded but shown only on the toRegion.
+      // click the arrow/FC to increment/decrement the by local FC and the target FC.
+      // record state of Units before; keybinder to reset Units to beginning of phase.
+
 
 /** Player uses a MovePoint to move Units from srcTile to toRegion  */
 export class MoveInPlay extends NamedContainer {
-  static movesInPlay: Map<Player, MoveInPlay[]> = new Map<Player, MoveInPlay[]>;
+  from: ChaosTile;
+  to: ChaosTile;
+  counter: NumCounterHex;
 
-  static isNewMovePair(player: Player, from: ChaosTile, to: ChaosTile) {
-    const movePairs = MoveInPlay.movesInPlay.get(player) ?? [];
-    if (movePairs.find(p => p.from == from && p.to == to)) return undefined;
-    const newPair = new MoveInPlay(player, from, to);
-    movePairs.push(newPair);
-    return newPair;
-  }
-
-  from!: ChaosTile;
-  to!: ChaosTile;
-  constructor(player: Player, from: ChaosTile, to: ChaosTile) {
+  constructor(public player: Player, from: ChaosTile, to: ChaosTile) {
     super(`${from.name}-${to.name}`)
     this.from = from;
     this.to = to;
+    this.counter = new NumCounterHex(`moveFighters`, 0, this.player.color); // (TP.hexSize * .2)
+    this.counter.y = TP.hexRad * -.04
+    this.counter.clickToInc(undefined, 5, 1)
+    this.addArrowGraphic();
+  }
+
+  addArrowGraphic() {
+    const dObj = new NamedContainer(`moveArrow`);
+    const pent = pentagon(TP.hexRad*.4, TP.hexRad*.3, this.player.color, 0, '');
+    dObj.addChild(pent, this.counter);
+    const pairGraphic = new PairTarget([this.from.chex, this.to.chex], dObj); // added to overCont
+    this.counter.rotation = -pairGraphic.rotation;
   }
 
   clearMovePairs() {
 
+  }
+  /** update Fighter counter: plus or minus */
+  moveFighters(n: number) {
+    this.counter.incValue(n); // TODO: and do other stuff...
   }
 
 
@@ -590,7 +597,7 @@ export class BaseTile extends ChaosTile {
   }
  override addHarvest() {
     const icon = bonusIcon(this.harvest)!;
-    icon.y = this.radius * .65;
+    icon.y = this.radius * .61;
     this.addChild(icon);
   }
 

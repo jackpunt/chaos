@@ -5,7 +5,7 @@ import { HexMap, LegalMark, newPlanner, NumCounter, Player as PlayerLib, PlayerP
 import { CardShape } from "./card-shape";
 import { ChaosHex2 as Hex2 } from "./chaos-hex";
 import { type ChaosTable, type ChaosTable as Table } from "./chaos-table";
-import { BaseTile, ChaosTile, type BONUS, type HARVEST } from "./chaos-tile";
+import { BaseTile, ChaosTile, MoveInPlay, type BONUS, type HARVEST } from "./chaos-tile";
 import { Faction, factionColors, type FactionId, type FactionName } from "./factions";
 import { BgFound, Foundation } from "./foundation";
 import { type Battle, type GamePlay } from "./game-play";
@@ -147,7 +147,7 @@ export class Player extends PlayerLib {
   /** Tiles constaining Units or Buildings of this Player */
   get regionSet() { return [...new Set(this.inRegions)] }
 
-  movePairs: [srcTile: Tile, toRegion: Tile][] = [];
+  movesInPlay: MoveInPlay[] = [];
 
   /** where player has presence but not control (multip players present) */
   get conflict() { return [] as ChaosTile[] } // presence.filter( !control )
@@ -181,6 +181,14 @@ export class Player extends PlayerLib {
   /** rules in Player's cardRack */
   get cardRules() {
     return this.cardRack.filter(h => h.card).map(h => h.card!.phaseEffect);
+  }
+  /** new MoveInPlay factory */
+  newMoveInPlay(from: ChaosTile, to: ChaosTile) {
+    const playerMoves = this.movesInPlay ?? [];
+    if (playerMoves.find(p => p.from == from && p.to == to)) return undefined;
+    const newMove = new MoveInPlay(this, from, to);
+    playerMoves.push(newMove);
+    return newMove;
   }
 
   // include: facId, coins, gems, cards[], pricingTokens[],

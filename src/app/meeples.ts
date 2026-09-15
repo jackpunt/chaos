@@ -1,10 +1,11 @@
 import { C, F, S, stime, type XY, type XYWH } from "@thegraid/common-lib";
-import { CenterText, CircleShape, EllipseShape, NamedContainer, PathShape, PolyShape, RectShape, TextInRect, type Paintable, type PaintableShape, type RectWithDispOptions, type TextInRectOptions } from "@thegraid/easeljs-lib";
+import { CenterText, CircleShape, EllipseShape, NamedContainer, PathShape, RectShape, TextInRect, type Paintable, type RectWithDispOptions, type TextInRectOptions } from "@thegraid/easeljs-lib";
 import { Container, Graphics, MouseEvent, Rectangle } from "@thegraid/easeljs-module";
-import { Meeple, MeepleShape, NumCounterBox, rightClickable, Tile, TP, type DragContext, type Hex, type HexM, type IHex2 } from "@thegraid/hexlib";
+import { Meeple, MeepleShape, Tile, TP, type DragContext, type Hex, type HexM, type IHex2 } from "@thegraid/hexlib";
 import { CardShape } from "./card-shape";
 import { TokenHex, type ChaosHex2 as Hex2, type HexMap2 } from "./chaos-hex";
 import { ChaosTile, type BONUS, type FactionOnTile, type TERRAIN } from "./chaos-tile";
+import { NumCounterHex } from "./counters";
 import { factionNeutral, type FactionId } from "./factions";
 import { BgFound, Foundation } from "./foundation";
 import type { GamePlay } from "./game-play";
@@ -134,7 +135,7 @@ export class ChaosMeeple extends Meeple {
   /** invoke from startDrag() to prevent movement */
   stopDrag(targetHex?: Hex2) {
     const table = this.player.gamePlay.table, test = true;
-    if (test && (table.dragger.dragCont.getChildAt(0) != this)) debugger;
+    if (test && (table.dragger.dragCont.children[0] != this)) debugger;
     // --> dragger.stopDrag(); which looks at dragCont.children[0]
     this.player.gamePlay.table.stopDragging(targetHex)
   }
@@ -152,24 +153,6 @@ export class ChaosPresence extends ChaosMeeple {
 export class ChaosUnit extends ChaosPresence {
 }
 
-/** a hexagonal shape around counter value */
-class NumCounterHex extends NumCounterBox {
-  protected override makeBox0(color: string, high: number, wide: number): PaintableShape {
-    const rv = new PolyShape({ rad: Math.max(high, wide)/2, nsides: 6, fillc: color })
-    rightClickable(this, (evt) => this.incValueOnClick(evt, -5, -1))
-    return rv;
-  }
-  // Expose boxSize so we can find width (radius)
-  override boxSize(text: createjs.Text = this.text): { width: number; height: number; } {
-    const { width, height } = super.boxSize(text)
-    return { width: height, height: 1.5 * width }
-  }
-  override incValueOnClick(evt: MouseEvent, shiftVal = 5, baseVal?: number): void {
-    super.incValueOnClick(evt, shiftVal, baseVal)
-    evt.stopImmediatePropagation();   // QQQ: promote to base class?
-  }
-}
-
 /** A PaintableCont holding a counter: NumCounterHex */
 export class FighterCounter extends PaintableCont {
   counter: NumCounterHex;
@@ -178,11 +161,7 @@ export class FighterCounter extends PaintableCont {
   constructor(player?: Player, name = 'FighterBaseShape', fontSize = TP.hexRad * .2) {
     super(name);
     const color = player?.color;
-    const counter = new class extends NumCounterHex {
-      override incValue(incr: number): void {
-        super.incValue(incr < 0 ? Math.max(incr, -this.value) : incr)
-      }
-    }('fighters', 0, color, fontSize);
+    const counter = new NumCounterHex('fighters', 0, color, fontSize);
     this.counter = counter;
     this.addChild(counter);
     this.hexRad = counter.boxSize().width;
