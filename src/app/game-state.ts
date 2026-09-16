@@ -154,6 +154,10 @@ export class GameState extends GameStateLib {
 
   /** define this.states */
   override readonly states: { [index: string]: Phase } = {
+    // proforma:
+    Initialize: {
+      start: () => { this.phase(this.startPhase, ...this.startArgs) }
+    },
     PlaceBaseAndMove: {
       // start(-1) ==> consider from Oxataya
       start: (pid = -1) => {         // and look backward from there
