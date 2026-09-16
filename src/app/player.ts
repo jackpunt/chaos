@@ -5,7 +5,7 @@ import { HexMap, LegalMark, newPlanner, NumCounter, Player as PlayerLib, PlayerP
 import { CardShape } from "./card-shape";
 import { ChaosHex2 as Hex2 } from "./chaos-hex";
 import { type ChaosTable, type ChaosTable as Table } from "./chaos-table";
-import { BaseTile, ChaosTile, MoveInPlay, type BONUS, type HARVEST } from "./chaos-tile";
+import { BaseTile, ChaosTile, MoveInPlay, type BONUS, type FactionOnTile, type HARVEST } from "./chaos-tile";
 import { Faction, factionColors, type FactionId, type FactionName } from "./factions";
 import { BgFound, Foundation } from "./foundation";
 import { type Battle, type GamePlay } from "./game-play";
@@ -135,15 +135,20 @@ export class Player extends PlayerLib {
 
   /** IHex2[] where player has presence */
   get hexPresence() {
-    const presence = this.presence;
-    return this.gamePlay.hexMap.filterEachHex(hex => !!presence.find(p => (p.hex == hex)))
+    return this.presence.map(fot => fot.tile.hex as Hex2)
   }
 
-  /** units providing presence on map */
-  get presence() { return this.allOf(ChaosPresence) } // player.allOnMap(ChaosPresence)
+  get presence() {
+    const rv: FactionOnTile[] = [];
+    this.gamePlay.hexMap.forEachHex(hex => {
+      const fot = hex.ctile?.hasFot(this);
+      if (!!fot && hex.ctile?.getFoT(this) && (fot.fighters > 0 || fot.leaders.length > 0 || fot.buildings.length > 0)) rv.push(fot);
+    })
+    return rv;
+  }
 
   /** Tiles constaining Units or Buildings of this Player */
-  get inRegions() { return this.presence.map(pres => pres.inRegion).filter(reg => reg !== undefined)}
+  get inRegions() { return this.presence.map(pres => pres.inRegion) }
   /** Tiles constaining Units or Buildings of this Player */
   get regionSet() { return [...new Set(this.inRegions)] }
 

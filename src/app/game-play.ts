@@ -176,24 +176,23 @@ export class GamePlay extends GamePlayLib {
 
   /** Faction's turn to Move, with nMove movepoints */
   moveFaction(faction: Faction, nMove = faction.researchLevelOfPhase['Move'].level) {
-    this.moveRegions = faction.player.regionSet;
-    this.moveRegions.forEach(reg => {
-      reg.getFoT(faction.player).moveIcon.visible = true;
-    })
+    this.movePlayer = faction.player;
+    faction.player.presence;    // set visibity on MoveIcon & FighterIcon
+
     // TODO: D&D stuff for MoveShape [8/12]
     // TODO: after 'done' find & clear all the MoveShape on all MapTile [8/12]
     // start() -> saveState(player, phase); state.restart() -> restore state(player, phase)
     // TODO: create "bridge" [srcTile, toRegion] with counter
     // TODO: more in chaos-tile.MoveShape
   }
-  /** regions with moveShape.visible */
-  moveRegions!: ChaosTile[];
+
+  /** player currently enabled to Move (not always curPlayer!) controls visibility of MoveIcon & (fighters == 0) */
+  movePlayer?: Player;
 
   unMoveFaction(faction: Faction) {
-    this.moveRegions.forEach(reg => {
-      reg.getFoT(faction.player).moveIcon.visible = false;
-    })
-    PairTarget.removeTargets();
+    this.movePlayer = undefined;
+    faction.player.presence; // touch all FoT, setting visibility
+    PairTarget.removeTargets(); // remove all MoveInPlay
   }
 
   findBattles(pid: PlayerId) {
