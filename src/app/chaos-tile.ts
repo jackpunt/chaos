@@ -1,14 +1,14 @@
 import { C, permute, removeEltFromArray, S, stime, type XY } from "@thegraid/common-lib";
 import { AliasLoader, NamedContainer, type Paintable, PolyShape, RectShape } from "@thegraid/easeljs-lib";
 import type { DisplayObject } from "@thegraid/easeljs-module";
-import { type DragContext, H, type Hex1, type HexDir, HexShape, type IHex2, MapTile, type NumCounter, Player as PlayerLib, type Table, TP } from "@thegraid/hexlib";
+import { type DragContext, H, type HexDir, HexShape, type IHex2, MapTile, Player as PlayerLib, type Table, TP } from "@thegraid/hexlib";
 import { type ChaosHex2, type ChaosHex2 as Hex2, type HexMap2 } from "./chaos-hex";
 import { type ChaosTable } from "./chaos-table";
 import { NumCounterHex } from "./counters";
 import { type Faction } from "./factions";
 import { Foundation } from "./foundation";
 import type { GamePlay } from "./game-play";
-import { AI_Trap, ChaosBuilding, ChaosToken, Factory, Fighter, FighterCounter, Leader, Morale, Outposts, Relic, Stronghold } from "./meeples";
+import { AI_Trap, ChaosBuilding, ChaosToken, Factory, Leader, Morale, Outposts, PaintableCont, Relic, Stronghold } from "./meeples";
 import type { Player } from "./player";
 import type { FactionOnTileState } from "./scenario-parser";
 import { bonusIcon, CO, pentagon } from "./table-params";
@@ -201,7 +201,8 @@ export class MoveInPlay extends NamedContainer {
 
   addArrowGraphic() {
     const dObj = new NamedContainer(`moveArrow`);
-    const pent = pentagon(TP.hexRad*.4, TP.hexRad*.3, this.player.color, 0, '');
+    const color = C.nameToRgbaString(this.player.color, .5);
+    const pent = pentagon(TP.hexRad*.4, TP.hexRad*.3, color, 0, '');
     dObj.addChild(pent, this.counter);
     const pairGraphic = new PairTarget([this.from.chex, this.to.chex], dObj); // added to overCont
     this.counter.rotation = -pairGraphic.rotation;
@@ -218,6 +219,20 @@ export class MoveInPlay extends NamedContainer {
 
 }
 
+/** A PaintableCont holding a counter: NumCounterHex */
+export class FighterIcon extends PaintableCont {
+  counter: NumCounterHex;
+  hexRad!: number;
+
+  constructor(player?: Player, name = 'FighterIcon', fontSize = TP.hexRad * .2) {
+    super(name);
+    const color = player?.color;
+    const counter = new NumCounterHex('fighters', 0, color, fontSize);
+    this.counter = counter;
+    this.addChild(counter);
+    this.hexRad = counter.boxSize().width;
+  }
+}
 
 /** per-Player bits in Region/ChaosTile; add one for each Player, in apprpriate place.
  *
@@ -239,8 +254,8 @@ export class FactionOnTile extends NamedContainer {
 
   player: Player;
   tile: ChaosTile;
-  fighterIcon: Fighter;
-  fighterCounter: NumCounter;
+  fighterIcon: FighterIcon;
+  fighterCounter: NumCounterHex;
   moveIcon: MoveIcon;
 
   constructor(player: Player, tile: ChaosTile) {
@@ -249,12 +264,12 @@ export class FactionOnTile extends NamedContainer {
     this.tile = tile;
     this.setXY();   // move to sector for player
     // QQQ: how can makeFighterIcon do addChildOver() before tile.addChild(this)?
-    this.fighterIcon = this.makeFighterIcon();  // a new Fighter() with Counter
-    this.fighterCounter = this.fighterIcon.baseShape.counter;
+    this.fighterIcon = new FighterIcon(this.player);  // a new Fighter() with Counter
+    this.fighterCounter = this.fighterIcon.counter;
     this.tile.reCache(0);
     this.tile.addChild(this);
     this.moveIcon = new MoveIcon(player, tile);
-    this.addChild(this.moveIcon);  // update after BaseTile moves...
+    this.addChild(this.fighterIcon, this.moveIcon);  // update after BaseTile moves...
   }
 
   /** if (FoT.isBase) addChild(dObj) so dObj moves with Base Tile. */
@@ -271,36 +286,6 @@ export class FactionOnTile extends NamedContainer {
 
   }
 
-
-  makeFighterIcon() {
-    // Fighter.baseShape.counter ISA NumCounterHex with clickToInc:
-    const FighterIcon = class extends Fighter {
-      override makeShape(fontSize?: number): FighterCounter {
-        return new FighterCounter(this.player, 'FighterHexWithClick', fontSize); // super.makeShape(...
-      }
-
-      override makeDragable(table: Table): void {
-        // also: do not drag!
-        table.dragger.makeDragable(this, table, table.dragFunc, table.dropFunc);
-        // do NOT enable click-to-drag!
-      }
-      override dragStart(ctx: DragContext): void {
-        this.stopDrag()
-      }
-
-      // so (nLegal > 1); although really we don't want this until dragMover()
-      override isLegalTarget(toHex: Hex1, ctx?: DragContext): boolean {
-        const fromHex = this.fotHex;
-        return toHex == fromHex || !!fromHex?.linkHexes.includes(toHex);
-      }
-    }
-
-    const icon = new FighterIcon(`${this.Aname}-FighterIcon`, this);
-    const counter = icon.counter;
-    this.addChild(icon); // at (0, 0); explicitly on FoT; never on overCont
-    counter.clickToInc(true, 5);  // disabled pressmove & pressup
-    return icon;
-  }
 
   // methods to add/remove elements
   /**
@@ -656,7 +641,7 @@ export class BaseTile extends ChaosTile {
     // link base hex to adjacent non-Mtn Hexes
     const map = this.hex!.map as HexMap2;
     map.link(hex);      // link to all adjacent hexes
-    map.unlink(hex, (nHex) => nHex.tile?.terrain == 'Mtn'); // rm links to Mtn tiles
+    map.unlink(hex, (nHex) => nHex.ctile?.terrain == 'Mtn'); // rm links to Mtn tiles
     const pairs = this.getAdjacentPairs(hex);  // find each pair of adjacent regions
     if (pairs.length == 0) {
       // on player panel; do nothing
@@ -671,7 +656,7 @@ export class BaseTile extends ChaosTile {
     // cycle through hex.linkDirs[i], [i+1 % 6]
     const mapDirs = (hex.map as HexMap2).linkDirs;  // assume length == 6; [N, EN, ES, S, WS, WN ]
     const pairs: [Hex2, Hex2][] = [];  // push [hex1, hex2]
-    const isRegion = (hex?: Hex2) => { return hex?.tile && hex.tile.terrain != 'Mtn' && hex.tile.terrain != 'Lake'};
+    const isRegion = (hex?: Hex2) => { return hex?.ctile && hex.ctile.terrain != 'Mtn' && hex.ctile.terrain != 'Lake'};
     const links = hex.links as Partial<Record<HexDir, Hex2>>; // avoid & Partial<Record<HexDir, any>>
     mapDirs.forEach((dir, ndx) => {
       const hex1 = links[dir];
@@ -716,16 +701,20 @@ export class BaseTile extends ChaosTile {
     this.baseRegions = adjRegions;
     const faction = this.player!.faction;
     const founds = permute(faction.bf).map((bonus, i) => new Foundation(`${faction.name}_bf${i}`, bonus))
-    adjRegions.forEach((hex, n) => hex.tile?.addFoundation(founds[n]));
+    adjRegions.forEach((hex, n) => {
+      hex.ctile?.addFoundation(founds[n]);
+      hex.ctile?.getFoT(this.player!).fighterCounter.incValue(1); // ...fighters += 1; ???
+      this.getFoT(this.player!).fighterCounter.incValue(-1);
+    });
     // block Oxataya from any adjacent Lake:
     if (this.player?.facId == 5) {
       const hex0 = this.hex as Hex2, map = hex0.map as HexMap2;
-      hex0.forEachLinkHex(hex1 => hex1.tile.terrain == 'Lake' && map.placeMtn(hex0, hex1))
+      hex0.forEachLinkHex(hex1 => hex1.ctile?.terrain == 'Lake' && map.placeMtn(hex0, hex1))
     }
     // block Circadians from all adjacent:
     if (this.player?.facId == 0) {
       const hex0 = this.hex as Hex2, map = hex0.map as HexMap2;
-      hex0.forEachLinkHex(hex1 => hex1.tile.terrain != 'Mtn' && map.placeMtn(hex0, hex1))
+      hex0.forEachLinkHex(hex1 => hex1.ctile?.terrain != 'Mtn' && map.placeMtn(hex0, hex1))
     }
   }
 
@@ -739,10 +728,15 @@ export class BaseTile extends ChaosTile {
       const nHex = map.getHex(map.nextRowCol(hex, dir));
       if (nHex) map.removeMtn(hex, nHex)
     })
-    // remove Foundations that were placed adjacent to Base;
+    // remove Foundations & Fighters that were placed adjacent to Base;
+    const baseFighters = hex.ctile!.getFoT(this.player!).fighterCounter;
     this.baseRegions?.forEach(nHex => {
+      const brFoT = nHex.ctile!.getFoT(this.player!);
+      const nfighters = brFoT.fighterCounter.value;
+      brFoT.fighterCounter.incValue(-nfighters);
+      baseFighters.incValue(nfighters);
       // remove any foundation in nHex:
-      nHex.tile?.foundations.forEach((elt, n, ary) => {
+      nHex.ctile?.foundations.forEach((elt, n, ary) => {
         elt?.parent?.removeChild(elt);
         ary[n] = undefined;
       })

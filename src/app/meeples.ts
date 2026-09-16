@@ -5,7 +5,6 @@ import { Meeple, MeepleShape, Tile, TP, type DragContext, type Hex, type HexM, t
 import { CardShape } from "./card-shape";
 import { TokenHex, type ChaosHex2 as Hex2, type HexMap2 } from "./chaos-hex";
 import { ChaosTile, type BONUS, type FactionOnTile, type TERRAIN } from "./chaos-tile";
-import { NumCounterHex } from "./counters";
 import { factionNeutral, type FactionId } from "./factions";
 import { BgFound, Foundation } from "./foundation";
 import type { GamePlay } from "./game-play";
@@ -151,87 +150,6 @@ export class ChaosPresence extends ChaosMeeple {
 }
 
 export class ChaosUnit extends ChaosPresence {
-}
-
-/** A PaintableCont holding a counter: NumCounterHex */
-export class FighterCounter extends PaintableCont {
-  counter: NumCounterHex;
-  hexRad!: number;
-
-  constructor(player?: Player, name = 'FighterBaseShape', fontSize = TP.hexRad * .2) {
-    super(name);
-    const color = player?.color;
-    const counter = new NumCounterHex('fighters', 0, color, fontSize);
-    this.counter = counter;
-    this.addChild(counter);
-    this.hexRad = counter.boxSize().width;
-  }
-}
-
-/** A ChasoUnit that displays as a counter.
- *
- * becomes the FoT.fighterIcon
- */
-export class Fighter extends ChaosUnit {
-  declare baseShape: FighterCounter;
-  get counter() { return this.baseShape.counter }
-  get fotHex() { return this.fot?.tile.hex as Hex2 }
-  override get inRegion() {
-    // as if BaseTile.hex.isOnMap
-    return this.counter.value > 0 ? this.fot.tile : undefined;
-  }
-
-  constructor(Aname: string, public fot: FactionOnTile) {
-    super(Aname, fot.player)
-    this.reCache(0);
-  }
-
-  override makeShape (fontSize?: number) {
-    return new FighterCounter(this.player, 'FighterShape', fontSize);
-  }
-  // override makeDragable(table: Table): void { } // so .startGame() will not make it dragable!
-}
-
-export class MoveableFighter extends Fighter { // ISA ChaosUnit > Tile
-  /** this MoveableFighter is "Moveable" from this.srcHex = fighter.fot.tile.hex */
-  srcHex: Hex2;
-  constructor(fighter: Fighter) {
-    const player = fighter.player;
-    super(`${fighter.Aname}:mover`, fighter.fot); // the source FoT
-    this.Aname = `${fighter.Aname}:mover-${this.id}`;
-    this.srcHex = this.fromHex = fighter.fotHex;
-    this.textVis(false);
-    this.counter.mouseEnabled = true;  // ?  for mousemove ?
-    this.fot.addChild(this);
-    // MoveableFighter appears at location of its originating Fighter
-  }
-
-  // offset (x,y) when showing on player.baseTile; All this for the test/demo, not req'd for actual Move indication.
-  override sendHome(): void {
-    this.x = 0; this.y = 0;
-    this.fromHex = this.srcHex;
-    this.srcHex.ctile?.getFoT(this.player).addChild(this);
-  }
-  // class Fighter disables makeDragable; bypass & restore makeDragable()
-  // override makeDragable(table: Table): void {
-  //   superMethod(this, Tile, 'makeDragable', table);
-  // }
-
-  override isLegalTarget(toHex: Hex2, ctx?: DragContext): boolean {
-    if (toHex == this.srcHex) return true; // ok to drop back to srcHex --> and delete itself
-    if (toHex.ctile?.terrain == 'Base')    // move Base IFF own base && shiftKey (can teleport)
-      return (toHex.ctile.player == this.player && !!ctx?.lastShift)
-    return this.srcHex.linkHexes.includes(toHex);
-  }
-
-  // TODO: create Move 'bridge' between src and dest Hexes.
-  override dropFunc(targetHex: Hex2, ctx: DragContext): void {
-    if ((targetHex ?? this.srcHex).ctile?.terrain == 'Base') {
-      this.sendHome(); // the only legal Base is player.baseTile; !targetHex IIF: from Base
-    } else {
-      super.dropFunc(targetHex, ctx);
-    }
-  }
 }
 
 // Meeple has unMove & faceUp
@@ -813,7 +731,7 @@ export class ChaosBuilding extends ChaosPresence {
   }
 
   override get inRegion(): ChaosTile | undefined {
-    return this.found.hex?.isOnMap ? (this.found.hex as Hex2).tile : undefined
+    return this.found.hex?.isOnMap ? (this.found.hex as Hex2).ctile : undefined
   }
 
   override makeShape(size = this.radius/2): Paintable {
@@ -1006,7 +924,7 @@ export class Relic extends ChaosMeeple {
     if (toHex == this.foundation.onTile?.chex) return true; // Relic is not 'on' a Hex or Tile; is on its Foundation.
     if ((['Base', 'Mtn', 'Lake'] as TERRAIN[]).includes(toHex.ctile?.terrain ?? 'Base')) return false;
     const adjacent = this.isAdjacentCurPlayerBaseFoundations(toHex) && !ctx.lastCtrl;
-    return !!toHex.tile && !toHex.tile.foundations[1] && !adjacent;
+    return !!toHex.tile && !toHex.ctile?.foundations[1] && !adjacent;
   }
 
   override dragStart(ctx: DragContext): void {

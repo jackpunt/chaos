@@ -2,7 +2,7 @@ import { C, permute, S, stime } from "@thegraid/common-lib";
 import { CenterText, NamedContainer, RectShape, type CountClaz, type DragInfo, type Paintable } from "@thegraid/easeljs-lib";
 import type { Text } from "@thegraid/easeljs-module";
 import { DisplayObject, Graphics, MouseEvent } from "@thegraid/easeljs-module";
-import { H, LegalMark, MapCont, NumCounter, Tile, TileSource, TP, type DragContext, type IHex2 } from "@thegraid/hexlib";
+import { H, LegalMark, MapCont, NumCounter, Tile, TileSource, TP, type DragContext, type HasDragger, type IHex2 } from "@thegraid/hexlib";
 import { CardShape } from "./card-shape";
 import { ChaosHex2 as Hex2, type ChaosHex as Hex1, type HexMap2 } from "./chaos-hex";
 import type { ChaosTable as Table } from "./chaos-table";
@@ -172,7 +172,7 @@ export class TacticsCard extends Tile {
    *
    * gameStart: allTiles.makeDragable(table); CardBack.isDragable(ctx) -> false
    */
-  override makeDragable(table: Table): void {
+  override makeDragable(table: HasDragger): void {
     table.dragger.makeDragable(this, this, this.tactics_dragFunc0, this.tactics_dropFunc)
     table.dragger.clickToDrag(this, true); // also enable clickToDrag;
   }
@@ -484,7 +484,7 @@ export class CardPanel extends MapCont {
   get cardRack() { return (this.parent as Panel).cardRack; }
 
   /** make this CardPanel dragable. */
-  makeDragable(table: Table) {
+  makeDragable(table: HasDragger) {
     table.dragger.makeDragable(this, this, this.cardPanel_dragStart0, this.dropFunc);
     table.dragger.clickToDrag(this, true);
   }

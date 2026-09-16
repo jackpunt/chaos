@@ -1,10 +1,52 @@
-import { C, Random, removeEltFromArray, stime, type Constructor } from "@thegraid/common-lib";
+import { C, Random, removeEltFromArray, stime, type Constructor, type XY } from "@thegraid/common-lib";
 import { CircleShape, RectShape, type NamedObject, type Paintable } from "@thegraid/easeljs-lib";
-import { H, Hex1 as Hex1Lib, Hex2Mixin, HexMap, HexMark, HexShape, LegalMark, TP, type HexDir, type HexM, type IdHex, type IHex2, type Tile } from "@thegraid/hexlib";
+import { H, Hex1 as Hex1Lib, Hex2Mixin, HexMap, HexMark, HexShape, LegalMark, TP, type HexDir, type HexM, type IdHex, type IHex2 } from "@thegraid/hexlib";
 import { type ChaosTile, type HARVEST, type TERRAIN } from "./chaos-tile";
 import { pentagon } from "./table-params";
 import type { TacticsCard } from "./tactics-card";
 
+/**
+ * General interecpt for ray from center to secant of 2 points on circle
+ * @param rad radius of circle
+ * @param a1 angle to first point
+ * @param a2 angle to secont point
+ * @param a3 angle of intercept ray
+ * @param pt XY point to set and return [{0, 0}]
+ * @returns point of intersection of ray and secant
+ */
+function secantPoint(rad: number, a1: number, a2: number, a3: number, pt: XY = { x: 0, y: 0 }): XY {
+  const toRad = (deg: number) => deg * (Math.PI / 180);
+  const t1 = toRad(a1);
+  const t2 = toRad(a2);
+  const t3 = toRad(a3);
+
+  // Distance from origin (0,0) along angle a3 to the line connecting p1 and p2
+  const dist = (rad * Math.cos((t1 - t2) / 2)) / Math.cos(t3 - (t1 + t2) / 2);
+  pt.x = dist * Math.cos(t3);
+  pt.y = dist * Math.sin(t3);
+  return pt;
+}
+
+// secantPoint adapted for screen coordinates (0-deg == -y), dir = (a1 + a2)/2
+// and displacement from given hex coordinates.
+/**
+ * edgePoint with delta angle:
+ * @param dir mid-angle between 60-degree corners
+ * @param rad radius
+ * @param pt [{0,0}] an XY to be set and returned
+ * @param da angle from dir to the intercept ray (generally +/- < 30 degrees; positive: CW)
+ * - a3 = (dir+da) = angle of intercept ray from center
+ * @returns point of intersection with edge of hex.
+ */
+function edgePoint(dir: number, rad: number, pt: XY = { x: 0, y: 0 }, da = 0): XY {
+  const toRad = (deg: number) => deg * (Math.PI / 180);
+  const t1 = toRad(dir), t3 = toRad(dir + da);
+  const dist = (rad * H.sqrt3_2) / Math.cos(t3 - t1);
+  const dx = dist * Math.sin(t3), dy = dist * -Math.cos(t3);
+  pt.x += dx;
+  pt.y += dy;
+  return pt;
+}
 
 // Hex1 has get/set tile/meep -> _tile/_meep
 // Hex1 has get/set -> setUnit(unit, isMeep) & unitCollision(unit1, unit2)
@@ -14,34 +56,8 @@ export class ChaosHex extends Hex1Lib {
     super(map, row, col, Aname);
   }
 
-  // each unit type has it's own 'slot', per Faction in most cases.
-  // each dropFunc override to inc unit counter for the Faction.
-  //
-  override setUnit(unit?: Tile, isMeep?: boolean | undefined): void {
-    // if (unit instanceof Fighter) {
-    //   super.setUnit(unit, isMeep);
-    // } else {
-      super.setUnit(unit, isMeep);   // TODO handle ChaosMeeple & PlayerBitsOnHex
-    // }
-  }
-  // all the Fighters on this Hex;
-  // Fighters.source[ndx] is the recruitHex for player[ndx] (hospital on player board)
-
-  // FightersSources!: TileSource<Fighter>[];  // initialized in parseScenario
-
-  override unitCollision(this_unit: Tile, unit: Tile, isMeep = false) {
-    // if (unit instanceof Fighter && this_unit instanceof Fighter) {
-    //   this.FightersSources[unit.player!.index].availUnit(this_unit);
-    //   return; // continue with setUnit(): this.meep = unit;
-    // }
-    super.unitCollision(this_unit, unit, isMeep); // fall through
-    // if (this === this_unit.source?.hex && this === unit.source?.hex) {
-    //   this_unit.source.availUnit(this_unit);
-    // } else if ((this.constructor as typeof ChaosHex).debugCollision) debugger;
-  }
-
   override toString(color = (this.tile ?? this.meep)?.player?.plyrId) {
-    color = color ?? (this.tile as ChaosTile)?.terrain.slice(0, 5) ?? 'Empty';
+    color = color ?? this.ctile?.terrain.slice(0, 5) ?? 'Empty';
     return `${color}@${this.rcs}` // hex.toString => COLOR@[r,c] | COLOR@Skip , COLOR@Resign
   }
   // cannot override set/get tile(); prevents other components from setting a simple Tile.
@@ -57,8 +73,27 @@ export class ChaosHex extends Hex1Lib {
 }
 
 class ChaosHex2Lib extends Hex2Mixin(ChaosHex) {
-  override get tile() { return super.tile as ChaosTile }
-  override set tile(tile: ChaosTile) { super.tile = tile }
+  override_edgePoint(dir: HexDir, rad = 1, point: XY = { x: 0, y: 0 }, da = 0) {
+    const a1 = H.dirRot[dir];
+    point.x += this.x; point.y += this.y;
+    return edgePoint(a1, rad * this.radius, point, da);
+  }
+  /** extend edgepoint for angle awayfrom HexDir
+   *
+   * @param dir a HexDir string
+   * @param rad (1) per-unit radius (to be mulitplied by this.radius)
+   * @param point ({0, 0}) calculated point to set an return (can be a DisplayObject) [{0, 0}]
+   * @param da (0) offset angle, generally between +/- 30 degrees
+   * @returns the given or created XY
+   */
+  override edgePoint(dir: HexDir, rad = 1, point: XY = { x: 0, y: 0 }, da = 0) {
+    const a1 = H.dirRot[dir] * H.degToRadians, a2 = da * H.degToRadians;
+    const t3 = a1 + a2;
+    const h = rad * this.radius * H.sqrt3_2 / Math.cos(a2);
+    point.x = this.x + Math.sin(t3) * h;
+    point.y = this.y - Math.cos(t3) * h;
+    return point;
+  }
 };
 
 export class ChaosHex2 extends ChaosHex2Lib {
@@ -89,6 +124,8 @@ export class ChaosHex2 extends ChaosHex2Lib {
 }
 /** the way code typically imports ChaosHex2 */
 type Hex2 = ChaosHex2;
+
+/** RectShape Hex to hold PriceToken */
 export class TokenHex extends ChaosHex2 {
   /** set to crosslink 'MoveFirst' & 'MoveLast' hexes */
   otherMoveHex: TokenHex | undefined = undefined;

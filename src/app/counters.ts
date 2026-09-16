@@ -17,9 +17,10 @@ export class NumCounterHex extends NumCounterBox {
   }
   override incValue(incr: number): void {
     super.incValue(incr < 0 ? Math.max(incr, -this.value) : incr)
+    this.visible = (this.value != 0)
   }
+  // shiftVal = 5
   override incValueOnClick(evt: MouseEvent, shiftVal = 5, baseVal?: number): void {
     super.incValueOnClick(evt, shiftVal, baseVal)
-    evt.stopImmediatePropagation();   // QQQ: promote to base class?
   }
 }

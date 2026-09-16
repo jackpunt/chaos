@@ -1,7 +1,7 @@
 import { C, type XY } from "@thegraid/common-lib";
 import { CenterText, RectShape, type Paintable } from "@thegraid/easeljs-lib";
 import type { DisplayObject } from "@thegraid/easeljs-module";
-import { Tile, TP, type DragContext, type Table } from "@thegraid/hexlib";
+import { Tile, TP, type DragContext, type HasDragger } from "@thegraid/hexlib";
 import { ChaosHex2 as Hex2 } from "./chaos-hex";
 import { type BONUS, type ChaosTile } from "./chaos-tile";
 import type { ChaosBuilding } from "./meeples";
@@ -121,7 +121,7 @@ export class Foundation extends Tile {
 /** background Foundation on Panel; marking homeXY position. [not Dragable] */
 export class BgFound extends Foundation {
   /** not draggable */
-  override makeDragable(table: Table): void {  }
+  override makeDragable(table: HasDragger): void {  }
   // alteratively, this is checked by table.dragFunc0()
   override isDragable(ctx?: DragContext): boolean { return false; }
 }

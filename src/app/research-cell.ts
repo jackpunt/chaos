@@ -1,7 +1,7 @@
 import { C, F, type WH } from "@thegraid/common-lib";
 import { CenterText, NamedContainer, RectShape, type DragInfo, type Paintable } from "@thegraid/easeljs-lib";
-import type { Container, DisplayObject } from "@thegraid/easeljs-module";
-import type { ChaosTable } from "./chaos-table";
+import type { DisplayObject } from "@thegraid/easeljs-module";
+import type { HasDragger } from "@thegraid/hexlib";
 import { type Faction } from "./factions";
 import { CO, gemlockIcon, TP, type PricePhase } from "./table-params";
 
@@ -34,8 +34,6 @@ export class ResearchLevel extends RectShape {
     this.y = - height * .5;
     this.phaseRow[level].addChild(this); // phaseRow contains ResearchCell
   }
-  /** parent container holding the ResearchCells. (coordinate base) */
-  refCont!: Container;
 
   constructor(public faction: Faction, public phaseRow: ResearchCell[], level = 0) {
     const dx = TP.hexRad * .9/5-2, dy = dx;
@@ -49,8 +47,7 @@ export class ResearchLevel extends RectShape {
   showTokenAtLevel(faction: Faction) {
   }
 
-  makeDragable(table: ChaosTable) {
-    this.refCont = table.neutralPanel.researchLines;
+  makeDragable(table: HasDragger) {
     table.dragger.makeDragable(this, this, this.dragFunc, this.dropFunc)
   }
   override_makeShape(size?: number): Paintable {
