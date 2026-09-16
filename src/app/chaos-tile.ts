@@ -1,7 +1,7 @@
 import { C, permute, removeEltFromArray, S, stime, type XY } from "@thegraid/common-lib";
 import { AliasLoader, NamedContainer, type Paintable, PolyShape, RectShape } from "@thegraid/easeljs-lib";
 import type { DisplayObject } from "@thegraid/easeljs-module";
-import { type DragContext, H, type HexDir, HexShape, type IHex2, MapTile, Player as PlayerLib, type Table, TP } from "@thegraid/hexlib";
+import { type DragContext, type DragFuncs, H, type HasDragger, type HexDir, HexShape, type IHex2, MapTile, Player as PlayerLib, type Table, Tile, TP } from "@thegraid/hexlib";
 import { type ChaosHex2, type ChaosHex2 as Hex2, type HexMap2 } from "./chaos-hex";
 import { type ChaosTable } from "./chaos-table";
 import { NumCounterHex } from "./counters";
@@ -9,6 +9,7 @@ import { type Faction } from "./factions";
 import { Foundation } from "./foundation";
 import type { GamePlay } from "./game-play";
 import { AI_Trap, ChaosBuilding, ChaosToken, Factory, Leader, Morale, Outposts, PaintableCont, Relic, Stronghold } from "./meeples";
+import { superMethod } from "./mixins";
 import type { Player } from "./player";
 import type { FactionOnTileState } from "./scenario-parser";
 import { bonusIcon, CO, pentagon } from "./table-params";
@@ -149,6 +150,7 @@ export class MoveIcon extends ChaosToken {
     super(`FoT_${player.facId}-mover`, player)
     this.paint(C.nameToRgbaString(this.player.color, .2))
     this.makeDragable(player.gamePlay.table);
+    this.mouseChildren = false;
     this.visible = false;  // only visible in Move phase
   }
   override makeShape(size?: number) {
@@ -163,6 +165,7 @@ export class MoveIcon extends ChaosToken {
     this.fromHex = this.srcTile.chex;
   }
   override isLegalTarget(toHex: Hex2, ctx: DragContext): boolean {
+    if (toHex.ctile?.terrain == 'Lake' && this.player.facId !== 5) return false; // vs: !faction.canEnterLake
     return this.fromHex.linkHexes.includes(toHex);
   }
   override dropFunc(targetHex: Hex2, ctx: DragContext) {
@@ -182,21 +185,43 @@ export class MoveIcon extends ChaosToken {
       // click the arrow/FC to increment/decrement the by local FC and the target FC.
       // record state of Units before; keybinder to reset Units to beginning of phase.
 
+/** used by MoveIcon to count Fighters transfered. */
+export class FighterCounter extends NumCounterHex {
+  constructor(public mip: MoveInPlay, name: string, initValue: number | string = 0, color?: string, fontSize?: number, fontName?: string, textColors?: string[]) {
+    super(name, initValue, color, fontSize, fontName, textColors)
+  }
+  override incValue(incr: number) {
+    const mip = this.mip;
+    const incv = incr > 0 ? Math.min(incr, mip.fromFot.fighters) : Math.max(incr, -mip.toFot.fighters);
+    mip.fromFot.fighterCounter.incValue(-incv);
+    mip.toFot.fighterCounter.incValue(incv);
+    super.incValue(incv);
+    mip.toFot;
+    mip.fromFot;
+    return incv
+  }
+}
+
 
 /** Player uses a MovePoint to move Units from srcTile to toRegion  */
 export class MoveInPlay extends NamedContainer {
   from: ChaosTile;
   to: ChaosTile;
-  counter: NumCounterHex;
+  counter: FighterCounter;
+  get fromFot() { return this.from.getFoT(this.player) }
+  get toFot() { return this.to.getFoT(this.player) }
 
   constructor(public player: Player, from: ChaosTile, to: ChaosTile) {
     super(`${from.name}-${to.name}`)
     this.from = from;
     this.to = to;
-    this.counter = new NumCounterHex(`moveFighters`, 0, this.player.color); // (TP.hexSize * .2)
-    this.counter.y = TP.hexRad * -.04
-    this.counter.clickToInc(undefined, 5, 1)
+    this.counter = new FighterCounter(this, `moveFighters`, 0, this.player.color); // (TP.hexSize * .2)
+    this.counter.y = -.04 * TP.hexRad;
+    this.counter.clickToInc(true, 5, 1); // --> incValueOnClick(evt, ...) --> incValue(incv)
+    // this.counter.on('incr', (evt) => {
+    // })
     this.addArrowGraphic();
+    this.toFot;  // set visible
   }
 
   addArrowGraphic() {
@@ -211,9 +236,9 @@ export class MoveInPlay extends NamedContainer {
   clearMovePairs() {
 
   }
-  /** update Fighter counter: plus or minus */
-  moveFighters(n: number) {
-    this.counter.incValue(n); // TODO: and do other stuff...
+  /** update Fighter counters: plus or minus */
+  moveFighters(incr: number) {
+    return this.counter.incValue(incr)
   }
 
 
@@ -245,6 +270,7 @@ export class FactionOnTile extends NamedContainer {
   /**  number of fighters on tile */
   get fighters() { return this.fighterCounter.value };
   set fighters(n: number) { this.fighterCounter.value = n }
+  get inRegion() { return this.tile }
   leaders: Leader[] = [ ];              // 2+ slots (own + Rhyzu), Zcharo: 4, Oxytaya: 4
   strength = 0;                         // Apparent strength of Faction
   pins = 0;
@@ -381,7 +407,7 @@ export class FactionOnTile extends NamedContainer {
     // invert: 1 --> leaders on top;  -1 --> leaders on bottom;
     const yh = (this.isBase ? -1 : this.invert) * rad * H.sqrt3_2;
     this.fighterIcon.y = yh * 0;
-    this.fighterIcon.visible = (this.fighters > 0);
+    // this.fighterIcon.visible = (this.fighters > 0);
     if (this.leaders.length > 0) {
       // location of leader line:
       const yl = yh * .33; // assuming 2 of 5 orientation == Base!
@@ -541,6 +567,9 @@ export class ChaosTile extends MapTile {
     f.sendHome();
   }
 
+  override makeDragable(table: HasDragger & DragFuncs): void {
+    return; // tiles not generally dragable
+  }
   override isDragable(ctx?: DragContext): boolean {
     return false;   // User/GUI cannot rearrange MapTile
   }
@@ -552,7 +581,11 @@ export class ChaosTile extends MapTile {
 
   /** get FoT(player) creating it if mecessary */
   getFoT(player: Player) {
-    return this.factions[player.index] ?? (this.factions[player.index] = new FactionOnTile(player, this));
+    const fot = this.factions[player.index] ?? (this.factions[player.index] = new FactionOnTile(player, this));
+    const isMoving = (this.gamePlay.movePlayer == player);
+    fot.fighterCounter.visible = isMoving || (fot.fighters > 0);
+    fot.moveIcon.visible = isMoving;
+    return fot;
   }
   // Delegate FoT actions to the associated FoT.
   /** add or remove Leader on FoT */
@@ -570,6 +603,7 @@ export class ChaosTile extends MapTile {
 }
 
 export class BaseTile extends ChaosTile {
+  declare player: Player;    // Assert that player is defined in super constructor
   constructor(faction: Faction) {
     super(`${faction.name}Base`, 'Base', faction.bh, faction.player);
 
@@ -597,6 +631,10 @@ export class BaseTile extends ChaosTile {
   override cantBeMovedBy(player: PlayerLib, ctx: DragContext): string | boolean | undefined {
     if (this.hex?.isOnMap && !ctx.lastShift) return 'Base is on map';
     return super.cantBeMovedBy(player, ctx);
+  }
+
+  override makeDragable(table: HasDragger & DragFuncs): void {
+    superMethod(this, Tile, 'makeDragable', table)
   }
 
   override isDragable(ctx?: DragContext): boolean {
@@ -699,12 +737,15 @@ export class BaseTile extends ChaosTile {
   // ASSERT: adjRegions.length == 2
   placeFactionBaseFoundations(adjRegions: [Hex2, Hex2]) {
     this.baseRegions = adjRegions;
-    const faction = this.player!.faction;
+    const faction = this.player.faction;
     const founds = permute(faction.bf).map((bonus, i) => new Foundation(`${faction.name}_bf${i}`, bonus))
     adjRegions.forEach((hex, n) => {
-      hex.ctile?.addFoundation(founds[n]);
-      hex.ctile?.getFoT(this.player!).fighterCounter.incValue(1); // ...fighters += 1; ???
-      this.getFoT(this.player!).fighterCounter.incValue(-1);
+      const adjTile = hex.ctile!
+      adjTile.addFoundation(founds[n]);
+      // TODO: moveInPlay().moveFighters(1)
+      this.getFoT(this.player).fighterCounter.incValue(-1);
+      adjTile.getFoT(this.player).fighterCounter.incValue(1); // ...fighters += 1; ???
+      adjTile.getFoT(this.player);  // update visibility of new value
     });
     // block Oxataya from any adjacent Lake:
     if (this.player?.facId == 5) {
@@ -716,6 +757,7 @@ export class BaseTile extends ChaosTile {
       const hex0 = this.hex as Hex2, map = hex0.map as HexMap2;
       hex0.forEachLinkHex(hex1 => hex1.ctile?.terrain != 'Mtn' && map.placeMtn(hex0, hex1))
     }
+    this.hex?.map.update();
   }
 
   /** on this.dragStart(); undo previous placement */
