@@ -138,6 +138,16 @@ export class Player extends PlayerLib {
     return this.presence.map(fot => fot.tile.hex as Hex2)
   }
 
+  /** Array of FoT with every extant FoT for this Player */
+  get fotPresence() {
+    const rv: FactionOnTile[] = [];
+    this.gamePlay.hexMap.forEachHex(hex => {
+      const fot = hex.ctile?.hasFot(this);
+      if (!!fot) rv.push(fot);
+    })
+    return rv;
+  }
+  /** Array of FoT for this Player with fighters, leaders or buildings */
   get presence() {
     const rv: FactionOnTile[] = [];
     this.gamePlay.hexMap.forEachHex(hex => {
@@ -147,12 +157,13 @@ export class Player extends PlayerLib {
     return rv;
   }
 
-  /** Tiles constaining Units or Buildings of this Player */
+  /** Tiles containing Units or Buildings of this Player */
   get inRegions() { return this.presence.map(pres => pres.inRegion) }
   /** Tiles constaining Units or Buildings of this Player */
   get regionSet() { return [...new Set(this.inRegions)] }
 
   movesInPlay: MoveInPlay[] = [];
+  get hasMP() { return this.movesInPlay.length < this.gamePlay.movePoints }
 
   /** where player has presence but not control (multip players present) */
   get conflict() { return [] as ChaosTile[] } // presence.filter( !control )
@@ -189,10 +200,9 @@ export class Player extends PlayerLib {
   }
   /** new MoveInPlay factory */
   newMoveInPlay(from: ChaosTile, to: ChaosTile) {
-    const playerMoves = this.movesInPlay ?? [];
-    if (playerMoves.find(p => p.from == from && p.to == to)) return undefined;
+    if (this.movesInPlay.find(p => p.from == from && p.to == to)) return undefined;
     const newMove = new MoveInPlay(this, from, to);
-    playerMoves.push(newMove);
+    this.movesInPlay.push(newMove);
     return newMove;
   }
 
@@ -211,6 +221,9 @@ export class Player extends PlayerLib {
     const targetHex = permute(emptyHexes)[0];
     const baseTile = this.panel.baseTile;
     this.gamePlay.table.dragStartAndDrop(baseTile, targetHex);
+    if (this.gamePlay.pairTargets.length > 0) {
+      baseTile.chooseGivenPair(this.gamePlay.pairTargets[0].pair);
+    }
     doneFunc();
   }
 
