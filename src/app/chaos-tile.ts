@@ -46,10 +46,6 @@ function dist(pt: XY, p0={ x: 0, y: 0 }) {
 /** A Graphic target straddling the border between two Regions */
 export class PairTarget extends NamedContainer {
   static targets: PairTarget[] = [];
-  static removeTargets() {
-    PairTarget.targets.forEach(pt => pt.parent.removeChild(pt));
-    PairTarget.targets.length = 0;
-  }
 
   /** create PairTarget and add to PairTarget.targets; and show on overCont. */
   constructor(public pair: [ChaosHex2, ChaosHex2], public dObj: DisplayObject) {
@@ -146,9 +142,13 @@ const colorOfTerrain: Record<TERRAIN, string> = {
 }
 
 export class MoveIcon extends ChaosToken {
+  color: string;
+  color2: string;
   constructor(player: Player, public srcTile: ChaosTile) {
     super(`FoT_${player.facId}-mover`, player)
-    this.paint(C.nameToRgbaString(this.player.color, .2))
+    this.color = C.nameToRgbaString(this.player.color, .2);
+    this.color2 = C.nameToRgbaString(C.white, .7);
+    this.paint(this.color)
     this.makeDragable(player.gamePlay.table);
     this.mouseChildren = false;
     this.visible = false;  // only visible in Move phase
@@ -161,6 +161,7 @@ export class MoveIcon extends ChaosToken {
     this.srcTile.getFoT(this.player).addChildOver(this);
   }
   override dragStart(ctx: DragContext): void {
+    this.paint(this.player.hasMP ? this.color : this.color2)
     super.dragStart(ctx);
     this.fromHex = this.srcTile.chex;
   }
@@ -169,10 +170,13 @@ export class MoveIcon extends ChaosToken {
     return this.fromHex.linkHexes.includes(toHex);
   }
   override dropFunc(targetHex: Hex2, ctx: DragContext) {
+    if (this.player.hasMP) {
     const toRegion = targetHex?.ctile, srcTile = this.srcTile;
     if (toRegion && toRegion != srcTile) {
       this.player.newMoveInPlay(srcTile, toRegion);
     }
+    }
+    this.paint(this.color);
     this.sendHome();
   }
 }
@@ -192,7 +196,7 @@ export class FighterCounter extends NumCounterHex {
   }
   override incValue(incr: number) {
     const mip = this.mip;
-    const incv = incr > 0 ? Math.min(incr, mip.fromFot.fighters) : Math.max(incr, -mip.toFot.fighters);
+    const incv = incr > 0 ? Math.min(incr, mip.fromFot.fighters) : -Math.min(-incr, mip.toFot.fighters - mip.toFot.preFighters);
     mip.fromFot.fighterCounter.incValue(-incv);
     mip.toFot.fighterCounter.incValue(incv);
     super.incValue(incv);
@@ -309,7 +313,6 @@ export class FactionOnTile extends NamedContainer {
       this.localToLocal(dObj.x, dObj.y, overCont, dObj);
       return overCont.addChild(dObj);
     }
-
   }
 
 
@@ -421,6 +424,18 @@ export class FactionOnTile extends NamedContainer {
     this.stage.update();
   }
 
+  preLeaders: Leader[] = [];
+  preFighters = 0;
+  /** record leaders & fighters */
+  setPreMove() {
+    this.preLeaders = this.leaders.slice();
+    this.preFighters = this.fighters;
+  }
+  /** reset to preMove values; Note: must reset ALL presence FoTs */
+  resetMove() {
+    this.fighters = this.preFighters;
+    this.leaders = this.preLeaders.slice();
+  }
   /** maybe/beginning what we need to saveState of Map.
    *
    * @return FactionOnTileState for this Player.
@@ -629,7 +644,7 @@ export class BaseTile extends ChaosTile {
   // Leaving this code for when we build them
   // Also drag Building (as meeps) to Build and self-drop
   override cantBeMovedBy(player: PlayerLib, ctx: DragContext): string | boolean | undefined {
-    if (this.hex?.isOnMap && !ctx.lastShift) return 'Base is on map';
+    if (this.hex?.isOnMap && !ctx.lastShift) return 'Base is on map'; // TODO: disable Shift after PlaceBase phase
     return super.cantBeMovedBy(player, ctx);
   }
 
@@ -644,7 +659,6 @@ export class BaseTile extends ChaosTile {
   override dragStart(ctx: DragContext): void {
     super.dragStart(ctx); // --> cantBeMovedBy()
     {
-      PairTarget.removeTargets();
       // unlink base & remove baseFoundations! (because shiftkey-move)
       this.rmBaseFoundationsAndUnlink(ctx); // if is dragging...
     }
@@ -708,29 +722,31 @@ export class BaseTile extends ChaosTile {
 
   // Base must choose which pair of Hexes to use & add mountains
   chooseAdjacentPair(hex: Hex2, pairs: [Hex2, Hex2][]) {
-    const map = this.hex!.map as HexMap2;
-    // and to place mountain(s) to block other(s)
     // put GUI selector on each pair; on(click) -->
     // --> place mountains on other side(s) of Base
     // --> placeFactionBaseFoundations(pairs[n])
-    const cb = (pairTarget: PairTarget) => {
-      PairTarget.removeTargets();
-      const pair = pairTarget.pair;
-      const hexes = pairs.flat();
-      hexes.forEach(hex2 => pair.includes(hex2) || map.placeMtn(hex, hex2));
-      this.placeFactionBaseFoundations(pair); hex.map.update()
-    }
     pairs.forEach(pair => {
       try {
         // Graphic target to indicate which Region Pair user wants for base foundations
         const dx = TP.hexRad * .3, dy = dx*2;
         const rect = new RectShape({ x: -dx/2, y: -dy/2, w: dx, h: dy }, CO.mauve, '');
         const pairTarget = new PairTarget(pair, rect);
-        pairTarget.on(S.click, (evt) => cb(pairTarget))
+        pairTarget.on(S.click, (evt) => this.chooseGivenPair(pair))
       } catch (msg) {
         console.warn(stime(this, `.addBaseFoundataionsAndLink: ${msg}`))
       }
     });
+  }
+
+  /** establish Base Foundations on given pairTarget. */
+  chooseGivenPair(pair: [ChaosHex2, ChaosHex2]) {
+    // const pair = pairTarget.pair;
+    const hex = this.chex!;   // assert: BaseTile has dropped on map
+    const map = hex.map as HexMap2;
+    this.gamePlay.removeTargets();  // all PairTargets
+    const hexes = this.getAdjacentPairs(this.chex).flat();
+    hexes.forEach(hex2 => pair.includes(hex2) || map.placeMtn(hex, hex2));
+    this.placeFactionBaseFoundations(pair);
   }
 
   baseRegions?: [Hex2, Hex2];  // Note: only used by ChaosTile('Base')
@@ -760,8 +776,9 @@ export class BaseTile extends ChaosTile {
     this.hex?.map.update();
   }
 
-  /** on this.dragStart(); undo previous placement */
+  /** on this.dragStart(); undo previous placement, recall leaders, fighters & movesInPlay */
   rmBaseFoundationsAndUnlink(ctx: DragContext) {
+    this.gamePlay.removeTargets(); // adjPairTargets or movesInPlay
     const hex = this.fromHex;
     if (!hex?.isOnMap) return;
     const map = hex.map as HexMap2;
@@ -770,13 +787,23 @@ export class BaseTile extends ChaosTile {
       const nHex = map.getHex(map.nextRowCol(hex, dir));
       if (nHex) map.removeMtn(hex, nHex)
     })
-    // remove Foundations & Fighters that were placed adjacent to Base;
-    const baseFighters = hex.ctile!.getFoT(this.player!).fighterCounter;
+    const movePlayer = this.gamePlay.movePlayer;
+    this.gamePlay.movePlayer = undefined;       // indicate player is not moving (hide 0-fighters)
+    const baseFot = this.getFoT(this.player)
+    // return fighters and Leaders: (not just the adj foundation locations: all the map! for PlaceBaseAndMove tests)
+    this.player.fotPresence.forEach(fot => {
+      const nf = fot.fighters;
+      baseFot.fighterCounter.incValue(nf);        // send fighters back to base
+      fot.fighters = 0;
+      fot.leaders.forEach(ldr => ldr.sendHome()); // return to LeaderCard
+      fot.leaders.length = 0;
+    })
+    this.player.movesInPlay.length = 0;    // clear move-counter (re-enable Moves)
+    this.player.presence;                  // vis on 0-sized fighters
+    this.gamePlay.movePlayer = movePlayer; // restore curent movePlayer
+
+    // remove Foundations that were placed adjacent to Base;
     this.baseRegions?.forEach(nHex => {
-      const brFoT = nHex.ctile!.getFoT(this.player!);
-      const nfighters = brFoT.fighterCounter.value;
-      brFoT.fighterCounter.incValue(-nfighters);
-      baseFighters.incValue(nfighters);
       // remove any foundation in nHex:
       nHex.ctile?.foundations.forEach((elt, n, ary) => {
         elt?.parent?.removeChild(elt);

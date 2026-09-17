@@ -59,6 +59,13 @@ export class GamePlay extends GamePlayLib {
    return this.gameState.phasePrices[priceName]?.facId;
   }
 
+  get pairTargets() { return PairTarget.targets }
+
+  removeTargets() {
+    this.pairTargets.forEach(pt => pt.parent.removeChild(pt));
+    this.pairTargets.length = 0;
+  }
+
   // used during initial bringup
   autoSetPrices(ndx: PlayerId) {
     const plyr = this.allPlayers[ndx];
@@ -173,11 +180,17 @@ export class GamePlay extends GamePlayLib {
   // Income: Faction specific Income: Ley,
   // Relics: Win?; assign Relic do Bonus (Research, Upgrade-Circadian)
   // ... next round
-
+  mpForFaction(faction: Faction) {
+    const level = faction.researchLevelOfPhase['Move'].level;
+    return [2, 4, 5, 7, 9][level];
+  }
   /** Faction's turn to Move, with nMove movepoints */
-  moveFaction(faction: Faction, nMove = faction.researchLevelOfPhase['Move'].level) {
+  moveFaction(faction: Faction, nMove = this.mpForFaction(faction)) {
+    this.movePoints = nMove;
     this.movePlayer = faction.player;
-    faction.player.presence;    // set visibity on MoveIcon & FighterIcon
+    // set visibity on MoveIcon & FighterIcon; set pre-Move state
+    faction.player.presence.forEach(fot => fot.setPreMove());
+    console.log(stime(this, `.moveFaction: preFighters=`), faction.player.presence.map(fot => fot.preFighters));
 
     // TODO: D&D stuff for MoveShape [8/12]
     // TODO: after 'done' find & clear all the MoveShape on all MapTile [8/12]
@@ -188,11 +201,27 @@ export class GamePlay extends GamePlayLib {
 
   /** player currently enabled to Move (not always curPlayer!) controls visibility of MoveIcon & (fighters == 0) */
   movePlayer?: Player;
+  movePoints = 0;
 
-  unMoveFaction(faction: Faction) {
+  /** endMove phase */
+  endMoveFaction() {
+    if (!this.movePlayer) return;
+    const faction = this.movePlayer.faction;
+    this.movePlayer.movesInPlay.length = 0;
     this.movePlayer = undefined;
     faction.player.presence; // touch all FoT, setting visibility
-    PairTarget.removeTargets(); // remove all MoveInPlay
+    this.removeTargets(); // remove all MoveInPlay
+  }
+
+  /** undo, stop and re-start moveFaction() */
+  resetMove() {
+    if (!this.movePlayer) return;
+    const faction = this.movePlayer.faction
+    this.movePlayer.fotPresence.forEach(fot => fot.resetMove());
+    this.endMoveFaction();
+    this.moveFaction(faction, this.movePoints);
+    // this.movePlayer = faction.player;
+    this.table.stage.update();
   }
 
   findBattles(pid: PlayerId) {
@@ -211,10 +240,8 @@ export class GamePlay extends GamePlayLib {
   override bindKeys(): void {
     super.bindKeys();
     const table = this.table;
-    // KeyBinder.keyBinder.setKey('C-z', () => this.undoCardDraw());
     KeyBinder.keyBinder.setKey('C-d', () => this.toggleBrake());
-    // KeyBinder.keyBinder.setKey('w', () => table.dragTile?.rotateNext(-1))
-    // KeyBinder.keyBinder.setKey('e', () => table.dragTile?.rotateNext( 1))
+    KeyBinder.keyBinder.setKey('r', () => this.resetMove())
     KeyBinder.keyBinder.setKey('M-c', () => {
       const tp=TP, tpl=TPLib
       const scale = TP.cacheTiles

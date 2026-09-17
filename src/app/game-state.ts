@@ -298,7 +298,7 @@ export class GameState extends GameStateLib {
         this.gamePlay.moveFaction(this.curPlayer.faction); // then call gameState.phase.done()
        },
       done: () => {
-        this.gamePlay.unMoveFaction(this.curPlayer.faction);
+        this.gamePlay.endMoveFaction();
         this.startOrPhase('Combat', undefined, true); // first time: set lBI
       },
     },

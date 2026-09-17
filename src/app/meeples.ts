@@ -295,15 +295,15 @@ export class Leader extends ChaosUnit implements LeaderSpec {
   get stats() { return this.upgraded ? this.stats2 : this.stats0 }
   stats0: CombatStats;
   stats2: CombatStats;
-  t1: string;
-  t2: string;
-  tp: PhaseName;
+  t1: string;        // initial text
+  t2: string;        // updgraded text
+  tp: PhaseName;     // phase when text is in effect
   upgraded = false;  // set true when upgraded
   onBoard = false;   // in play: on map, on a ctile/fac vs waiting on Leader.homeHex
-  plGem = 0;
-  upGem = 0;
-  upPlace = 0;
-  isRhyzu = 0;   // maybe subclass...
+  plGem = 0;         // gem(s) required to place Leader
+  upGem = 0;         // gem(s) required to upgrade Leader
+  upPlace = 0;       // gem(s) required to place upgraded Leader
+  isRhyzu = 0;       // which instance of Rhyzu, to align with Rhyzu bonus tokens
   isaRhyzu(): this is Rhyzu {
     return this.isRhyzu > 0;   // versus instanceof
   }
