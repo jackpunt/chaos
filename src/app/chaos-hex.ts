@@ -65,11 +65,6 @@ export class ChaosHex extends Hex1Lib {
   /** read hex.tile as ChaosTile */
   get ctile() { return super.tile as ChaosTile | undefined; }
 
-  // TacticsCard is modeled as a Tile, placed on CardHex [tactics-card.ts] (from HexPath);
-  // hexcity uses the way old CardContainer and card.useDropFunc
-  // See CardPanel.makeDragable(table) -> table.dragger.makeDragable(... dropFunc)
-  get card() { return super.meep as TacticsCard | undefined }
-  set card(card) { super.meep = card; }
 }
 
 class ChaosHex2Lib extends Hex2Mixin(ChaosHex) {

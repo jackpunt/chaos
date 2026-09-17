@@ -223,8 +223,9 @@ export class TacticsCard extends Tile {
   // or drag it to combat wheel during Combat (discard after Combat)
   //
   override dropFunc(targetHex: Hex2, ctx: DragContext): void {
-    const card = targetHex.card;
-    if (card && card !== this) card.moveCard(targetHex, ctx);
+    const cardHex = (targetHex as CardHex);
+    const card = cardHex.card;
+    if (card && card !== this) card.moveCard(cardHex, ctx);
     super.dropFunc(targetHex ?? TacticsCard.discard.hex, ctx);
     if (this.hex === TacticsCard.discard.hex) {
       TacticsCard.discard.availUnit(this);
@@ -240,7 +241,7 @@ export class TacticsCard extends Tile {
   }
 
   /** hex contains card, which needs to be moved: */
-  moveCard(hex: Hex2, ctx: DragContext) {
+  moveCard(hex: CardHex, ctx: DragContext) {
     // if hex is 'discards' --> let unitCollision stack them on source.available
     // if hex in player.cardRack[]: card.sendHome()
     // if hex is table.cardRack[0]: shift all cards up
@@ -416,6 +417,12 @@ export class CardHex extends Hex2 {
       unitOnHex.moveTo(disc.hex);// discard previous card === hexUnit.sendHome()
     }
   }
+
+  // TacticsCard is modeled as a Tile, placed on CardHex [tactics-card.ts] (from HexPath);
+  // hexcity uses the way old CardContainer and card.useDropFunc
+  // See CardPanel.makeDragable(table) -> table.dragger.makeDragable(... dropFunc)
+  get card() { return super.meep as TacticsCard | undefined }
+  set card(card) { super.meep = card; }
 }
 
 
