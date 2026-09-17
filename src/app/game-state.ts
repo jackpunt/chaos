@@ -51,9 +51,14 @@ export class GameState extends GameStateLib {
   /** initiator for this Phase */
   phaseNdx: PlayerId = 0;
 
-  /** Table Order: (ndx+1) mod nPlayers */
+  /**
+   * Cycle through players in Table Order.
+   * @param ndx (0) current index
+   * @param dn  (1) generally +/- 1
+   * @returns (ndx + dn) mod nPlayers
+   */
   nextNdx(ndx = 0, dn = 1) {
-    return (ndx + dn) % this.nPlayers as PlayerId;
+    return (ndx + dn + this.nPlayers) % this.nPlayers as PlayerId;
   }
 
   /** if this PlayerId has no Battles, then we are done. */
@@ -182,17 +187,25 @@ export class GameState extends GameStateLib {
     },
     // In reverse table order, place a Relic on Region not adjacent to Factions starting foundations (>2-Moves from Base)
     PlaceRelic: {
-      start: (index = TP.numPlayers) => {
-        if (index > 0) {
-          this.setCurPlayerNdx(index - 1 as PlayerId);
-          this.doneButton();
+      start: (lastNdx = this.phaseNdx) => {     // gunPlayer.index
+        const index = this.nextNdx(lastNdx, -1);
+        this.setCurPlayerNdx(index as PlayerId);
+        this.doneButton();
+      },
+      done: (index = this.curPlayer.index) => {
+        if (index !== this.phaseNdx) {
+          this.state.start(index); // loop for each player
         } else {
           this.gamePlay.placeInitialRelics();
           this.phase('BeginRound', 1); // begin with Round = 1
         }
-      },
-      done: (pid = this.curPlayer.index) => {
-        this.state.start(pid); // loop for each player
+      }
+    },
+
+    /** in table order, place Leader & rest of fighters; movePoints = 2? OR set 2 movesInPlay or click? */
+    DeployLeaders: {
+      start: () => {
+
       }
     },
 
@@ -202,7 +215,7 @@ export class GameState extends GameStateLib {
       start: (round = this.roundNum) => {
         this._round = round;   // 'PlaceBase' & 'Relics' invoke with new roundNum
         this.gamePlay.saveGame();
-        this.doneButton(`Begin Round: ${this.roundNum}`); // activate
+        this.doneButton(`Begin Round:${this.roundNum}`); // activate
       },
       done: () => {
         Relic.allRelics[0].toMapScale(true);
