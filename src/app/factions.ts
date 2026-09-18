@@ -17,16 +17,45 @@ function expandArray0<T>(rec: Record<number, T>): (T | undefined)[] {
   return rv;
 }
 
-/**                          Circadian   AI   Zcharo   Leyrien   JRayek   Oxytaya   (& Neutral: brown) */
+/**                          Circadian   AI   Zcharo   Leyrien   JRayek   Oxataya   (& Neutral: brown) */
 export const factionColors = ['gold', 'grey', 'blue', 'green', 'orange', 'violet', ] as const;
 type FactionColor = typeof factionColors[number];
 
 /** presentation name of each Faction */  // TODO: move these to Scenario & parser?
-export const factionNames = ['Circadian', 'AI', 'Zcharo', 'Leyrien', 'Jrayek', 'Oxytaya'] as const;
-export const factionNeutral = ['Circadian', 'AI', 'Zcharo', 'Leyrien', 'Jrayek', 'Oxytaya', 'Neutral'] as const;
+export const factionNames = ['Circadian', 'AI', 'Zcharo', 'Leyrien', 'Jrayek', 'Oxataya'] as const;
+export const factionNeutral = ['Circadian', 'AI', 'Zcharo', 'Leyrien', 'Jrayek', 'Oxataya', 'Neutral'] as const;
 export type FactionName = typeof factionNeutral[number];
 export type FactionId = 0 | 1 | 2 | 3 | 4 | 5;  // at most 5 Factions in game
 
+const attrNames = [
+  'proficient', 'seclusive', 'resilient', 'tenacius', // zcharo
+  'expeditious', 'optomistic', 'spirited', 'protective', // Leyrien
+  'resourceful', 'subterranean', 'symbiotic', 'volatile', // Oxataya
+  'aggressive', 'assertive', 'hostile', 'fortified',  // Jrayek
+  'cunning', 'copious', 'destructive', 'ominous',     // AI
+  'covert', 'militarized', 'tactical', 'mobile', 'perceptive', // Circadians
+] as const;
+type AttrName = typeof attrNames[number];
+const factionAttrs = {
+  Circadian: ['covert', 'militarized', 'tactical', 'mobile', 'perceptive'],
+  AI: ['cunning', 'copious', 'destructive', 'ominous'],
+  Zcharo: ['proficient', 'seclusive', 'resilient', 'tenacius'],
+  Leyrien: ['expeditious', 'optomistic', 'spirited', 'protective'],
+  Jrayek: ['aggressive', 'assertive', 'hostile', 'fortified'],
+  Oxataya: ['resourceful', 'subterranean', 'symbiotic', 'volatile'],
+ } as Record<FactionName, AttrName[]>;
+
+
+export class Attribute {
+  Aname!: AttrName;
+  t1!: string;  // basic text
+  t2!: string;  // upgraded text
+  upgradeEffect!: string;
+  upgraded = false;
+  constructor() {
+
+  }
+}
 /** bh: HARVEST in base, bf: beginning Foundations */
 export type BaseSpec = {name: FactionName, bh?: HARVEST, bf?: [HARVEST, HARVEST] }
 /** rb: RelicBonus, fg: foundation w/gem, serial [0..4], bg: building w/gemlock (index per type), nr: number in recruit, r3: alt_recruit
@@ -44,7 +73,7 @@ export class Faction {
   // AI: Move: trap, Income: reset
   // Leyrien: Build: restrict, Combat: +strength, Income: +Fame
   // Jrayek: Combat: +str, +shield
-  // Oxytaya: Recruit: placement option
+  // Oxataya: Recruit: placement option
   static factionById = new Map<FactionId, Faction>();
 
   // Relic bonus = rb: G: Gem, F: Fame, E: Energy, M: Morale, Up: Upgrade Attribute(flip),
@@ -58,7 +87,7 @@ export class Faction {
     { name: 'Zcharo',    rb: ['G1', 'G1', 'G1', 'G1', 'G1',], fg: 3, bg: [[2, 0, 1, 1], [0, 0, 1, 1], [0, 1]], nr: [9, 5, 6],  ft: 1, r3: 'C', },
     { name: 'Leyrien',   rb: ['M0', 'F2', 'F2', 'F3', 'F3',], fg: 1, bg: [[2, 0, 0, 1], [0, 0, 1], [1, 1, 1]], nr: [8, 6, 6],  ft: 1, r3: 'C',},
     { name: 'Jrayek',    rb: ['E2', 'F1', 'E3', 'F1', 'F1',], fg: 2, bg: [[2, 0, 0, 1], [0, 1, 1], [0, 0, 1]], nr: [10, 4, 6], ft: 1, r3: 'C', },
-    { name: 'Oxytaya',   rb: ['F1', 'F1', 'F1', 'F2', 'F3',], fg: 1, bg: [[2, 0, 1, 1], [0, 0, 1], [0, 1, 1]], nr: [12, 3, 5], ft: 1, r3: 'C', },
+    { name: 'Oxataya',   rb: ['F1', 'F1', 'F1', 'F2', 'F3',], fg: 1, bg: [[2, 0, 1, 1], [0, 0, 1], [0, 1, 1]], nr: [12, 3, 5], ft: 1, r3: 'C', },
   ];
 
   // Base harvest= bh?: E1, E2, G1, R1
@@ -69,7 +98,7 @@ export class Faction {
     { name: 'Zcharo',    bh: 'E2', bf: ['C', 'G1'] },
     { name: 'Leyrien',   bh: 'E2', bf: ['C', 'E2'] },
     { name: 'Jrayek',    bh: 'G1', bf: ['G1', '%'] },
-    { name: 'Oxytaya',   bh: 'R1', bf: ['C', 'C'] },
+    { name: 'Oxataya',   bh: 'R1', bf: ['C', 'C'] },
   ];
 
   /** identify bonuses awarded on each faction's fameTrack */
@@ -79,7 +108,7 @@ export class Faction {
     { 3: 'E1', 5: 'R1', 8: 'E1', 13: 'R1', 18: 'C', 20: 'End' }, // Zcharo
     { 1: 'R1', 3: 'R1', 5: '%', 7: 'R1', 8: 'R1', 11: 'G1', 14: 'Win' },  // Leyrien
     { 1: 'E2', 2: 'E2', 3: 'R2', 4: 'G1', 5: 'Win' },            // Jrayek
-    { 1: 'E1', 3: 'G1', 5: '%', 7: 'C', 9: 'Win' },              // Oxytaya
+    { 1: 'E1', 3: 'G1', 5: '%', 7: 'C', 9: 'Win' },              // Oxataya
   ]
 
   static fameTracks = Faction.fameTrackSpecs.map((rec, n) => {
@@ -110,6 +139,7 @@ export class Faction {
   ft!: number;
   /** r3: trade R3 for BONUS resource. */
   r3!: BONUS;
+  attributes: Partial<Record<AttrName, Attribute>> = {};
 
   constructor(facId: FactionId, public player: Player) {
     this.facId = facId;

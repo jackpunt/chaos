@@ -94,7 +94,7 @@ class HarvestToken {
 const terrainIds = ['Mtn', 'Hills', 'Swamp', 'Plains', 'Lake', 'Base', 'Ldr'] as const;
 
 // 'energy' is E2, 'energy1' is E1, 'recruit1' is 'R1'
-// energy1 on AI Base; 'recruit1' on Oxytaya Base
+// energy1 on AI Base; 'recruit1' on Oxataya Base
 // Note: Tile.setNameText() converts '-' to newline
 // board_HARVEST:          ['E2', 'G1', 'C']
 // relic_Foundation bonus: ['E2', 'G1', 'C', '%', '-', ]  ('-' on Relic-6: never claimed)
@@ -165,8 +165,15 @@ export class MoveIcon extends ChaosToken {
     super.dragStart(ctx);
     this.fromHex = this.srcTile.chex;
   }
+  get isFromSwamp() {
+    return (this.srcTile.isSwampCnx)
+  }
+  isToSwamp(ctile: ChaosTile) {
+    return ctile.isSwamp;
+  }
   override isLegalTarget(toHex: Hex2, ctx: DragContext): boolean {
-    if (toHex.ctile?.terrain == 'Lake' && this.player.facId !== 5) return false; // vs: !faction.canEnterLake
+    if (this.player.facId !== 5 && toHex.ctile?.isLake) return false; // vs: !faction.canEnterLake
+    if (this.player.facId === 3 && toHex.ctile?.isSwampCnx && this.isFromSwamp) return true; // Leyrein connects Swamps
     return this.fromHex.linkHexes.includes(toHex);
   }
   override dropFunc(targetHex: Hex2, ctx: DragContext) {
@@ -232,8 +239,15 @@ export class MoveInPlay extends NamedContainer {
     const dObj = new NamedContainer(`moveArrow`);
     const color = C.nameToRgbaString(this.player.color, .5);
     const pent = pentagon(TP.hexRad*.4, TP.hexRad*.3, color, 0, '');
+    const pair = [this.from.chex, this.to.chex] as [Hex2, Hex2];
     dObj.addChild(pent, this.counter);
-    const pairGraphic = new PairTarget([this.from.chex, this.to.chex], dObj); // added to overCont
+    if (!pair[0].linkHexes.includes(pair[1])) {
+      // Leyrein in swamp or anyone in tunnel!
+      // A Swamp has at most 5 normal adjacent neighbors (T4,3 T4,5)
+      // A Swamp has at most 5 "swamp adjacent" connections
+      console.log(stime(this, `.addArrow:`), pair);
+    }
+    const pairGraphic = new PairTarget(pair, dObj); // added to overCont
     this.counter.rotation = -pairGraphic.rotation;
   }
 
@@ -275,7 +289,7 @@ export class FactionOnTile extends NamedContainer {
   get fighters() { return this.fighterCounter.value };
   set fighters(n: number) { this.fighterCounter.value = n }
   get inRegion() { return this.tile }
-  leaders: Leader[] = [ ];              // 2+ slots (own + Rhyzu), Zcharo: 4, Oxytaya: 4
+  leaders: Leader[] = [ ];              // 2+ slots (own + Rhyzu), Zcharo: 4, Oxataya: 4
   strength = 0;                         // Apparent strength of Faction
   pins = 0;
 
@@ -393,7 +407,7 @@ export class FactionOnTile extends NamedContainer {
   // x-offset of sector:
   get offset() { return -1 + (FactionOnTile.offset[this.index][TP.numPlayers - 2] ?? 0)};
   /** place where we always use top-center sector */
-  get isBase() { return this.tile.terrain == 'Base' || this.tile.terrain == 'Ldr' }
+  get isBase() { return this.tile.isBase || this.tile.isLdr }
   /** move FoT to sector for isBase ? Base : player.index */
   setXY(rad = this.tile.radius) {
     const index = this.index;     // table order determines FoT placement
@@ -480,7 +494,7 @@ export class ChaosTile extends MapTile {
   static curTable: ChaosTable;
 
   override toString(): string {
-    super.toString();
+    super.toString;
     return `${this.Aname}`;
   }
 
@@ -495,6 +509,20 @@ export class ChaosTile extends MapTile {
   relic?: Relic;
 
   special?: Morale| AI_Trap;
+
+  get isLdr() {return this.terrain == "Ldr"}
+  get isMtn() {return this.terrain == "Mtn"}
+  get isLake() {return this.terrain == "Lake"}
+  get isHills() {return this.terrain == "Hills"}
+  get isPlains() {return this.terrain == "Plains"}
+  get isBase() {return this.terrain == "Base"}
+  get isSwamp() {return this.terrain == "Swamp"}
+  // Leyrien Base is not Swamp, but can be connected,
+  // as can Leyrien Strongholds
+  // caller must verify that Leyrien is the Faction in question
+  get isSwampCnx() {
+    return this.isSwamp ;  // for Leyrein tunneling || this.hasFot().buildings.includes('Stronghold')
+  }
 
   // Note: "Zcharo may have up to 2 Outposts in each Region";
   // one [Zcharo?] Leader can build w/o foundation! we will place a pseudo-Foundation and remove if bldg is destroyed.
@@ -619,6 +647,8 @@ export class ChaosTile extends MapTile {
 
 export class BaseTile extends ChaosTile {
   declare player: Player;    // Assert that player is defined in super constructor
+  override get isBase() { return true }
+  override get isSwampCnx() { return this.player.facId == 3 && !!this.player.faction.attributes['expeditious']?.upgraded }
   constructor(faction: Faction) {
     super(`${faction.name}Base`, 'Base', faction.bh, faction.player);
 
@@ -693,7 +723,7 @@ export class BaseTile extends ChaosTile {
     // link base hex to adjacent non-Mtn Hexes
     const map = this.hex!.map as HexMap2;
     map.link(hex);      // link to all adjacent hexes
-    map.unlink(hex, (nHex) => nHex.ctile?.terrain == 'Mtn'); // rm links to Mtn tiles
+    map.unlink(hex, (nHex) => !!nHex.ctile?.isMtn); // rm links to Mtn tiles
     const pairs = this.getAdjacentPairs(hex);  // find each pair of adjacent regions
     if (pairs.length == 0) {
       // on player panel; do nothing
@@ -766,12 +796,12 @@ export class BaseTile extends ChaosTile {
     // block Oxataya from any adjacent Lake:
     if (this.player?.facId == 5) {
       const hex0 = this.hex as Hex2, map = hex0.map as HexMap2;
-      hex0.forEachLinkHex(hex1 => hex1.ctile?.terrain == 'Lake' && map.placeMtn(hex0, hex1))
+      hex0.forEachLinkHex(hex1 => !!hex1.ctile?.isLake && map.placeMtn(hex0, hex1))
     }
     // block Circadians from all adjacent:
     if (this.player?.facId == 0) {
       const hex0 = this.hex as Hex2, map = hex0.map as HexMap2;
-      hex0.forEachLinkHex(hex1 => hex1.ctile?.terrain != 'Mtn' && map.placeMtn(hex0, hex1))
+      hex0.forEachLinkHex(hex1 => !hex1.ctile?.isMtn && map.placeMtn(hex0, hex1))
     }
     this.hex?.map.update();
   }

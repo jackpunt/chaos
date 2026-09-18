@@ -150,7 +150,7 @@ class Mountain extends RectShape {
     hex0.edgePoint(dir01, 1, this);      // set RectShape on edge of Hex
     // place Mtn above mapTiles but below BaseTiles:
     const tiles = map.mapCont.tileCont.children;
-    const baseNdx = tiles.findIndex(tile => (tile as ChaosTile).terrain == 'Base');
+    const baseNdx = tiles.findIndex(tile => (tile as ChaosTile).isBase);
     map.mapCont.tileCont.addChildAt(this, baseNdx > 0 ? baseNdx : tiles.length);
     // remove adjacency links:
     console.log(stime(this, `.new Mountain: ${hex0} -- ${hex1}`))
@@ -326,7 +326,7 @@ export class HexMap2 extends HexMap<ChaosHex2> {
     // set all Mtn & Base Tiles unreachable: (will re-link when actual Base is placed)
     map.forEachHex(hex => {
       const tile = hex.tile as ChaosTile;
-      if (tile?.terrain == 'Mtn' || tile?.terrain == 'Base') {
+      if (tile?.isMtn || tile?.isBase) {
         hex.forEachLinkHex((hex2, dir, hex0) => {
           delete hex0.links[dir!]
           delete hex2.links[H.dirRev[dir!]]
@@ -335,7 +335,7 @@ export class HexMap2 extends HexMap<ChaosHex2> {
     })
 
     map.forEachHex(hex => {
-      if (hex.ctile?.terrain == 'Base') hex.ctile.sendHome(); // remove 'Base' cover tiles
+      if (hex.ctile?.isBase) hex.ctile.sendHome(); // remove 'Base' cover tiles
     })
 
   }

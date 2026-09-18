@@ -97,7 +97,7 @@ export class Foundation extends Tile {
     if (!toHex) return false;
     const tile = toHex.ctile!;
     if (!tile) return false;
-    if (tile.terrain == 'Mtn' || tile.terrain == 'Base') return false;
+    if (tile.isLdr || tile.isBase) return false;
     return (tile.canAddFoundation());
   }
 

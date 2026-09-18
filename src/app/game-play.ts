@@ -168,8 +168,10 @@ export class GamePlay extends GamePlayLib {
   // Harvest: click-to-Harvest (enable eligble Regions)
   // Recruit: click-to-Recruit (Oxataya: option to move Fighters to Strongholds)
   // Recruit: Aux: select/deploy (& pay gem) Leader
-  // Move: select & show 'bridge' between src->dest Region.
-  // Move: select warriors & Leaders, Drag to next Region.
+  // Move: select & show 'bridge' between src->dest Region. [9/16]
+  // Move: select Fighters & Leaders, Drag to next Region. Fighters[9/16]
+  // Move: delete moveInPlay when incr --> 0 (conservation of MovePoints)
+  // Move: hack so swamps are adjacent for Leyrein
   // Move: Aux: select Leader card to upgrade (& pay gem).
   // Combat: choose opponent; choose wheel, card; commit --> reveal, (Ochara!)
   // Combat: auto resolve, remove casualties/buildings, assign Fame (AI, Zcharo, JReyak, Oxataya)

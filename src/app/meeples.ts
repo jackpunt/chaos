@@ -567,8 +567,8 @@ export class Leader extends ChaosUnit implements LeaderSpec {
 
   override isLegalTarget(toHex: Hex2, ctx?: DragContext): boolean {
     if (toHex == this.ctxCtile(ctx).hex) return true;
-    if (!toHex.ctile || (toHex.ctile.terrain == 'Mtn')) return false;
-    if (toHex.ctile.terrain == 'Lake' && this.facId !== 5) return false;
+    if (!toHex.ctile || toHex.ctile.isMtn) return false;
+    if (toHex.ctile.isLake && this.facId !== 5) return false;
     return true
   }
 
@@ -683,15 +683,15 @@ export class Rhyzu extends Leader {
 
   override isLegalTarget(toHex: Hex2, ctx?: DragContext): boolean {
     const ctile = toHex?.ctile;
-    if (ctile?.terrain == 'Ldr') return (ctile == this.homeTile);
-    if (ctile?.terrain == 'Base') return true;
+    if (ctile?.isLdr) return (ctile == this.homeTile);
+    if (ctile?.isBase) return true;
     return super.isLegalTarget(toHex, ctx);
   }
   override dropFunc(targetHex: Hex2, ctx: DragContext): void {
     if (targetHex == this.homeHex) {
       this.setPlayer((ctx.gameState as GameState).gamePlay.neutralPlayer)
     } else
-    if (targetHex?.ctile?.terrain == 'Base') {
+    if (targetHex?.ctile?.isBase) {
       this.setPlayer(targetHex.ctile.player!)
     }
     super.dropFunc(targetHex, ctx);

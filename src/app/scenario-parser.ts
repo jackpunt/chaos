@@ -24,7 +24,7 @@ interface FactionState {
 
 /** leaders[...], fighters(n), buildings(F|P|S), special: Morale (M1, M2) | Trap (T1: armed, T0: used) */
 export interface FactionOnTileState { // SEE ALSO: chaos-tile/FactionOnTile
-  l?: LeaderS[];                   // 2 slots (own + Rhyzu), Zcharo: 4, Oxytaya: 4
+  l?: LeaderS[];                   // 2 slots (own + Rhyzu), Zcharo: 4, Oxataya: 4
   f?: number;                     // Fighters in region
   b?: ('F'|'P'|'S')[];            // if this Faction has buildings on tile, ordered by foundation index
   s?: 'M1' | 'M2' | 'T1' | 'T0';  // Morale: 'M1' | 'M2', AI_Trap: 'T1' | 'T0'

@@ -662,7 +662,7 @@ export class Panel extends PlayerPanel {
   baseRecruitCounter!: NumCounter;
 
   // increase fighters in Base by n (presumably also decrement some recruit counter)
-  // override for Circadians, also for Oxytaya: allow recruit to Stronghold
+  // override for Circadians, also for Oxataya: allow recruit to Stronghold
   // at end of Recruit phase/action
   recruitToBase(n = this.baseRecruitCounter.value) {
     this.baseTile.addFighter(this.player, n);
