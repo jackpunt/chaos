@@ -861,12 +861,7 @@ export class LeaderTile extends ChaosTile {
         const fot = this.getFoT(player);
         fot.setXY(-this.radius * .66);    // Note: fot.isBase == true; --> x = 0; set y to place Icon btw stats & PhaseIcon
       }
-      // alternatively, ensure that player = neutralPlayer for Rhyzu
-      override getFoT(arg: Player | FactionId): FactionOnTile {
-        const fot = super.getFoT(arg);
-        fot.setXY(-this.radius * .66);  // Rhyzu may arrive with various owners? put them all at -.66
-        return fot;
-      }
+
       // disable cache, need full zoom/resolution
       override reCache(scale?: number): void { super.reCache(0)  }
 

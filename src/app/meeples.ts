@@ -433,7 +433,7 @@ export class Leader extends ChaosUnit implements LeaderSpec {
     return new Leader.LeaderCard(this);
   }
 
-  homeTile?: LeaderTile;    // typically on Panel, start & return Tile on this.homeHex
+  homeTile?: ReturnType<Leader['makeLeaderHomeTile']>;    // typically on Panel, start & return Tile on this.homeHex
   /** make homeTile = LeaderTile on this.homeHex; homeTile.addLeader(this)
    *
    * Use LeaderCard as baseShape of LeaderTile
@@ -444,12 +444,10 @@ export class Leader extends ChaosUnit implements LeaderSpec {
    * @param pColor color to paint LeaderTile [player.color] (Rhyzu: CO.rhy_zu)
    * @returns LeaderTile: Constructor from Panel, to avoid circular load from chaos-tile.ts
    */
-  makeLeaderTile(player = this.player, pColor = player.color, LeaderTile: Constructor<LeaderTile>) {
+  makeLeaderHomeTile(player = this.player, pColor = player.color, LeaderTile: Constructor<LeaderTile>) {
     /** a place to drop Leader on Panel when not recruited to map */
     const homeTile = new LeaderTile(this, player, pColor);
-    homeTile.moveTo(this.homeHex);  // homeTile on hex on map with mapCont
-    homeTile.addLeader(this);        // add to mapCont.overCont
-    this.homeTile = homeTile;
+    this.homeTile = homeTile as any;   // else tsc see a type-dependency loop
     return homeTile;
   }
 
@@ -686,9 +684,9 @@ export class Rhyzu extends Leader {
   }
 
   // Specialize player and color of LeaderTile
-  override makeLeaderTile(player = this.player, pColor = CO.rhy_zu, LeaderTile: Constructor<LeaderTile>) {
+  override makeLeaderHomeTile(player = this.player, pColor = CO.rhy_zu, LeaderTile: Constructor<LeaderTile>) {
     this.player = player;
-    const rv = super.makeLeaderTile(player, pColor, LeaderTile);
+    const rv = super.makeLeaderHomeTile(player, pColor, LeaderTile);
     this.addRzIcon(rv.baseShape);  // after this.makeShape in LeaderTile constructor
     this.paint(pColor);            // and re-paint
     return rv

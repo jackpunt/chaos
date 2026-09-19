@@ -1,5 +1,5 @@
 import { arrayN, C, Constructor, permute, stime, type XY } from "@thegraid/common-lib";
-import { AliasLoader, CenterText, CircleShape, NamedContainer, RectShape, TextInRect, UtilButton, type Paintable, type PaintableShape } from "@thegraid/easeljs-lib";
+import { AliasLoader, CenterText, CircleShape, NamedContainer, RectShape, TextInRect, UtilButton, type Paintable } from "@thegraid/easeljs-lib";
 import type { DisplayObject } from "@thegraid/easeljs-module";
 import { HexMap, LegalMark, newPlanner, NumCounter, Player as PlayerLib, PlayerPanel, TP, type IHex2, type MapCont, type Tile } from "@thegraid/hexlib";
 import { CardShape } from "./card-shape";
@@ -10,7 +10,7 @@ import { Faction, factionColors, type FactionId, type FactionName } from "./fact
 import { BgFound, Foundation } from "./foundation";
 import { type Battle, type GamePlay } from "./game-play";
 import { type PlayerId } from "./game-state";
-import { ChaosBuilding, ChaosPresence, ChaosUnit, Factory, Leader, Outposts, PriceToken, PTokenShape, Rhyzu, Stronghold, type ChaosUnitType, type PriceId } from "./meeples";
+import { ChaosBuilding, ChaosUnit, Factory, Leader, Outposts, PriceToken, PTokenShape, Rhyzu, Stronghold, type ChaosUnitType, type PriceId } from "./meeples";
 import { ResearchCell, ResearchLevel, ResGrid } from "./research-cell";
 import { bonusIcon, CO, pricePhases } from "./table-params";
 import { CardBack, CardHex, CardPanel, TacticsCard } from "./tactics-card";
@@ -734,17 +734,13 @@ export class Panel extends PlayerPanel {
       this.localToLocal(hx, hy, homeHex.cont.parent, homeHex.cont);
       homeHex.legalMark.setOnHex(homeHex);
 
-      // const homeTile = new LeaderTile(name);
-      // homeTile.moveTo(homeHex);  // homeTile on hex on map with mapCont
-      // homeTile.addLeader(ldr);   // add to mapCont.overCont
-      this.makeLeaderTile(ldr, player, player.color);  // and place on ldr.homeHex
+      // Allow Leader to supply args for new LeaderTile(...) so Rhyzu can be special
+      const homeTile = ldr.makeLeaderHomeTile(ldr.player, undefined, LeaderTile);
+      homeTile.moveTo(homeHex);  // homeTile on hex on map with mapCont
+      homeTile.addLeader(ldr);   // add to mapCont.overCont
       return ldr;
     });
     return this.faction.leaders
-  }
-  makeLeaderTile(ldr: Leader, player = this.player, pColor = player.color) {
-    // Allow Leader to supply args for new LeaderTile(...) so Rhyzu can be special
-    return ldr.makeLeaderTile(player, pColor, LeaderTile)
   }
 
   /** discard 2; can supply indices of one or two to automate */
