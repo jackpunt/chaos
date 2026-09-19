@@ -393,34 +393,6 @@ export class Leader extends ChaosUnit implements LeaderSpec {
     return new Leader.LeaderIcon(this, opts);
   }
 
-  /** Used as baseShape for LeaderTile and as pop-up enlargement for LeaderIcon */
-  static LeaderCardC = class LeaderCardC extends PaintableCont {
-    cardShape: CardShape;
-    rzIcon?: Paintable;
-
-    constructor(Aname: string, public leader: Leader, vis = false) {
-      super(Aname);
-      const color = leader.isRhyzu ? CO.rhy_zu : leader.pColor;
-      const cardShape = this.cardShape = new CardShape(color, C.WHITE)
-      cardShape.paint(color, true);
-      const fontSize = leader.radius * .3;
-      const top = -cardShape._rect.h/2, left = cardShape._rect.x, right = -left;
-      const nText = new CenterText(this.Aname, fontSize, C.WHITE);
-      nText.y = fontSize * .9 + top;
-      // TODO: move the addXXX() methods from Leader to LeaderCard
-      const card = this;
-      card.addChild(cardShape);
-      card.addChild(nText);
-      leader.addStats(this, fontSize, 2 * fontSize + top);
-      if (leader.plGem) card.addChild(leader.plGemIcon(fontSize, top, left))
-      if (leader.upGem) card.addChild(leader.upGemIcon(fontSize, top, left))
-      leader.addText(card, fontSize, top, left);
-      card.scale = .45;
-      card.visible = vis;
-    }
-    set scale(xy: number)  { this.scaleX = this.scaleY = xy; }
-  }
-
   /** Fill a container with the info from a Leader card.
    *
    * ILeader: facId/isRhyzu (bgColor), Name, stats, upgraded (border: gold),
