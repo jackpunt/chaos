@@ -711,18 +711,7 @@ export class Panel extends PlayerPanel {
         }
       }
     }
-    // /** a place to drop Leader on Panel when not recruited to map */
-    // const LeaderTile = class LeaderTile extends ChaosTile {
-    //   constructor(Aname: string) {
-    //     super(Aname, 'Base', '-', player); // paints (baseShape) WHITE [Base]
-    //     this.paint(C.grey224)
-    //     const fot = this.getFoT(player);
-    //     fot.setXY(-this.radius * .6);    // Note: fot.isBase == true; --> x = 0
-    //   }
-    //   override makeShape(): PaintableShape {
-    //     return new CardShape(player.color, undefined, leaderRad);
-    //   }
-    // }
+
     this.faction.leaders = leaders.map((lspec, n) => {
       const neutralPlayer = this.player.gamePlay.neutralPlayer;
       const ldr = !lspec.isRhyzu ? new Leader(lspec.name, player) : new Rhyzu(lspec.name, neutralPlayer);
