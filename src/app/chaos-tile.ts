@@ -850,25 +850,25 @@ export class BaseTile extends ChaosTile {
 }
 
 export class LeaderTile extends ChaosTile {
-      declare baseShape: Leader.LeaderCard;
-      constructor(ldr: Leader, player: Player, pColor = player.color) {
-        const Aname = `${ldr.Aname.substring(0,2)}_tile`
-        // (name, terrain, harvest, player)
-        super(Aname, 'Ldr', '-', player); // isBase: paints (baseShape) { 'Ldr': C.WHITE }
-        this.baseShape.setLeader(ldr, true);
+  declare baseShape: Leader.LeaderCard;
+  constructor(ldr: Leader, player: Player, pColor = player.color) {
+    const Aname = `${ldr.Aname.substring(0,2)}_tile`
+    // (name, terrain, harvest, player)
+    super(Aname, 'Ldr', '-', player); // isBase: paints (baseShape) { 'Ldr': C.WHITE }
+    this.baseShape.setLeader(ldr, true);
 
-        this.paint(pColor)
-        const fot = this.getFoT(player);
-        fot.setXY(-this.radius * .66);    // Note: fot.isBase == true; --> x = 0; set y to place Icon btw stats & PhaseIcon
-      }
+    this.paint(pColor)
+    const fot = this.getFoT(player);
+    fot.setXY(-this.radius * .66);    // Note: fot.isBase == true; --> x = 0; set y to place Icon btw stats & PhaseIcon
+  }
 
-      // disable cache, need full zoom/resolution
-      override reCache(scale?: number): void { super.reCache(0)  }
+  // disable cache, need full zoom/resolution
+  override reCache(scale?: number): void { super.reCache(0)  }
 
-      // LeaderCard for this Leader:
-      override makeShape(): Paintable {
-        return new Leader.LeaderCard();
-      }
-      // not a drop target for Foundations
-      override ndxForFoundation(): number | undefined { return undefined }
-    }
+  // LeaderCard for this Leader:
+  override makeShape(): Paintable {
+    return new Leader.LeaderCard();
+  }
+  // not a drop target for Foundations
+  override ndxForFoundation(): number | undefined { return undefined }
+}
