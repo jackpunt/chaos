@@ -5,10 +5,11 @@ import { type DragContext, type DragFuncs, H, type HasDragger, type HexDir, HexS
 import { type ChaosHex2, type ChaosHex2 as Hex2, type HexMap2 } from "./chaos-hex";
 import { type ChaosTable } from "./chaos-table";
 import { NumCounterHex } from "./counters";
-import { type Faction } from "./factions";
+import { Faction, type FactionId } from "./factions";
 import { Foundation } from "./foundation";
 import type { GamePlay } from "./game-play";
-import { AI_Trap, ChaosBuilding, ChaosToken, Factory, Leader, Morale, Outposts, PaintableCont, Relic, Stronghold } from "./meeples";
+import type { AI_Trap, ChaosBuilding, Factory, Morale, Outposts, Relic, Stronghold } from "./meeples";
+import { ChaosToken, Leader, PaintableCont } from "./meeples";
 import { superMethod } from "./mixins";
 import type { Player } from "./player";
 import type { FactionOnTileState } from "./scenario-parser";
@@ -412,9 +413,9 @@ export class FactionOnTile extends NamedContainer {
   setXY(rad = this.tile.radius) {
     const index = this.index;     // table order determines FoT placement
     // sx, sy: sector placement;
-    const sx = (this.isBase ?  0 : this.offset) * rad; // -1: left side; offset[][] = 0
+    const sx = (this.isBase ?  0 : this.offset); // -1: left side; offset[][] = 0
     const sy = (this.isBase ? -1 : [0, 1].includes(index) ? -1 : [3, 4].includes(index) ? 1 : TP.numPlayers == 5 ? -1 : 1);
-    this.x = sx/2;
+    this.x = sx * rad / 2;
     this.y = sy * rad * H.sqrt3_2/2;
   }
 
@@ -502,7 +503,7 @@ export class ChaosTile extends MapTile {
   harvest!: HARVEST;          // can place harvest buff token to change
   harvest_buff?: HARVEST;     // TODO: need additional HARVEST types
 
-  /** Details of Faction Presence on Tile; index by PlayerId */
+  /** Details of Faction Presence on Tile; index by FactionId */
   factions: FactionOnTile[] = [];
 
   /** set if there is a Relic on this Tile; */
@@ -618,14 +619,16 @@ export class ChaosTile extends MapTile {
   }
 
   /** return the FoT(player) if this tile has one. */
-  hasFot(player:Player) {
-    return this.factions[player.index]
+  hasFot(facId: FactionId) {
+    return this.factions[facId]
   }
-
+  // TODO: specialize LeaderTile.getFoT() to provide FoT at Center
   /** get FoT(player) creating it if mecessary */
-  getFoT(player: Player) {
-    const fot = this.factions[player.index] ?? (this.factions[player.index] = new FactionOnTile(player, this));
-    const isMoving = (this.gamePlay.movePlayer == player);
+  getFoT(arg: Player | FactionId) {
+    const facId = typeof arg == 'number' ? arg : arg.facId;
+    const player = typeof arg == 'number' ? Faction.factionById.get(arg)!.player : arg;
+    const fot = this.factions[facId] ?? (this.factions[facId] = new FactionOnTile(player, this));
+    const isMoving = (this.gamePlay.movePlayer == arg);
     fot.fighterCounter.visible = isMoving || (fot.fighters > 0);
     fot.moveIcon.visible = isMoving;
     return fot;
@@ -845,3 +848,32 @@ export class BaseTile extends ChaosTile {
     map.update();
   }
 }
+
+export class LeaderTile extends ChaosTile {
+      declare baseShape: Leader.LeaderCard;
+      constructor(ldr: Leader, player: Player, pColor = player.color) {
+        const Aname = `${ldr.Aname.substring(0,2)}_tile`
+        // (name, terrain, harvest, player)
+        super(Aname, 'Ldr', '-', player); // isBase: paints (baseShape) { 'Ldr': C.WHITE }
+        this.baseShape.setLeader(ldr, true);
+
+        this.paint(pColor)
+        const fot = this.getFoT(player);
+        fot.setXY(-this.radius * .66);    // Note: fot.isBase == true; --> x = 0; set y to place Icon btw stats & PhaseIcon
+      }
+      // alternatively, ensure that player = neutralPlayer for Rhyzu
+      override getFoT(arg: Player | FactionId): FactionOnTile {
+        const fot = super.getFoT(arg);
+        fot.setXY(-this.radius * .66);  // Rhyzu may arrive with various owners? put them all at -.66
+        return fot;
+      }
+      // disable cache, need full zoom/resolution
+      override reCache(scale?: number): void { super.reCache(0)  }
+
+      // LeaderCard for this Leader:
+      override makeShape(): Paintable {
+        return new Leader.LeaderCard();
+      }
+      // not a drop target for Foundations
+      override ndxForFoundation(): number | undefined { return undefined }
+    }

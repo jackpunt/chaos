@@ -1,10 +1,10 @@
-import { C, F, S, stime, type XY, type XYWH } from "@thegraid/common-lib";
+import { C, Constructor, F, S, stime, type XY, type XYWH } from "@thegraid/common-lib";
 import { CenterText, CircleShape, EllipseShape, NamedContainer, PathShape, RectShape, TextInRect, type Paintable, type RectWithDispOptions, type TextInRectOptions } from "@thegraid/easeljs-lib";
 import { Container, Graphics, MouseEvent, Rectangle } from "@thegraid/easeljs-module";
 import { Meeple, MeepleShape, Tile, TP, type DragContext, type Hex, type HexM, type IHex2 } from "@thegraid/hexlib";
 import { CardShape } from "./card-shape";
 import { TokenHex, type ChaosHex2 as Hex2, type HexMap2 } from "./chaos-hex";
-import { ChaosTile, type BONUS, type FactionOnTile, type TERRAIN } from "./chaos-tile";
+import type { BONUS, ChaosTile, FactionOnTile, LeaderTile, TERRAIN } from "./chaos-tile";
 import { factionNeutral, type FactionId } from "./factions";
 import { BgFound, Foundation } from "./foundation";
 import type { GamePlay } from "./game-play";
@@ -394,7 +394,7 @@ export class Leader extends ChaosUnit implements LeaderSpec {
   }
 
   /** Used as baseShape for LeaderTile and as pop-up enlargement for LeaderIcon */
-  static LeaderCard = class LeaderCardC extends PaintableCont {
+  static LeaderCardC = class LeaderCardC extends PaintableCont {
     cardShape: CardShape;
     rzIcon?: Paintable;
 
@@ -430,46 +430,26 @@ export class Leader extends ChaosUnit implements LeaderSpec {
    * onBoard: obvious from location of baseShape (baseShape on Card OR Card [popup] on baseShape)
    */
   makeCard() {
-    return new Leader.LeaderCard(`${this.Aname}`, this);
+    return new Leader.LeaderCard(this);
   }
 
-  homeTile?: ReturnType<this['makeLeaderTile']>;    // typically on Panel, start & return Tile on this.homeHex
-  /** make LeaderTile, place on this.homeHex, and tile.addLeader(this)
+  homeTile?: LeaderTile;    // typically on Panel, start & return Tile on this.homeHex
+  /** make homeTile = LeaderTile on this.homeHex; homeTile.addLeader(this)
    *
    * Use LeaderCard as baseShape of LeaderTile
    *
    * called from Panel.makeLeaders();
    *
-   * @param name appears on the LeaderTile
-   * @param player owner of LeaderTile [this.player]
-   * @param pColor color to paint LeaderTile [player.color]
-   * @returns LeaderTile on this.homeHex with this Leader on LeaderTile
+   * @param player owner of LeaderTile [this.player] (Rhyzu: neutralPlayer)
+   * @param pColor color to paint LeaderTile [player.color] (Rhyzu: CO.rhy_zu)
+   * @returns LeaderTile: Constructor from Panel, to avoid circular load from chaos-tile.ts
    */
-  makeLeaderTile(name: string, player = this.player, pColor = player.color) {
-    const ldr = this;
+  makeLeaderTile(player = this.player, pColor = player.color, LeaderTile: Constructor<LeaderTile>) {
     /** a place to drop Leader on Panel when not recruited to map */
-    const LeaderTile = class LeaderTile extends ChaosTile {
-      declare baseShape: LeaderCard;
-      constructor(Aname: string) {
-        super(Aname, 'Ldr', '-', player); // isBase: paints (baseShape) { 'Ldr': C.WHITE }
-        this.paint(pColor)
-        const fot = this.getFoT(player);
-        fot.setXY(-this.radius * .66);    // Note: fot.isBase == true; --> x = 0; set y to place Icon btw stats & PhaseIcon
-      }
-      // disable cache, need full zoom/resolution
-      override reCache(scale?: number): void { super.reCache(0)  }
-      // LeaderCard for this Leader:
-      override makeShape(): Paintable {
-        return new Leader.LeaderCard(ldr.Aname, ldr, true);
-      }
-      // not a drop target for Foundations
-      override ndxForFoundation(): number | undefined { return undefined }
-    }
-
-    const homeTile = new LeaderTile(name);
+    const homeTile = new LeaderTile(this, player, pColor);
     homeTile.moveTo(this.homeHex);  // homeTile on hex on map with mapCont
-    homeTile.addLeader(ldr);        // add to mapCont.overCont
-    this.homeTile = homeTile as any;// tsc needs reassurance that we can assign to this.homeTile.
+    homeTile.addLeader(this);        // add to mapCont.overCont
+    this.homeTile = homeTile;
     return homeTile;
   }
 
@@ -586,6 +566,53 @@ export class Leader extends ChaosUnit implements LeaderSpec {
   }
 }
 
+export namespace Leader {
+
+  /** Used as baseShape for LeaderTile and as pop-up enlargement for LeaderIcon */
+  export class LeaderCard extends PaintableCont {
+    leader!: Leader;
+    cardShape!: CardShape;
+    rzIcon?: Paintable;
+
+    constructor(leader?: Leader, vis = false) {
+      super('LeaderCard');  // minimal Container
+      this.cardShape = new CardShape(C.grey, C.WHITE); // unknown leader
+      this.addChild(this.cardShape); // empty constainer confuses get/setBounds()
+      if (leader) {
+        this.setLeader(leader, vis); // add stuff if given a Leader; else wait for setLeader()
+      }
+    }
+    /**
+     * Default constructor returns an empty PaintableCont.
+     *
+     * This method fills the Container with CardShape and leader stats.
+     * @param Aname
+     * @param leader
+     * @param vis
+     */
+    setLeader(leader: Leader, vis = false) {
+      this.Aname = leader.Aname;
+      this.leader = leader;
+      const color = leader.isRhyzu ? CO.rhy_zu : leader.pColor;
+      const cardShape = this.cardShape;
+      const fontSize = leader.radius * .3;
+      const top = -cardShape._rect.h/2, left = cardShape._rect.x, right = -left;
+      const nText = new CenterText(this.Aname, fontSize, C.WHITE);
+      nText.y = fontSize * .9 + top;
+      cardShape.paint(color, true);
+      this.addChild(cardShape);
+      this.addChild(nText);
+      leader.addStats(this, fontSize, 2 * fontSize + top);
+      if (leader.plGem) this.addChild(leader.plGemIcon(fontSize, top, left))
+      if (leader.upGem) this.addChild(leader.upGemIcon(fontSize, top, left))
+      leader.addText(this, fontSize, top, left);
+      this.scale = .45;
+      this.visible = vis;
+    }
+    set scale(xy: number)  { this.scaleX = this.scaleY = xy; }
+  }
+}
+
 export class Rhyzu extends Leader {
   // cost/benefit during Income phase:
   static rhyzuCost: BONUS[] = ['-', 'E3', '-', 'E2', '-', '-', 'G1']; // if Jrayek controls
@@ -632,7 +659,7 @@ export class Rhyzu extends Leader {
   token: InstanceType<typeof Rhyzu.Token>;
 
   constructor(Aname: string, player: Player) {
-    super(Aname, player);   // player initially Jrayek!
+    super(Aname, player);   // player initially neutralPlayer!
     this.index = Rhyzu.allRhyzu.indexOf(this);
     this.token = new Rhyzu.Token(this);
 
@@ -659,9 +686,9 @@ export class Rhyzu extends Leader {
   }
 
   // Specialize player and color of LeaderTile
-  override makeLeaderTile(name: string, player = this.gamePlay.neutralPlayer, pColor = CO.rhy_zu) {
+  override makeLeaderTile(player = this.player, pColor = CO.rhy_zu, LeaderTile: Constructor<LeaderTile>) {
     this.player = player;
-    const rv = super.makeLeaderTile(name, player, pColor);
+    const rv = super.makeLeaderTile(player, pColor, LeaderTile);
     this.addRzIcon(rv.baseShape);  // after this.makeShape in LeaderTile constructor
     this.paint(pColor);            // and re-paint
     return rv

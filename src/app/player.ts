@@ -5,7 +5,7 @@ import { HexMap, LegalMark, newPlanner, NumCounter, Player as PlayerLib, PlayerP
 import { CardShape } from "./card-shape";
 import { ChaosHex2 as Hex2 } from "./chaos-hex";
 import { type ChaosTable, type ChaosTable as Table } from "./chaos-table";
-import { BaseTile, ChaosTile, MoveInPlay, type BONUS, type FactionOnTile, type HARVEST } from "./chaos-tile";
+import { BaseTile, ChaosTile, LeaderTile, MoveInPlay, type BONUS, type FactionOnTile, type HARVEST } from "./chaos-tile";
 import { Faction, factionColors, type FactionId, type FactionName } from "./factions";
 import { BgFound, Foundation } from "./foundation";
 import { type Battle, type GamePlay } from "./game-play";
@@ -142,7 +142,7 @@ export class Player extends PlayerLib {
   get fotPresence() {
     const rv: FactionOnTile[] = [];
     this.gamePlay.hexMap.forEachHex(hex => {
-      const fot = hex.ctile?.hasFot(this);
+      const fot = hex.ctile?.hasFot(this.facId);
       if (!!fot) rv.push(fot);
     })
     return rv;
@@ -151,7 +151,7 @@ export class Player extends PlayerLib {
   get presence() {
     const rv: FactionOnTile[] = [];
     this.gamePlay.hexMap.forEachHex(hex => {
-      const fot = hex.ctile?.hasFot(this);
+      const fot = hex.ctile?.hasFot(this.facId);
       if (!!fot && hex.ctile?.getFoT(this) && (fot.fighters > 0 || fot.leaders.length > 0 || fot.buildings.length > 0)) rv.push(fot);
     })
     return rv;
@@ -711,21 +711,22 @@ export class Panel extends PlayerPanel {
         }
       }
     }
-    /** a place to drop Leader on Panel when not recruited to map */
-    const LeaderTile = class LeaderTile extends ChaosTile {
-      constructor(Aname: string) {
-        super(Aname, 'Base', '-', player); // paints (baseShape) WHITE [Base]
-        this.paint(C.grey224)
-        const fot = this.getFoT(player);
-        fot.setXY(-this.radius * .6);    // Note: fot.isBase == true; --> x = 0
-      }
-      override makeShape(): PaintableShape {
-        return new CardShape(player.color, undefined, leaderRad);
-      }
-    }
+    // /** a place to drop Leader on Panel when not recruited to map */
+    // const LeaderTile = class LeaderTile extends ChaosTile {
+    //   constructor(Aname: string) {
+    //     super(Aname, 'Base', '-', player); // paints (baseShape) WHITE [Base]
+    //     this.paint(C.grey224)
+    //     const fot = this.getFoT(player);
+    //     fot.setXY(-this.radius * .6);    // Note: fot.isBase == true; --> x = 0
+    //   }
+    //   override makeShape(): PaintableShape {
+    //     return new CardShape(player.color, undefined, leaderRad);
+    //   }
+    // }
     this.faction.leaders = leaders.map((lspec, n) => {
-      const ldr = !lspec.isRhyzu ? new Leader(lspec.name, player) : new Rhyzu(lspec.name, player);
-      const name = `${this.Aname.substring(0,2)}_home`;
+      const neutralPlayer = this.player.gamePlay.neutralPlayer;
+      const ldr = !lspec.isRhyzu ? new Leader(lspec.name, player) : new Rhyzu(lspec.name, neutralPlayer);
+      const name = `${ldr.Aname.substring(0,2)}_home`;
       const cn = ldr.isRhyzu ? n + 1 : n;
       const hx = x0 + (9 + cn % 3) * wh;
       const hy = y0 + (2.8 * wh + Math.floor(cn / 3) * leaderRad * 1.4);
@@ -736,10 +737,14 @@ export class Panel extends PlayerPanel {
       // const homeTile = new LeaderTile(name);
       // homeTile.moveTo(homeHex);  // homeTile on hex on map with mapCont
       // homeTile.addLeader(ldr);   // add to mapCont.overCont
-      ldr.makeLeaderTile(name);  // and place on ldr.homeHex
+      this.makeLeaderTile(ldr, player, player.color);  // and place on ldr.homeHex
       return ldr;
     });
     return this.faction.leaders
+  }
+  makeLeaderTile(ldr: Leader, player = this.player, pColor = player.color) {
+    // Allow Leader to supply args for new LeaderTile(...) so Rhyzu can be special
+    return ldr.makeLeaderTile(player, pColor, LeaderTile)
   }
 
   /** discard 2; can supply indices of one or two to automate */
