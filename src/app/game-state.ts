@@ -71,7 +71,7 @@ export class GameState extends GameStateLib {
   vaultPlayerBeforePid(pid = -1) {
     const pfac = this.gamePlay.allPlayers[pid]?.facId ?? this.playerByFacId.length; // previous faction index
     const nfac =  arrayN(pfac).reverse().find(facId => this.playerByFacId[facId] !== undefined)
-    return (nfac == undefined) ? nfac : this.playerByFacId[nfac];
+    return this.playerByFacId[nfac ?? -1];
   }
 
   /** simple map from facId to Player */

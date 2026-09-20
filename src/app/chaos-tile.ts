@@ -44,7 +44,7 @@ function dist(pt: XY, p0={ x: 0, y: 0 }) {
   return Math.sqrt(dx *  dx + dy * dy);
 }
 
-type HexPair = [Hex2, Hex2];
+export type HexPair = [Hex2, Hex2];
 
 /** A Graphic target straddling the border between two Regions */
 export class PairTarget extends NamedContainer {

@@ -5,7 +5,7 @@ import { HexMap, LegalMark, newPlanner, NumCounter, Player as PlayerLib, PlayerP
 import { CardShape } from "./card-shape";
 import { ChaosHex2 as Hex2 } from "./chaos-hex";
 import { type ChaosTable, type ChaosTable as Table } from "./chaos-table";
-import { BaseTile, ChaosTile, LeaderTile, MoveInPlay, type BONUS, type FactionOnTile, type HARVEST } from "./chaos-tile";
+import { BaseTile, ChaosTile, LeaderTile, MoveInPlay, type BONUS, type FactionOnTile, type HARVEST, type HexPair } from "./chaos-tile";
 import { Faction, factionColors, type FactionId, type FactionName } from "./factions";
 import { BgFound, Foundation } from "./foundation";
 import { type Battle, type GamePlay } from "./game-play";
@@ -217,12 +217,27 @@ export class Player extends PlayerLib {
 
   // find a 'Base' tile on map and move (D&D) our BaseTile to it.
   autoPlaceBase(doneFunc: () => void) {
-    const emptyHexes = this.gamePlay.hexMap.filterEachHex(hex => !hex.tile); // suitable for placing a Base tile
-    const targetHex = permute(emptyHexes)[0];
+    const emptyHexes = permute(this.gamePlay.hexMap.filterEachHex(hex => !hex.tile)); // suitable for placing a Base tile
+    let pref: Hex2 | undefined;
+    if (this.facId == 5) {  // Oxataya by bottom Lake:
+      pref = emptyHexes.find(hex => hex.rcText.text == "6,4" || hex.rcText.text == "7,4")
+    }
+    if (this.facId == 3) {
+      pref = emptyHexes.find((hex: Hex2) => (hex.linkHexes as Hex2[]).find(h => h.ctile!.isSwamp))
+    }
+    const targetHex = pref ?? emptyHexes[0];
     const baseTile = this.panel.baseTile;
     this.gamePlay.table.dragStartAndDrop(baseTile, targetHex);
-    if (this.gamePlay.pairTargets.length > 0) {
-      baseTile.chooseGivenPair(this.gamePlay.pairTargets[0].pair);
+    const pairTargets = permute(this.gamePlay.pairTargets);
+    let pair: HexPair | undefined;
+    // if (this.facId == 5) {
+    //   pair = pairTargets.find(p => p.pair[0].ctile!.isLake)?.pair;
+    // }
+    if (this.facId == 3) {
+      pair = pairTargets.find(p => p.pair[0].ctile!.isSwamp || p.pair[1].ctile!.isSwamp)?.pair;
+    }
+    if (pairTargets.length > 0) {
+      baseTile.chooseGivenPair(pair ?? pairTargets[0].pair);
     }
     doneFunc();
   }
