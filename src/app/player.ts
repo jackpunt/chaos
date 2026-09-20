@@ -202,7 +202,7 @@ export class Player extends PlayerLib {
   newMoveInPlay(from: ChaosTile, to: ChaosTile) {
     if (this.movesInPlay.find(p => p.from == from && p.to == to)) return undefined;
     const newMove = new MoveInPlay(this, from, to);
-    this.movesInPlay.push(newMove);
+    this.movesInPlay.push(newMove);   // moveInPlay.length is "MovePoints consumed".
     return newMove;
   }
 

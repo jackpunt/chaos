@@ -77,7 +77,7 @@ export class ChaosTable extends Table {
 
     this.addDoneButton();
     this.doneButton.label.font = F.fontSpec(this.sr(20));
-    this.doneButton.label.lineWidth = TP.hexRad * 1.15;
+    this.doneButton.label.lineWidth = TP.hexRad * 1.5;
     this.setToRowCol(this.doneButton, 1.48, 5.9);
 
     this.vault = this.makeTokenVault();

@@ -44,14 +44,17 @@ function dist(pt: XY, p0={ x: 0, y: 0 }) {
   return Math.sqrt(dx *  dx + dy * dy);
 }
 
+type HexPair = [Hex2, Hex2];
+
 /** A Graphic target straddling the border between two Regions */
 export class PairTarget extends NamedContainer {
   static targets: PairTarget[] = [];
 
   /** create PairTarget and add to PairTarget.targets; and show on overCont. */
-  constructor(public pair: [ChaosHex2, ChaosHex2], public dObj: DisplayObject) {
-    const map = pair[0].map as HexMap2;
-    const dir01 = pair[0].findLinkHex(hex => (hex == pair[1]));
+  constructor(public pair: HexPair, public dObj: DisplayObject) {
+    const [fHex, tHex] = pair;
+    const map = fHex.map as HexMap2;
+    const dir01 = fHex.findLinkHex(hex => (hex == tHex));
     if (!dir01) {
       throw(`new PairTarget: hexes ${pair} are not adjacent`);
     }
@@ -61,7 +64,7 @@ export class PairTarget extends NamedContainer {
     PairTarget.targets.push(this);
 
     this.rotation = (H.dirRot[dir01]);
-    pair[0].edgePoint(dir01, 1, this);      // set RectShape on edge of Hex
+    fHex.edgePoint(dir01, 1, this);      // set RectShape on edge of Hex
     map.mapCont.overCont.addChild(this); // place on top of other tiles
   }
 }
@@ -197,7 +200,7 @@ export class MoveIcon extends ChaosToken {
       // click the arrow/FC to increment/decrement the by local FC and the target FC.
       // record state of Units before; keybinder to reset Units to beginning of phase.
 
-/** used by MoveIcon to count Fighters transfered. */
+/** used by MoveInPlay to count Fighters transfered. */
 export class FighterCounter extends NumCounterHex {
   constructor(public mip: MoveInPlay, name: string, initValue: number | string = 0, color?: string, fontSize?: number, fontName?: string, textColors?: string[]) {
     super(name, initValue, color, fontSize, fontName, textColors)
@@ -237,20 +240,52 @@ export class MoveInPlay extends NamedContainer {
   }
 
   addArrowGraphic() {
-    const dObj = new NamedContainer(`moveArrow`);
-    const color = C.nameToRgbaString(this.player.color, .5);
-    const pent = pentagon(TP.hexRad*.4, TP.hexRad*.3, color, 0, '');
-    const pair = [this.from.chex, this.to.chex] as [Hex2, Hex2];
-    dObj.addChild(pent, this.counter);
-    if (!pair[0].linkHexes.includes(pair[1])) {
-      // Leyrein in swamp or anyone in tunnel!
-      // A Swamp has at most 5 normal adjacent neighbors (T4,3 T4,5)
-      // A Swamp has at most 5 "swamp adjacent" connections
-      console.log(stime(this, `.addArrow:`), pair);
+    const pair = [this.from.chex, this.to.chex] as HexPair;
+    if (pair[0].linkHexes.includes(pair[1])) {
+      // AdjGraphic: container(pent, counter)
+      const dObj = new NamedContainer(`moveArrow`);
+      const color = C.nameToRgbaString(this.player.color, .5);
+      const pent = pentagon(TP.hexRad*.4, TP.hexRad*.3, color, 0, '');
+      dObj.addChild(pent, this.counter);
+      const pairGraphic = new PairTarget(pair, dObj); // added to fHex.map...overCont @ fHex.edgePoint()
+      this.counter.rotation = -pairGraphic.rotation;
+    } else {
+      // Leyrein in swamp! (Tunnels work as adjacent)
+      // A Swamp has at most 5 normal adjacent neighbors (T4,3 T4,5 have adj Lake)
+      // A Swamp has at most 6 "swamp adjacent" connections
+      console.log(stime(this, `.addTeleGraphic:`), pair);
+      // TeleGraphic: container(counter)
+      const [fHex, tHex] = pair;
+      const tg = new MoveInPlay.TeleGraphic(this, pair)
+      fHex.map.mapCont.overCont.addChild(tg); // place on top of other tiles
+      return
     }
-    const pairGraphic = new PairTarget(pair, dObj); // added to overCont
-    this.counter.rotation = -pairGraphic.rotation;
   }
+  // TeleGraphic for SwampCnx
+  // There no HexDir or Edge associated with swamp teleportation.
+  //
+
+  /** Graphic indicating Leyrien teleportation via Swamp */
+  // green hex with a fighterCounter, in 'a corner' of the fromHex
+  // with a line pointing to the toHex.FoT(Leyrien)
+  static TeleGraphic = class extends NamedContainer {
+    constructor(mip: MoveInPlay, pair: HexPair) {
+      super('TeleGraphic')
+      const [fHex, tHex] = pair;
+      let empty: DisplayObject[];
+      const tgs = MoveInPlay.teleGraphics.get(fHex.ctile!) ?? (empty = [], MoveInPlay.teleGraphics.set(fHex.ctile!, empty), empty);
+      const n = tgs.length;    // number of sg's on fHex
+      const dir = H.ewDirs[n]; // for nsTopo corners are on ewDirs
+      const rad = TP.hexRad * .8; // inside the corner
+      const counter = mip.counter;
+      fHex.cornerXY(dir, rad, counter);
+      this.addChild(counter);
+      this.x += fHex.x; this.y += fHex.y;
+      tgs.push(this);
+    }
+  }
+  /** fromTile -> SwampGraphic(s) in use */
+  static teleGraphics: Map<ChaosTile, DisplayObject[]> = new Map<ChaosTile, DisplayObject[]>();
 
   clearMovePairs() {
 
@@ -263,7 +298,7 @@ export class MoveInPlay extends NamedContainer {
 
 }
 
-/** A PaintableCont holding a counter: NumCounterHex */
+/** A PaintableCont holding a counter: NumCounterHex */ // TODO: reduce to NumCounterHex
 export class FighterIcon extends PaintableCont {
   counter: NumCounterHex;
   hexRad!: number;
@@ -274,7 +309,7 @@ export class FighterIcon extends PaintableCont {
     const counter = new NumCounterHex('fighters', 0, color, fontSize);
     this.counter = counter;
     this.addChild(counter);
-    this.hexRad = counter.boxSize().width;
+    this.hexRad = counter.boxSize().width; // for cache --> getBounds() --> hexBounds();
   }
 }
 
@@ -740,7 +775,7 @@ export class BaseTile extends ChaosTile {
   getAdjacentPairs(hex: Hex2) {
     // cycle through hex.linkDirs[i], [i+1 % 6]
     const mapDirs = (hex.map as HexMap2).linkDirs;  // assume length == 6; [N, EN, ES, S, WS, WN ]
-    const pairs: [Hex2, Hex2][] = [];  // push [hex1, hex2]
+    const pairs: HexPair[] = [];  // push [hex1, hex2]
     const isRegion = (hex?: Hex2) => { return hex?.ctile && hex.ctile.terrain != 'Mtn' && hex.ctile.terrain != 'Lake'};
     const links = hex.links as Partial<Record<HexDir, Hex2>>; // avoid & Partial<Record<HexDir, any>>
     mapDirs.forEach((dir, ndx) => {
@@ -754,7 +789,7 @@ export class BaseTile extends ChaosTile {
   }
 
   // Base must choose which pair of Hexes to use & add mountains
-  chooseAdjacentPair(hex: Hex2, pairs: [Hex2, Hex2][]) {
+  chooseAdjacentPair(hex: Hex2, pairs: HexPair[]) {
     // put GUI selector on each pair; on(click) -->
     // --> place mountains on other side(s) of Base
     // --> placeFactionBaseFoundations(pairs[n])
@@ -766,7 +801,7 @@ export class BaseTile extends ChaosTile {
         const pairTarget = new PairTarget(pair, rect);
         pairTarget.on(S.click, (evt) => this.chooseGivenPair(pair))
       } catch (msg) {
-        console.warn(stime(this, `.addBaseFoundataionsAndLink: ${msg}`))
+        console.warn(stime(this, `.addBaseFoundationsAndLink: ${msg}`))
       }
     });
   }
@@ -782,9 +817,9 @@ export class BaseTile extends ChaosTile {
     this.placeFactionBaseFoundations(pair);
   }
 
-  baseRegions?: [Hex2, Hex2];  // Note: only used by ChaosTile('Base')
+  baseRegions?: HexPair;  // Note: only used by ChaosTile('Base')
   // ASSERT: adjRegions.length == 2
-  placeFactionBaseFoundations(adjRegions: [Hex2, Hex2]) {
+  placeFactionBaseFoundations(adjRegions: HexPair) {
     this.baseRegions = adjRegions;
     const faction = this.player.faction;
     const founds = permute(faction.bf).map((bonus, i) => new Foundation(`${faction.name}_bf${i}`, bonus))

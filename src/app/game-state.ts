@@ -92,8 +92,8 @@ export class GameState extends GameStateLib {
     super.start(startPhase, startArgs);
   }
 
-  autoPlace?: string = undefined; // 'Move';  // undefined for normal --> 'PlaceRelic'
-  override startPhase = 'PlaceBase'; // TODO: 'PlaceBase'
+  autoPlace?: string = 'Move';    // undefined for normal --> 'PlaceRelic'
+  override startPhase = 'PlaceBase';
   override startArgs: any[] = [];
 
   // this.gamePlay.curPlayer
@@ -215,7 +215,7 @@ export class GameState extends GameStateLib {
       start: (round = this.roundNum) => {
         this._round = round;   // 'PlaceBase' & 'Relics' invoke with new roundNum
         this.gamePlay.saveGame();
-        this.doneButton(`Begin Round:${this.roundNum}`); // activate
+        this.doneButton(`Begin Round: ${this.roundNum}`); // activate
       },
       done: () => {
         Relic.allRelics[0].toMapScale(true);

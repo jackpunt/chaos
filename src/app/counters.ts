@@ -5,6 +5,11 @@ import { NumCounterBox, rightClickable } from "@thegraid/hexlib";
 
 /** a hexagonal shape around counter value; incValue never goes negative */
 export class NumCounterHex extends NumCounterBox {
+  /** a hexagonal shape around counter value; incValue never goes negative */
+  constructor(name: string, initValue: number | string = 0, color?: string, fontSize?: number, fontName?: string, textColors?: string[]) {
+    super(name, initValue, color, fontSize, fontName, textColors)
+  }
+
   protected override makeBox0(color: string, high: number, wide: number): PaintableShape {
     const rv = new PolyShape({ rad: Math.max(high, wide)/2, nsides: 6, fillc: color })
     rightClickable(this, (evt) => this.incValueOnClick(evt, -5, -1))

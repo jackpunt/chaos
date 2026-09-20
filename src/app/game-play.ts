@@ -147,6 +147,7 @@ export class GamePlay extends GamePlayLib {
   }
 
   // TODO:
+  // General: TacticsCard.onScreenRadius: use static makeShape()
   // Setup: Ciradian Base
   // Setup: place Relics on Foundations; player choice? [8/17]
   // Setup: layout FactionOnTile (v & ^) [8/20]
@@ -205,7 +206,7 @@ export class GamePlay extends GamePlayLib {
   movePlayer?: Player;
   movePoints = 0;
 
-  /** endMove phase */
+  /** endMove phase: erase movesInPlay, set FoT.fighterCounter vis */
   endMoveFaction() {
     if (!this.movePlayer) return;
     const faction = this.movePlayer.faction;
