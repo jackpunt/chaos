@@ -153,7 +153,7 @@ class Mountain extends RectShape {
     const baseNdx = tiles.findIndex(tile => (tile as ChaosTile).isBase);
     map.mapCont.tileCont.addChildAt(this, baseNdx > 0 ? baseNdx : tiles.length);
     // remove adjacency links:
-    console.log(stime(this, `.new Mountain: ${hex0} -- ${hex1}`))
+    // console.log(stime(this, `.new Mountain: ${hex0} -- ${hex1}`))
     delete hex0.links[dir01];
     delete hex1.links[H.dirRev[dir01]];
   }

@@ -211,9 +211,8 @@ export class FighterCounter extends NumCounterHex {
     mip.fromFot.fighterCounter.incValue(-incv);
     mip.toFot.fighterCounter.incValue(incv);
     super.incValue(incv);
-    mip.toFot;
-    mip.fromFot;
-    return incv
+    mip.toFot;    // set visible
+    mip.fromFot;  // set visible
   }
 }
 
@@ -674,12 +673,12 @@ export class ChaosTile extends MapTile {
     return this.factions[facId]
   }
   // TODO: specialize LeaderTile.getFoT() to provide FoT at Center
-  /** get FoT(player) creating it if mecessary */
+  /** get FoT(player) creating it if mecessary. visible = isMoving || (fot.fighters > 0) */
   getFoT(arg: Player | FactionId) {
     const facId = typeof arg == 'number' ? arg : arg.facId;
     const player = typeof arg == 'number' ? Faction.factionById.get(arg)!.player : arg;
     const fot = this.factions[facId] ?? (this.factions[facId] = new FactionOnTile(player, this));
-    const isMoving = (this.gamePlay.movePlayer == arg);
+    const isMoving = (this.gamePlay.movePlayer == player);
     fot.fighterCounter.visible = isMoving || (fot.fighters > 0);
     fot.moveIcon.visible = isMoving;
     return fot;

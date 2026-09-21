@@ -3,7 +3,7 @@ import { KeyBinder } from "@thegraid/easeljs-lib";
 import { GamePlay as GamePlayLib, SetupElt, TP as TPLib } from "@thegraid/hexlib";
 import type { HexMap2 } from "./chaos-hex";
 import type { ChaosTable } from "./chaos-table";
-import { PairTarget, type BONUS, type ChaosTile, type TERRAIN } from "./chaos-tile";
+import { MoveInPlay, PairTarget, type BONUS, type ChaosTile, type TERRAIN } from "./chaos-tile";
 import type { Faction } from "./factions";
 import { BgFound } from "./foundation";
 import type { GameSetup } from "./game-setup";
@@ -61,6 +61,7 @@ export class GamePlay extends GamePlayLib {
 
   get pairTargets() { return PairTarget.targets }
 
+  /** placeBase or MoveInPlay */
   removeTargets() {
     this.pairTargets.forEach(pt => pt.parent.removeChild(pt));
     this.pairTargets.length = 0;
@@ -148,6 +149,8 @@ export class GamePlay extends GamePlayLib {
 
   // TODO:
   // General: TacticsCard.onScreenRadius: use static makeShape()
+  // General: MoveIcon mis-clicks?
+  // General: AI moving to swamp through Mtn!
   // Setup: Ciradian Base
   // Setup: place Relics on Foundations; player choice? [8/17]
   // Setup: layout FactionOnTile (v & ^) [8/20]
@@ -210,8 +213,17 @@ export class GamePlay extends GamePlayLib {
   endMoveFaction() {
     if (!this.movePlayer) return;
     const faction = this.movePlayer.faction;
+    const fotPres = this.movePlayer.fotPresence;
     this.movePlayer.movesInPlay.length = 0;
     this.movePlayer = undefined;
+    if (faction.facId == 3) {
+      const tgoftile = MoveInPlay.teleGraphics
+      fotPres.forEach(fot => {
+        // Leyrien: for each potential fHex.ctile, remove & delete any TeleGraphics
+        tgoftile.get(fot.tile)?.forEach(tg => tg.parent.removeChild(tg));
+        tgoftile.delete(fot.tile)
+      })
+    }
     faction.player.presence; // touch all FoT, setting visibility
     this.removeTargets(); // remove all MoveInPlay
   }
