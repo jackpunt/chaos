@@ -261,31 +261,8 @@ export class MoveInPlay extends NamedContainer {
       return
     }
   }
-  // TeleGraphic for SwampCnx
-  // There no HexDir or Edge associated with swamp teleportation.
-  //
-
-  /** Graphic indicating Leyrien teleportation via Swamp */
-  // green hex with a fighterCounter, in 'a corner' of the fromHex
-  // with a line pointing to the toHex.FoT(Leyrien)
-  static TeleGraphic = class extends NamedContainer {
-    constructor(mip: MoveInPlay, pair: HexPair) {
-      super('TeleGraphic')
-      const [fHex, tHex] = pair;
-      let empty: DisplayObject[];
-      const tgs = MoveInPlay.teleGraphics.get(fHex.ctile!) ?? (empty = [], MoveInPlay.teleGraphics.set(fHex.ctile!, empty), empty);
-      const n = tgs.length;    // number of sg's on fHex
-      const dir = H.ewDirs[n]; // for nsTopo corners are on ewDirs
-      const rad = TP.hexRad * .8; // inside the corner
-      const counter = mip.counter;
-      fHex.cornerXY(dir, rad, counter);
-      this.addChild(counter);
-      this.x += fHex.x; this.y += fHex.y;
-      tgs.push(this);
-    }
-  }
   /** fromTile -> SwampGraphic(s) in use */
-  static teleGraphics: Map<ChaosTile, DisplayObject[]> = new Map<ChaosTile, DisplayObject[]>();
+  static teleGraphics: Map<ChaosTile, MoveInPlay.TeleGraphic[]> = new Map<ChaosTile, MoveInPlay.TeleGraphic[]>();
 
   clearMovePairs() {
 
@@ -294,8 +271,47 @@ export class MoveInPlay extends NamedContainer {
   moveFighters(incr: number) {
     return this.counter.incValue(incr)
   }
+}
+export namespace MoveInPlay {
+  // TeleGraphic for SwampCnx
+  // There no HexDir or Edge associated with swamp teleportation.
+  // place figherCounter in a corner of from Hex.
 
+  /** Graphic indicating Leyrien teleportation via Swamp */
+  // green hex with a fighterCounter, in 'a corner' of the fromHex
+  // with a line pointing to the toHex.FoT(Leyrien)
+  export class TeleGraphic extends NamedContainer {
+    dir: HexDir;
+    constructor(mip: MoveInPlay, pair: HexPair) {
+      super('TeleGraphic')
+      const [fHex, tHex] = pair;
+      const counter = mip.counter;
+      this.addChild(counter);
+      const corner = this.pickCorner(pair);
+      this.dir = corner.dir;
+      this.x = corner.pt.x; this.y = corner.pt.y;
+    }
 
+    /** corner of pair.fHex that is empty and is closest to pair.tHex
+     * @param pair
+     * @returns { dir: ewDir, pt: XY }
+     */
+    pickCorner(pair: HexPair) {
+      const [fHex, tHex] = pair;
+      const tgs = this.tgsOnTile(fHex.ctile!);
+      const rad = TP.hexRad * .8; // inside the corner
+      const cdirs = H.ewDirs.filter(d => !tgs.find(tg => tg.dir == d)); // for nsTopo: corners are on ewDirs
+      const pts = cdirs.map(cdir => ({ dir: cdir, pt: fHex.cornerXY(cdir, rad) }));
+      const p0 = pts.map(cpt => (cpt.pt.x += fHex.x, cpt.pt.y += fHex.y, cpt))
+        .sort((a, b) => dist(a.pt, tHex) - dist(b.pt, tHex))[0];
+      tgs.push(this);
+      return p0;
+    }
+    tgsOnTile(tile: ChaosTile) {
+      let empty: MoveInPlay.TeleGraphic[];
+      return MoveInPlay.teleGraphics.get(tile) ?? (empty = [], MoveInPlay.teleGraphics.set(tile, empty), empty);
+    }
+  }
 }
 
 /** A PaintableCont holding a counter: NumCounterHex */ // TODO: reduce to NumCounterHex
