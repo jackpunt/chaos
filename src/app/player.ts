@@ -217,13 +217,15 @@ export class Player extends PlayerLib {
 
   // find a 'Base' tile on map and move (D&D) our BaseTile to it.
   autoPlaceBase(doneFunc: () => void) {
-    const emptyHexes = permute(this.gamePlay.hexMap.filterEachHex(hex => !hex.tile)); // suitable for placing a Base tile
+    const map = this.gamePlay.hexMap;
+    const emptyHexes = permute(map.filterEachHex(hex => !hex.tile)); // suitable for placing a Base tile
+    const prefBase = (pred:(hex: Hex2) => boolean) => permute(emptyHexes.filter(pred))[0];
     let pref: Hex2 | undefined;
     if (this.facId == 5) {  // Oxataya by bottom Lake:
-      pref = emptyHexes.find(hex => hex.rcText.text == "6,4" || hex.rcText.text == "7,4")
+      pref = prefBase(hex => hex.rcText.text == "6,4" || hex.rcText.text == "7,4")
     }
-    if (this.facId == 3) {
-      pref = emptyHexes.find((hex: Hex2) => (hex.linkHexes as Hex2[]).find(h => h.ctile!.isSwamp))
+    if (this.facId == 3) {  // Leyrien adjacent to a swamp:
+      pref = prefBase(hex => !!map.adjacentToRowCol(hex).map(v => v.hex).find(h => h.ctile!.isSwamp));
     }
     const targetHex = pref ?? emptyHexes[0];
     const baseTile = this.panel.baseTile;
