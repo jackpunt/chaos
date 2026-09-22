@@ -155,7 +155,7 @@ export class MoveIcon extends ChaosToken {
     this.visible = false;  // only visible in Move phase
   }
   override makeShape(size?: number) {
-    const rad = TP.hexRad * .2, fillc = C.WHITE;
+    const rad = TP.hexRad * .14, fillc = C.WHITE;
     return new  PolyShape({ rad, nsides: 6, fillc })
   }
   override sendHome(): void {
@@ -173,6 +173,9 @@ export class MoveIcon extends ChaosToken {
     return ctile.isSwamp;
   }
   override isLegalTarget(toHex: Hex2, ctx: DragContext): boolean {
+    if (toHex.ctile?.isBase) return false;
+    // No direct reciprocal MoveInPlay:
+    if (this.player.movesInPlay.find(mip => mip.from == toHex.ctile && mip.to == this.srcTile)) return false;
     if (this.player.facId !== 5 && toHex.ctile?.isLake) return false; // vs: !faction.canEnterLake
     if (this.player.facId === 3 && toHex.ctile?.isSwampCnx && this.isFromSwamp) return true; // Leyrein connects Swamps
     return this.fromHex.linkHexes.includes(toHex);
@@ -199,7 +202,7 @@ export class MoveIcon extends ChaosToken {
 
 /** used by MoveInPlay to count Fighters transfered from FoT to FoT */
 export class FighterCounter extends NumCounterHex {
-  constructor(public mip: MoveInPlay, name: string, initValue: number | string = 0, color?: string, fontSize?: number, fontName?: string, textColors?: string[]) {
+  constructor(public mip: MoveInPlay, name: string, initValue: number | string = 0, color?: string, fontSize = TP.hexRad * .2, fontName?: string, textColors?: string[]) {
     super(name, initValue, color, fontSize, fontName, textColors)
     // rightClick OR ctrl-key causes -5/-1 decrement:  [right & shift would result in +5/+1]
     rightClickable(this, (evt) => this.incValueOnClick(evt, -5, -1))
@@ -218,7 +221,12 @@ export class FighterCounter extends NumCounterHex {
 }
 
 
-/** Player uses a MovePoint to move Units from srcTile to toRegion  */
+/** Player uses a MovePoint to move Units from srcTile to toRegion .
+ *
+ * contains a FighterCounter (placed in fHex) and an Arrow pointing at tHex.
+ *
+ * tHex is either Adjacent (pentagon arrow) or SwampAdj (corner --> tHex.FoT)
+ */
 export class MoveInPlay extends NamedContainer {
   from: ChaosTile;
   to: ChaosTile;
@@ -233,7 +241,6 @@ export class MoveInPlay extends NamedContainer {
     this.to = to;
     const counter = this.counter = new FighterCounter(this, `moveFighters`, 0, this.player.color); // (TP.hexSize * .2)
     this.addChild(counter);
-    counter.y = -.04 * TP.hexRad;
     counter.clickToInc(true, 5, 1); // --> incValueOnClick(evt, ...) --> incValue(incv)
     counter.on('incr', (evt: Object) => {
       // const ve = evt as ValueEvent;
@@ -257,8 +264,10 @@ export class MoveInPlay extends NamedContainer {
     if (pair[0].linkHexes.includes(pair[1])) {
       // AdjGraphic: container(pent, counter)
       const color = C.nameToRgbaString(this.player.color, .5);
-      const pent = pentagon(TP.hexRad*.4, TP.hexRad*.3, color, 0, '');
+      const pent = pentagon(TP.hexRad*.32, TP.hexRad*.2, color, 0, '');
       this.addChildAt(pent, 0);                       // under this.counter
+      this.y -= TP.hexRad * .01;
+      this.counter.y += TP.hexRad * -.05;
       // overcont->PairTarget->this->[Arrow, Counter]
       const pairGraphic = new PairTarget(pair, this); // PT -> fHex.map...overCont @ fHex.edgePoint()
       this.counter.rotation = -pairGraphic.rotation;  // Arrow tilts, Counter stays vertical

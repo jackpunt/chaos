@@ -43,7 +43,7 @@ export namespace CO {
 
 }
 
-/** A PathShape: pentagon with a right-angle point */
+/** A PathShape: an up-pointing pentagon with a right-angle point */
 export function pentagon (xs: number, ys: number, fillc: string, tilt = 0, strokec = '') {
   const y0 = xs * .5;
   const points = [
