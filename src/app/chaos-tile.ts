@@ -1,7 +1,7 @@
 import { C, permute, removeEltFromArray, S, stime, type XY } from "@thegraid/common-lib";
-import { AliasLoader, NamedContainer, type Paintable, PolyShape, RectShape } from "@thegraid/easeljs-lib";
+import { AliasLoader, NamedContainer, type Paintable, PathShape, PolyShape, RectShape } from "@thegraid/easeljs-lib";
 import type { DisplayObject } from "@thegraid/easeljs-module";
-import { type DragContext, type DragFuncs, H, type HasDragger, type HexDir, HexShape, type IHex2, MapTile, Player as PlayerLib, type Table, Tile, TP } from "@thegraid/hexlib";
+import { type DragContext, type DragFuncs, H, type HasDragger, type HexDir, HexShape, type IHex2, MapTile, Player as PlayerLib, rightClickable, type Table, Tile, TP } from "@thegraid/hexlib";
 import { type ChaosHex2, type ChaosHex2 as Hex2, type HexMap2 } from "./chaos-hex";
 import { type ChaosTable } from "./chaos-table";
 import { NumCounterHex } from "./counters";
@@ -9,7 +9,7 @@ import { Faction, type FactionId } from "./factions";
 import { Foundation } from "./foundation";
 import type { GamePlay } from "./game-play";
 import type { AI_Trap, ChaosBuilding, Factory, Morale, Outposts, Relic, Stronghold } from "./meeples";
-import { ChaosToken, Leader, PaintableCont } from "./meeples";
+import { ChaosToken, Leader } from "./meeples";
 import { superMethod } from "./mixins";
 import type { Player } from "./player";
 import type { FactionOnTileState } from "./scenario-parser";
@@ -37,11 +37,9 @@ declare module '@thegraid/easeljs-module' {
   }
 }
 
-/** distance from origin */
-function dist(pt: XY, p0={ x: 0, y: 0 }) {
-  const dx = pt.x - p0.x;
-  const dy = pt.y - p0.y;
-  return Math.sqrt(dx *  dx + dy * dy);
+/** distance from origin (or given p0) */
+function dist(pt: XY, p0 = { x: 0, y: 0 }) {
+  return Math.hypot(pt.x - p0.x, pt.y - p0.y)
 }
 
 export type HexPair = [Hex2, Hex2];
@@ -53,7 +51,6 @@ export class PairTarget extends NamedContainer {
   /** create PairTarget and add to PairTarget.targets; and show on overCont. */
   constructor(public pair: HexPair, public dObj: DisplayObject) {
     const [fHex, tHex] = pair;
-    const map = fHex.map as HexMap2;
     const dir01 = fHex.findLinkHex(hex => (hex == tHex));
     if (!dir01) {
       throw(`new PairTarget: hexes ${pair} are not adjacent`);
@@ -65,7 +62,7 @@ export class PairTarget extends NamedContainer {
 
     this.rotation = (H.dirRot[dir01]);
     fHex.edgePoint(dir01, 1, this);      // set RectShape on edge of Hex
-    map.mapCont.overCont.addChild(this); // place on top of other tiles
+    fHex.map.mapCont.overCont.addChild(this); // place on top of other tiles
   }
 }
 
@@ -200,16 +197,20 @@ export class MoveIcon extends ChaosToken {
       // click the arrow/FC to increment/decrement the by local FC and the target FC.
       // record state of Units before; keybinder to reset Units to beginning of phase.
 
-/** used by MoveInPlay to count Fighters transfered. */
+/** used by MoveInPlay to count Fighters transfered from FoT to FoT */
 export class FighterCounter extends NumCounterHex {
   constructor(public mip: MoveInPlay, name: string, initValue: number | string = 0, color?: string, fontSize?: number, fontName?: string, textColors?: string[]) {
     super(name, initValue, color, fontSize, fontName, textColors)
+    // rightClick OR ctrl-key causes -5/-1 decrement:  [right & shift would result in +5/+1]
+    rightClickable(this, (evt) => this.incValueOnClick(evt, -5, -1))
   }
+
+  // transfer fighter(s) fromFot --> toFot; counting the number transfered.
   override incValue(incr: number) {
     const mip = this.mip;
-    const incv = incr > 0 ? Math.min(incr, mip.fromFot.fighters) : -Math.min(-incr, mip.toFot.fighters - mip.toFot.preFighters);
-    mip.fromFot.fighterCounter.incValue(-incv);
-    mip.toFot.fighterCounter.incValue(incv);
+    const incv = incr > 0 ? Math.min(incr, mip.fromFot.fighters) : -Math.min(-incr, mip.toFot.fighters, mip.toFot.fighters - mip.toFot.preFighters);
+    mip.fromFot.fighterIcon.incValue(-incv);
+    mip.toFot.fighterIcon.incValue(incv);
     super.incValue(incv);
     mip.toFot;    // set visible
     mip.fromFot;  // set visible
@@ -222,6 +223,7 @@ export class MoveInPlay extends NamedContainer {
   from: ChaosTile;
   to: ChaosTile;
   counter: FighterCounter;
+  teleGraphic?: MoveInPlay.TeleGraphic; // iff this is Leyrien swamp move
   get fromFot() { return this.from.getFoT(this.player) }
   get toFot() { return this.to.getFoT(this.player) }
 
@@ -229,11 +231,23 @@ export class MoveInPlay extends NamedContainer {
     super(`${from.name}-${to.name}`)
     this.from = from;
     this.to = to;
-    this.counter = new FighterCounter(this, `moveFighters`, 0, this.player.color); // (TP.hexSize * .2)
-    this.counter.y = -.04 * TP.hexRad;
-    this.counter.clickToInc(true, 5, 1); // --> incValueOnClick(evt, ...) --> incValue(incv)
-    // this.counter.on('incr', (evt) => {
-    // })
+    const counter = this.counter = new FighterCounter(this, `moveFighters`, 0, this.player.color); // (TP.hexSize * .2)
+    this.addChild(counter);
+    counter.y = -.04 * TP.hexRad;
+    counter.clickToInc(true, 5, 1); // --> incValueOnClick(evt, ...) --> incValue(incv)
+    counter.on('incr', (evt: Object) => {
+      // const ve = evt as ValueEvent;
+      if (this.counter.value == 0) {   // note: it never *increments* to zero, must have been ctrl|right click
+        removeEltFromArray(this, this.player.movesInPlay);
+        if (this.teleGraphic) {
+          const tgs = this.teleGraphic.tgsOnTile(this.from);
+          removeEltFromArray(this.teleGraphic, tgs)
+        }
+        // remove from fHex.map...overCont:
+        this.parent.parent.removeChild(this.parent); // PairTarget(this) OR TeleGraphic(this, line)
+        this.player.gamePlay.table.stage.update();
+      }
+    })
     this.addArrowGraphic();
     this.toFot;  // set visible
   }
@@ -242,21 +256,20 @@ export class MoveInPlay extends NamedContainer {
     const pair = [this.from.chex, this.to.chex] as HexPair;
     if (pair[0].linkHexes.includes(pair[1])) {
       // AdjGraphic: container(pent, counter)
-      const dObj = new NamedContainer(`moveArrow`);
       const color = C.nameToRgbaString(this.player.color, .5);
       const pent = pentagon(TP.hexRad*.4, TP.hexRad*.3, color, 0, '');
-      dObj.addChild(pent, this.counter);
-      const pairGraphic = new PairTarget(pair, dObj); // added to fHex.map...overCont @ fHex.edgePoint()
-      this.counter.rotation = -pairGraphic.rotation;
+      this.addChildAt(pent, 0);                       // under this.counter
+      // overcont->PairTarget->this->[Arrow, Counter]
+      const pairGraphic = new PairTarget(pair, this); // PT -> fHex.map...overCont @ fHex.edgePoint()
+      this.counter.rotation = -pairGraphic.rotation;  // Arrow tilts, Counter stays vertical
     } else {
       // Leyrein in swamp! (Tunnels work as adjacent)
       // A Swamp has at most 5 normal adjacent neighbors (T4,3 T4,5 have adj Lake)
       // A Swamp has at most 6 "swamp adjacent" connections
       console.log(stime(this, `.addTeleGraphic:`), pair);
-      // TeleGraphic: container(counter)
       const [fHex, tHex] = pair;
-      const tg = new MoveInPlay.TeleGraphic(this, pair)
-      fHex.map.mapCont.overCont.addChild(tg); // place on top of other tiles
+      // overcont->TG->[this->[Counter], line]
+      this.teleGraphic = new MoveInPlay.TeleGraphic(this, pair); // TG -> fHex.map...overCont @ fHex.cornerXY
       return
     }
   }
@@ -284,11 +297,31 @@ export namespace MoveInPlay {
     constructor(mip: MoveInPlay, pair: HexPair) {
       super('TeleGraphic')
       const [fHex, tHex] = pair;
-      const counter = mip.counter;
-      this.addChild(counter);
+      this.addChild(mip);
       const corner = this.pickCorner(pair);
       this.dir = corner.dir;
-      this.x = corner.pt.x; this.y = corner.pt.y;
+      this.x = corner.pt.x; this.y = corner.pt.y; // x,y on overCont: += (fHex.x, fHex.y)
+      const fot = fHex.ctile?.hasFot(mip.player.facId)!;
+      // find coords relative to fHex:
+      const ptx = corner.pt.x - fHex.x, pty = corner.pt.y - fHex.y;
+      const fx = 0, tx = (tHex.x - fHex.x) + fot.x -ptx;
+      const fy = 0, ty = (tHex.y - fHex.y) + fot.y -pty;
+      const points = this.pointsAtDistance(fx, fy, tx, ty, TP.hexRad * .25)
+      const arrow = new PathShape({ points, fillc: C.BLACK, strokec: C.BLACK })
+      // const arrow = new PathShape({ points: [[fx, fy], [fx+2, fy+2], [(fx+tx)/2, (fy+ty)/2], [tx, ty], [tx-2, ty-2]], fillc: C.BLACK, strokec: C.BLACK })
+      this.addChild(arrow);
+      fHex.map.mapCont.overCont.addChild(this); // TG -> fHex.map...overCont @ fHex.cornerXY
+    }
+
+    // subtract d from each end of line:
+    pointsAtDistance(fx: number, fy: number, tx: number, ty: number, d: number) {
+      const dx = tx - fx;
+      const dy = ty - fy;
+      const len = Math.hypot(dx, dy);
+      const dux = d * dx / len;
+      const duy = d * dy / len;
+      return [[fx + dux, fy + duy], [ tx - dux, ty - duy ]] as [number, number][];
+
     }
 
     /** corner of pair.fHex that is empty and is closest to pair.tHex
@@ -313,18 +346,16 @@ export namespace MoveInPlay {
   }
 }
 
-/** A PaintableCont holding a counter: NumCounterHex */ // TODO: reduce to NumCounterHex
-export class FighterIcon extends PaintableCont {
-  counter: NumCounterHex;
+/** NumCounterHex that is non-negative. */
+export class FighterIcon extends NumCounterHex {
   hexRad!: number;
 
   constructor(player?: Player, name = 'FighterIcon', fontSize = TP.hexRad * .2) {
-    super(name);
-    const color = player?.color;
-    const counter = new NumCounterHex('fighters', 0, color, fontSize);
-    this.counter = counter;
-    this.addChild(counter);
-    this.hexRad = counter.boxSize().width; // for cache --> getBounds() --> hexBounds();
+    super(name, 0, player?.color, fontSize);
+  }
+  override incValue(incr: number): void {
+    super.incValue(incr)
+    if (this.value < 0) this.value = 0;   // and maybe put watchpoint here, should not happen!
   }
 }
 
@@ -337,8 +368,8 @@ export class FactionOnTile extends NamedContainer {
 
   buildings: ChaosBuilding[] = [];      // if this Faction has buildings on tile
   /**  number of fighters on tile */
-  get fighters() { return this.fighterCounter.value };
-  set fighters(n: number) { this.fighterCounter.value = n }
+  get fighters() { return this.fighterIcon.value };
+  set fighters(n: number) { this.fighterIcon.value = n }
   get inRegion() { return this.tile }
   leaders: Leader[] = [ ];              // 2+ slots (own + Rhyzu), Zcharo: 4, Oxataya: 4
   strength = 0;                         // Apparent strength of Faction
@@ -350,7 +381,6 @@ export class FactionOnTile extends NamedContainer {
   player: Player;
   tile: ChaosTile;
   fighterIcon: FighterIcon;
-  fighterCounter: NumCounterHex;
   moveIcon: MoveIcon;
 
   constructor(player: Player, tile: ChaosTile) {
@@ -358,9 +388,7 @@ export class FactionOnTile extends NamedContainer {
     this.player = player;
     this.tile = tile;
     this.setXY();   // move to sector for player
-    // QQQ: how can makeFighterIcon do addChildOver() before tile.addChild(this)?
-    this.fighterIcon = new FighterIcon(this.player);  // a new Fighter() with Counter
-    this.fighterCounter = this.fighterIcon.counter;
+    this.fighterIcon = new FighterIcon(player);
     this.tile.reCache(0);
     this.tile.addChild(this);
     this.moveIcon = new MoveIcon(player, tile);
@@ -475,7 +503,6 @@ export class FactionOnTile extends NamedContainer {
     // invert: 1 --> leaders on top;  -1 --> leaders on bottom;
     const yh = (this.isBase ? -1 : this.invert) * rad * H.sqrt3_2;
     this.fighterIcon.y = yh * 0;
-    // this.fighterIcon.visible = (this.fighters > 0);
     if (this.leaders.length > 0) {
       // location of leader line:
       const yl = yh * .33; // assuming 2 of 5 orientation == Base!
@@ -679,7 +706,7 @@ export class ChaosTile extends MapTile {
     const player = typeof arg == 'number' ? Faction.factionById.get(arg)!.player : arg;
     const fot = this.factions[facId] ?? (this.factions[facId] = new FactionOnTile(player, this));
     const isMoving = (this.gamePlay.movePlayer == player);
-    fot.fighterCounter.visible = isMoving || (fot.fighters > 0);
+    fot.fighterIcon.visible = isMoving || (fot.fighters > 0);
     fot.moveIcon.visible = isMoving;
     return fot;
   }
@@ -842,8 +869,8 @@ export class BaseTile extends ChaosTile {
       const adjTile = hex.ctile!
       adjTile.addFoundation(founds[n]);
       // TODO: moveInPlay().moveFighters(1)
-      this.getFoT(this.player).fighterCounter.incValue(-1);
-      adjTile.getFoT(this.player).fighterCounter.incValue(1); // ...fighters += 1; ???
+      this.getFoT(this.player).fighterIcon.incValue(-1);
+      adjTile.getFoT(this.player).fighterIcon.incValue(1); // ...fighters += 1; ???
       adjTile.getFoT(this.player);  // update visibility of new value
     });
     // block Oxataya from any adjacent Lake:
@@ -876,7 +903,7 @@ export class BaseTile extends ChaosTile {
     // return fighters and Leaders: (not just the adj foundation locations: all the map! for PlaceBaseAndMove tests)
     this.player.fotPresence.forEach(fot => {
       const nf = fot.fighters;
-      baseFot.fighterCounter.incValue(nf);        // send fighters back to base
+      baseFot.fighterIcon.incValue(nf);        // send fighters back to base
       fot.fighters = 0;
       fot.leaders.forEach(ldr => ldr.sendHome()); // return to LeaderCard
       fot.leaders.length = 0;

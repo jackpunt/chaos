@@ -63,7 +63,7 @@ export class GamePlay extends GamePlayLib {
 
   /** placeBase or MoveInPlay */
   removeTargets() {
-    this.pairTargets.forEach(pt => pt.parent.removeChild(pt));
+    this.pairTargets.forEach(pt => pt.parent?.removeChild(pt));
     this.pairTargets.length = 0;
   }
 
@@ -186,6 +186,8 @@ export class GamePlay extends GamePlayLib {
   // Income: Faction specific Income: Ley,
   // Relics: Win?; assign Relic do Bonus (Research, Upgrade-Circadian)
   // ... next round
+
+  /** move points from 'Move' action, for the given Faction, from ResearchLevel of Phase 'Move' */
   mpForFaction(faction: Faction) {
     const level = faction.researchLevelOfPhase['Move'].level;
     return [2, 4, 5, 7, 9][level];
@@ -194,7 +196,7 @@ export class GamePlay extends GamePlayLib {
   moveFaction(faction: Faction, nMove = this.mpForFaction(faction)) {
     this.movePoints = nMove;
     this.movePlayer = faction.player;
-    // set visibity on MoveIcon & FighterIcon; set pre-Move state
+    // set visibity on fot.moveIcon & fot.fighterIcon; set pre-Move state
     faction.player.presence.forEach(fot => fot.setPreMove());
     console.log(stime(this, `.moveFaction: preFighters=`), faction.player.presence.map(fot => fot.preFighters));
 

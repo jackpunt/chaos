@@ -83,7 +83,7 @@ export class Faction {
   // Foundation w/gem = fg: 1-4 (0 is implicit) [gem->res, ubiq harv, ubiq adj, gemlock, handlim]
   static facSpecs: FacSpec[] = [
     { name: 'Circadian', rb: ['G1', 'Up', 'G1', 'Up', 'Up',], fg: 2, bg: [[3, 0, 0, 0], [0, 0, 0], [1, 1, 1]], nr: [6, 2, 0, 2], ft: 3, r3: 'G1', }, // no base; 10 Fighters
-    { name: 'AI',        rb: ['F1', 'F2', 'F2', 'F3', 'F4',], fg: 2, bg: [[3, 0, 0, 0], [1, 1, 1], [0, 1, 1]], nr: [12, 8],    ft: 0, r3: 'G1',}, // +10 on copious
+    { name: 'AI',        rb: ['F1', 'F2', 'F2', 'F3', 'F4',], fg: 2, bg: [[3, 0, 0, 0], [1, 1, 1], [0, 1, 1]], nr: [13, 7],    ft: 0, r3: 'G1',}, // +10 on copious
     { name: 'Zcharo',    rb: ['G1', 'G1', 'G1', 'G1', 'G1',], fg: 3, bg: [[2, 0, 1, 1], [0, 0, 1, 1], [0, 1]], nr: [9, 5, 6],  ft: 1, r3: 'C', },
     { name: 'Leyrien',   rb: ['M0', 'F2', 'F2', 'F3', 'F3',], fg: 1, bg: [[2, 0, 0, 1], [0, 0, 1], [1, 1, 1]], nr: [8, 6, 6],  ft: 1, r3: 'C',},
     { name: 'Jrayek',    rb: ['E2', 'F1', 'E3', 'F1', 'F1',], fg: 2, bg: [[2, 0, 0, 1], [0, 1, 1], [0, 0, 1]], nr: [10, 4, 6], ft: 1, r3: 'C', },
