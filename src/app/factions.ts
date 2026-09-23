@@ -2,8 +2,8 @@ import type { Phase } from "@thegraid/hexlib";
 import type { BONUS, FAME_BONUS, HARVEST } from "./chaos-tile";
 import type { Leader, PriceToken } from "./meeples";
 import type { Player } from "./player";
-import { type ResearchLevel } from "./research-cell";
-import { pricePhases, type PricePhase } from "./table-params";
+import { type ResearchCell, type ResearchLevel } from "./research-cell";
+import { pricePhases, type CB, type PricePhase } from "./table-params";
 //
 function expandArray<T>(rec: Record<number, T>): (T | undefined)[] {
   const length = Math.max(-1, ...Object.keys(rec).map(Number)) + 1; // .filter(k ->!isNan(k))
@@ -201,26 +201,39 @@ export class Faction {
     }
   }
 
-  // offer primary and aux;
+  // reset aux button after primary action:
+  resetAuxLevel(rc: ResearchCell) {
+    // in case rc.primary() does Discovery and advances rc.phaseRow -> rc.level + 1:
+    const { phaseRow, level } = this.researchLevelOfPhase[rc.pName];
+    if (level !== rc.level ) {
+      rc.aButton.activate(false);
+      const rc1 = phaseRow[level];
+      rc1.aButton.activate(true);
+    }
+  }
+
+  // for given Phase: offer primary and aux;
   offerPrimaryAndAux(pName: PricePhase, activate = true) {
     const { phaseRow, level } = this.researchLevelOfPhase[pName];
     if (level < phaseRow.length) {
       const rc = phaseRow[level];
       if (activate) {
-        rc.activateForAction(this, () => rc.primary(this), () => rc.auxillary(this) );
+        rc.activateForAction(this, () => rc.primary(this, () => this.resetAuxLevel(rc)), () => rc.auxillary(this) );
       } else {
         rc.activateForAction(this);
       }
     }
   }
 
+  // offer a Discovery action ('%')
   // for each phase, activate mid-row of next level; then turn them all off
-  offerNextLevel(activate = true) {
+  offerNextLevel(activate = true, cb: CB = () => {}) {
     pricePhases.forEach(pName => {
       const { phaseRow, level } = this.researchLevelOfPhase[pName];
       if (level < phaseRow.length) {
+        // TODO: stash & 'restore/recompute' status of enabled aButton
         // click -> rl.level = rc.level
-        phaseRow[level+1].activateForDiscovery(this, activate, () => this.offerNextLevel(false));
+        phaseRow[level+1].activateForDiscovery(this, activate, () => { this.offerNextLevel(false); cb(); });
       }
     })
   }

@@ -1,4 +1,4 @@
-import { C, F, S, type WH, type XYWH } from "@thegraid/common-lib";
+import { C, F, S, stime, type WH, type XYWH } from "@thegraid/common-lib";
 import { CenterText, NamedContainer, RectShape, UtilButton, type DragInfo, type Paintable, type TextInRectOptions } from "@thegraid/easeljs-lib";
 import type { DisplayObject } from "@thegraid/easeljs-module";
 import type { HasDragger } from "@thegraid/hexlib";
@@ -15,11 +15,11 @@ export type ResSpec = [ P: string, A: string, I?: string, gl?: boolean ];  // tu
 export type ResSpecs = ResSpec[];
 export type ResGrid = Record<PricePhase, ResSpecs>;
 export const ResGrid: ResGrid = {
-  Discovery: [['%', 'E2:G1'], ['%', 'G2:%', 'E2 | G1' ], ['%', 'G2:%', 'E3 | C' ], ['%', 'G1:%', 'E4 | G2' ], ['% %', 'G1:C', 'C' ]],
-  Build: [['B', 'E4:B'], ['B', 'E3:B', 'F | C'], ['B B', 'E4:B'], ['B B', 'E3:B', 'F | C'], ['B B B', 'E2:C']],
-  Harvest: [['E4+H1', 'E2:G1'], ['E5+H2', 'E2:G1'], ['E6+H2', 'E2:G1', 'PT'], ['E7+H3', 'E2:G1'], ['E9+H3', 'E4:G2', 'UT']],
-  Recruit: [['R2', 'E4:L'], ['R4', 'E5:L'], ['R5', 'E4:L', 'G1 | C'], ['R7', 'E4:L'], ['R9', 'E4:L', 'E3']],
-  Move: [['M2', 'E5:U'], ['M3', 'E5:U'], ['M4', 'E4:U', '', true], ['M5', 'E4:U', 'R2 | C'], ['M6', 'E4:U']],
+  Discovery:   [['%', 'G2:%'], ['%', 'G2:%', 'E2 | G1' ], ['%', 'G1:%', 'E3 | C' ], ['%', 'G1:%', 'E4 | G2' ], ['% %', 'G1:C', 'C' ]],
+  Build:       [['B', 'E4:B'], ['B', 'E3:B', 'F | C'], ['B B', 'E4:B'], ['B B', 'E3:B', 'F | C'], ['B B B', 'E2:C']],
+  Harvest:[['E4+H1', 'E2:G1'], ['E5+H2', 'E2:G1'], ['E6+H2', 'E2:G1', 'PT'], ['E7+H3', 'E2:G1'], ['E9+H3', 'E4:G2', 'UT']],
+  Recruit:     [['R2', 'E4:L'], ['R4', 'E5:L'], ['R5', 'E4:L', 'G1 | C'], ['R7', 'E4:L'], ['R9', 'E4:L', 'E3']],
+  Move:        [['M2', 'E5:U'], ['M3', 'E5:U'], ['M4', 'E4:U', '', true], ['M5', 'E4:U', 'R2 | C'], ['M6', 'E4:U']],
 }
 
 /** RectShape that appears on ResearchCell to indicate its level in the given phaseRow */
@@ -123,15 +123,23 @@ export class ResearchCell extends NamedContainer {
   // first light them both; pay priceToken; (a-> are you sure?)
   // then light only aux (); pay to bank;
   activateForAction(faction: Faction, pon?: CB, aon?: CB) {
-    const ays = faction.player.panel.areYouSure;
+    const panel = faction.player.gamePlay.table.neutralPanel; // faction.player.panel;
     if (pon) {
-      this.pButton.on(S.click, () => { pon() }, this, true)
-      this.pButton.activate();
-    } else { this.pButton.activate(false); this.pButton.removeAllEventListeners(S.click) }
+      this.pButton.on(S.click, () => {
+        this.pButton.activate(false);
+        pon();
+      }, this, true)
+      this.pButton.activate(true);
+    } else {
+      this.pButton.activate(false);
+    }
     if (aon) {
       this.aButton.on(S.click, () => {
         if (this.pButton.isActive) {
-          ays(`Skip primary action?`, aon, () => {
+          panel.areYouSure(`Skip primary action?`, () => {
+            this.pButton.activate(false);
+            aon();
+          }, () => {
             this.activateForAction(faction);             // disable both
             this.activateForAction(faction, pon, aon);   // reenable both
           });
@@ -139,14 +147,18 @@ export class ResearchCell extends NamedContainer {
           aon();
         }
       }, this, true);
-      this.aButton.activate();
-    } else { this.aButton.activate(false); this.aButton.removeAllEventListeners(S.click) }
+      this.aButton.activate(true);
+    } else {
+      this.aButton.activate(false);
+    }
   }
 
   // i (%-action, disc-phase); Advance a Token, gemLock, iBonus
   /** enable iButton; click -> set faction to selected level */
   activateForDiscovery(faction: Faction, activate = true, cb: () => void) {
     if (activate) {
+      // TODO: stash state of pButton & aButton while selecting iButton;
+      // cb should restore or recompute aButton
       this.iButton.on(S.click, () => this.immediate(faction, cb), this, true); // once!
     }
     this.iButton.activate(activate);
@@ -154,16 +166,15 @@ export class ResearchCell extends NamedContainer {
 
   /** enable doing primary action for this phase at this level; pay Bank/Pricer */
   primary(faction: Faction, cb: CB = () => {}) {
-    this.pButton.activate(false);
+    this.pButton.activate(false); // redundant? see above: activateForAction
     // parse ps; do it;
     // use gameState.pricePhase & this.level
     if (this.ps == '%') {
-      faction.offerNextLevel(true);
+      faction.offerNextLevel(true, cb); // --> forEachPhase: activateForDiscovery()
     } else if (this.ps == 'B') {
       // count build points from this.ps
       // enable D&D on Buildings & Foundations
     }
-    cb();
   }
   /** advance ResearchLevel, apply Bonus */
   immediate(faction: Faction, cb: CB = () => {}) {
@@ -183,7 +194,13 @@ export class ResearchCell extends NamedContainer {
     // use UtilButton, but tweak the borders to get the desired size. (see also LeaderIcon: TextInBox)
     const { x, y, w, h } = xywh;
     const bgColor = 'rgba(255, 255, 255, 0.3)';
-    const button = new UtilButton('', { bgColor, fontSize: 1, border: [w/2, w/2, h/2, h/2] })
+    const button = new class extends UtilButton {
+      override activate(active?: boolean, vis?: boolean, update?: boolean): this {
+        super.activate(active, vis, update);
+        if (!active) this.removeAllEventListeners(S.click);
+        return this;
+      }
+    } ('', { bgColor, fontSize: 1, border: [w/2, w/2, h/2, h/2] })
     button.x = x; button.y = y;
     return button;
   }
