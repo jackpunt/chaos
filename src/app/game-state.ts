@@ -5,7 +5,7 @@ import { factionNames, type FactionId } from "./factions";
 import type { Battle, GamePlay } from "./game-play";
 import { Relic, type PriceToken } from "./meeples";
 import type { Player } from "./player";
-import { pentagon, priceNames, pricePhases, type PhaseName, type PriceName } from "./table-params";
+import { pentagon, priceNames, pricePhases, type PhaseName, type PriceName, type PricePhase } from "./table-params";
 
 
 // Never stop/state a END of a phase, always proceed to next Phase, so curPlayer is the next to take Action.
@@ -92,13 +92,15 @@ export class GameState extends GameStateLib {
     super.start(startPhase, startArgs);
   }
 
-  autoPlace?: string = 'Move';    // undefined for normal --> 'PlaceRelic'
+  autoPlace?: string = 'SetPrices';    // undefined for normal --> 'PlaceRelic'
   override startPhase = 'PlaceBase';
   override startArgs: any[] = [];
 
   // this.gamePlay.curPlayer
   override get curPlayer() { return super.curPlayer as Player }
   override get table() { return super.table as Table }
+
+  get pricePhase() { return this.state.Aname as PricePhase }
 
   firstMover() {
     const mfId = (this.gamePlay.phasePricer('MoveFirst'));
@@ -125,6 +127,10 @@ export class GameState extends GameStateLib {
 
   /** start(nextNdx) or phase(nextPhase, args) */
   startOrPhase(nextPhase: PhaseName | string, ...args: any[]) {
+    if (pricePhases.includes(this.pricePhase)) {
+      // disable previous offer:
+      this.curPlayer.faction.offerPrimaryAndAux(this.pricePhase, false);
+    }
     const next = this.nextNdx(this.curPlayerNdx);
     if (next !== this.phaseNdx) {
       this.state.start(next); // loop for each player
@@ -254,11 +260,12 @@ export class GameState extends GameStateLib {
       start: (ndx = this.phaseNdx) => {
         this.setCurPlayerNdx(ndx);
         this.doneButton();
-        // click on ResearchCell --> done()
-        // maybe buy auxilary (% or C)
+        this.curPlayer.faction.offerPrimaryAndAux(this.pricePhase); // 'Discovery'
       },
-      // done: (ndx = this.curPlayerNdx) ??
-      done: () => this.startOrPhase('Build'),
+      // TODO:
+      done: () => {
+        this.startOrPhase('Build')}
+        ,
     },
     Build: {
       start: (ndx = this.phaseNdx) => {
@@ -266,6 +273,7 @@ export class GameState extends GameStateLib {
         this.doneButton();
         // for each Build point: D&D a Building or Foundation --> done()
         // maybe buy a aux Build | Card
+        this.curPlayer.faction.offerPrimaryAndAux(this.pricePhase); // 'Build'
       },
       done: () => this.startOrPhase('Harvest'),
     },

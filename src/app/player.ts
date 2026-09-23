@@ -388,9 +388,9 @@ export class Panel extends PlayerPanel {
   }
 
   /** set faction's ResearchLevel on each phase */
-  initializeResearchCells(faction: Faction) {
+  initializeResearchCells(faction: Faction, level = 0) {
     const cells = faction.player.gamePlay.neutralPlayer.panel.researchCells; // initialized in [neutral] Panel.addResearchLines()
-    return cells.map(phaseRow => new ResearchLevel(faction, phaseRow)) // start at level 0
+    return cells.map((phaseRow, n) => new ResearchLevel(faction, phaseRow, pricePhases[n], level))
   }
 
   // invoked from Player.addPlayerBits *after* NeutralPanel is created.
@@ -417,7 +417,7 @@ export class Panel extends PlayerPanel {
       const resSpecs = ResGrid[pName];
       resSpecs.forEach((rs, j) => {
         rs[3] ||=  (j == 4);   // add gemLock to level-4
-        const cell = new ResearchCell(`RC${pName}_${j}`, j, rs, { width: wh * 1.2, height: wh * 1.2 })
+        const cell = new ResearchCell(pName, j, rs, { width: wh * 1.2, height: wh * 1.2 })
         phaseRow.push(cell);        // cell into next column
         cell.x = j * dx;
         cell.y = i * dy;

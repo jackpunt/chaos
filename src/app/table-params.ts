@@ -6,6 +6,8 @@ import type { HARVEST } from "./chaos-tile";
 import type { PriceBonus } from "./meeples";
 
 // some types & constants moved out of GameState:
+/** generic callback */
+export type CB = (... arg: any[]) => void;
 export const phaseNames = ['SetPrices', 'Discovery', 'Build', 'Harvest', 'Recruit', 'Move', 'Combat', 'Income', 'Relics'] as const;
 export type PhaseName = typeof phaseNames[number];
 export const priceNames = ['Discovery', 'Build', 'Harvest', 'Recruit', 'MoveFirst', 'MoveLast'] as const;

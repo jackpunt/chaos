@@ -1,9 +1,9 @@
-import { C, F, type WH } from "@thegraid/common-lib";
-import { CenterText, NamedContainer, RectShape, type DragInfo, type Paintable } from "@thegraid/easeljs-lib";
+import { C, F, S, type WH, type XYWH } from "@thegraid/common-lib";
+import { CenterText, NamedContainer, RectShape, UtilButton, type DragInfo, type Paintable, type TextInRectOptions } from "@thegraid/easeljs-lib";
 import type { DisplayObject } from "@thegraid/easeljs-module";
 import type { HasDragger } from "@thegraid/hexlib";
 import { type Faction } from "./factions";
-import { CO, gemlockIcon, TP, type PricePhase } from "./table-params";
+import { CO, gemlockIcon, TP, type CB, type PricePhase } from "./table-params";
 
 
 // %, Energy, Gem, Card, Build, Recruit, Leader, Harvest, Move,
@@ -35,7 +35,7 @@ export class ResearchLevel extends RectShape {
     this.phaseRow[level].addChild(this); // phaseRow contains ResearchCell
   }
 
-  constructor(public faction: Faction, public phaseRow: ResearchCell[], level = 0) {
+  constructor(public faction: Faction, public phaseRow: ResearchCell[], public pricePhase: PricePhase, level = 0) {
     const dx = TP.hexRad * .9/5-2, dy = dx;
     super({ x: -dx/2, y: -dy/2, w: dx, h: dy });
     this.level = level;    // place in ResearchCell per level
@@ -57,11 +57,13 @@ export class ResearchLevel extends RectShape {
 
   dragFunc(dispObj: DisplayObject, info?: DragInfo): void {
   }
+  // for manual patching
+  // dispObj is 'this' ResearchLevel
   dropFunc(dispObj: DisplayObject, info?: DragInfo): void {
     if (!info) { debugger; return }
     // Assert dispObj == this (unless it is a Container(this)...)
-    const parent = info.srcCont.parent; // ResearchCell holding the RectShape
-    const pt = dispObj.parent.localToLocal(dispObj.x, dispObj.y, parent); // dragCont --> parent
+    const parent = info.srcCont.parent; // ResLines Container of all ResearchCells
+    const pt = dispObj.parent.localToLocal(dispObj.x, dispObj.y, parent); // srcCont = RCPhase_n --> ResLines
     const objs = parent.getObjectsUnderPoint(pt.x, pt.y, 1).filter(obj => obj !=dispObj);
     const rect = objs.find(obj => this.phaseRow.includes(obj.parent as ResearchCell));
     const cell = rect?.parent as ResearchCell | undefined;
@@ -71,6 +73,7 @@ export class ResearchLevel extends RectShape {
 }
 
 export class ResearchCell extends NamedContainer {
+  pName: PricePhase;
   level = 0;
 
   ps: string;      // primary
@@ -83,26 +86,106 @@ export class ResearchCell extends NamedContainer {
   gemlock = false; // true if gemLock req'd to achieve
   gemlockIcon?: DisplayObject;
 
-  constructor(Aname: string, level: number, spec: ResSpec, public wh: WH = { width: TP.hexRad * .8, height: TP.hexRad*1 }) {
-    super(Aname);
+  pButton: UtilButton;
+  iButton: UtilButton;
+  aButton: UtilButton;
+
+  constructor(pName: PricePhase, level: number, spec: ResSpec, public wh: WH = { width: TP.hexRad * .8, height: TP.hexRad*1 }) {
+    super(`RC${pName}_${level}`);
+    this.pName = pName;
     this.level = level;
-    const [p, a, i, gl] = spec;
+    const [p, a, i, gl] = spec; // primary, auxiallary, immediate, gemlock
     this.ps = p;
     this.as = a;
     this.is = i;
 
-    const fs = this.fs = Math.round(this.wh.height*.2);
+    const fs = this.fs = Math.round(this.wh.height*.2);  // fontSize
     this.font = F.fontSpec(fs); // TODO: font family & weight
 
     const w = this.wh.width, h = this.wh.height;
     const box = new RectShape({ x: -w/2, y: -w/2, w, h }, CO.dmauve); // dark...
     this.addChild(box);
-    this.fill();
+    this.fillBox();
     if (gl) {
       this.gemlock = true;
       const gl = this.gemlockIcon = gemlockIcon(-.55 * wh.width, .15 * wh.height);
       this.addChild(gl)
     }
+    const opts: TextInRectOptions = {}
+    this.pButton = this.makeButton({ x: -fs*.4, w: w * .6, h: fs*.7, y: + fs * .3 - h * .5 });
+    this.iButton = this.makeButton({ x: -fs*.4, w: w * .6, h: fs*.7, y: + fs * .3 + h * .0 });
+    this.aButton = this.makeButton({ x: -fs*.4, w: w * .6, h: fs*.5, y: - fs * 1. + h * .5 });
+    this.addChild(this.pButton, this.iButton, this.aButton);
+  }
+
+  // Faction needs to do this, consulting faction.researchLevelOfPhase
+  // pa (row-phase), a (row-phase)
+  // first light them both; pay priceToken; (a-> are you sure?)
+  // then light only aux (); pay to bank;
+  activateForAction(faction: Faction, pon?: CB, aon?: CB) {
+    const ays = faction.player.panel.areYouSure;
+    if (pon) {
+      this.pButton.on(S.click, () => { pon() }, this, true)
+      this.pButton.activate();
+    } else { this.pButton.activate(false); this.pButton.removeAllEventListeners(S.click) }
+    if (aon) {
+      this.aButton.on(S.click, () => {
+        if (this.pButton.isActive) {
+          ays(`Skip primary action?`, aon, () => {
+            this.activateForAction(faction);             // disable both
+            this.activateForAction(faction, pon, aon);   // reenable both
+          });
+        } else {
+          aon();
+        }
+      }, this, true);
+      this.aButton.activate();
+    } else { this.aButton.activate(false); this.aButton.removeAllEventListeners(S.click) }
+  }
+
+  // i (%-action, disc-phase); Advance a Token, gemLock, iBonus
+  /** enable iButton; click -> set faction to selected level */
+  activateForDiscovery(faction: Faction, activate = true, cb: () => void) {
+    if (activate) {
+      this.iButton.on(S.click, () => this.immediate(faction, cb), this, true); // once!
+    }
+    this.iButton.activate(activate);
+  }
+
+  /** enable doing primary action for this phase at this level; pay Bank/Pricer */
+  primary(faction: Faction, cb: CB = () => {}) {
+    this.pButton.activate(false);
+    // parse ps; do it;
+    // use gameState.pricePhase & this.level
+    if (this.ps == '%') {
+      faction.offerNextLevel(true);
+    } else if (this.ps == 'B') {
+      // count build points from this.ps
+      // enable D&D on Buildings & Foundations
+    }
+    cb();
+  }
+  /** advance ResearchLevel, apply Bonus */
+  immediate(faction: Faction, cb: CB = () => {}) {
+    faction.researchLevelOfPhase[this.pName].level = this.level;  // RL is moved!
+    this.iButton.activate(false);
+    cb();   // outer caller can clean up.
+    this.stage.update();
+  }
+  /** enable doing aux action; pay Bank */
+  auxillary(faction: Faction, cb: () => void = () => {}) {
+    this.aButton.activate(false);
+    // parse as; do it;
+    cb();
+  }
+
+  makeButton(xywh: XYWH) {
+    // use UtilButton, but tweak the borders to get the desired size. (see also LeaderIcon: TextInBox)
+    const { x, y, w, h } = xywh;
+    const bgColor = 'rgba(255, 255, 255, 0.3)';
+    const button = new UtilButton('', { bgColor, fontSize: 1, border: [w/2, w/2, h/2, h/2] })
+    button.x = x; button.y = y;
+    return button;
   }
   addText(str: string, dy = 0) {
     const txt = new CenterText(str, this.font, C.white);
@@ -110,7 +193,7 @@ export class ResearchCell extends NamedContainer {
     this.addChild(txt);
     return txt;
   }
-  fill() {
+  fillBox() {
     const mdy = -.33 * this.wh.height;
     const pdy = +.4 * this.wh.height;
     const l0 = this.addText(this.ps, mdy)

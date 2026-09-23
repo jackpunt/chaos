@@ -3,7 +3,7 @@ import type { BONUS, FAME_BONUS, HARVEST } from "./chaos-tile";
 import type { Leader, PriceToken } from "./meeples";
 import type { Player } from "./player";
 import { type ResearchLevel } from "./research-cell";
-import type { PricePhase } from "./table-params";
+import { pricePhases, type PricePhase } from "./table-params";
 //
 function expandArray<T>(rec: Record<number, T>): (T | undefined)[] {
   const length = Math.max(-1, ...Object.keys(rec).map(Number)) + 1; // .filter(k ->!isNan(k))
@@ -199,6 +199,30 @@ export class Faction {
         case 'Win': // signal instant win
       }
     }
+  }
+
+  // offer primary and aux;
+  offerPrimaryAndAux(pName: PricePhase, activate = true) {
+    const { phaseRow, level } = this.researchLevelOfPhase[pName];
+    if (level < phaseRow.length) {
+      const rc = phaseRow[level];
+      if (activate) {
+        rc.activateForAction(this, () => rc.primary(this), () => rc.auxillary(this) );
+      } else {
+        rc.activateForAction(this);
+      }
+    }
+  }
+
+  // for each phase, activate mid-row of next level; then turn them all off
+  offerNextLevel(activate = true) {
+    pricePhases.forEach(pName => {
+      const { phaseRow, level } = this.researchLevelOfPhase[pName];
+      if (level < phaseRow.length) {
+        // click -> rl.level = rc.level
+        phaseRow[level+1].activateForDiscovery(this, activate, () => this.offerNextLevel(false));
+      }
+    })
   }
 
   /** override for phase specific checks; Faction attributes */

@@ -585,8 +585,8 @@ export namespace Leader {
 
 export class Rhyzu extends Leader {
   // cost/benefit during Income phase:
-  static rhyzuCost: BONUS[] = ['-', 'E3', '-', 'E2', '-', '-', 'G1']; // if Jrayek controls
-  static rhyzuInc:  BONUS[] = ['-', 'E1', '-', 'E1', '-', '-', 'G1']; // if opponent controls
+  static rhyzuCost: ('-' | 'E3' | 'E2' | 'G1')[] = ['-', 'E3', '-', 'E2', '-', '-', 'G1']; // if Jrayek controls
+  static rhyzuInc:  ('-' | 'E1' | 'G1')[] = ['-', 'E1', '-', 'E1', '-', '-', 'G1']; // if opponent controls
   /** Each Rhyzu(1, 3, 6) in order [0, 1, 2] */
   static get allRhyzu() { return (Leader.allLeaders.filter(ldr => ldr.isaRhyzu()) as Rhyzu[]).sort((a, b) => a.isRhyzu - b.isRhyzu);}
 
@@ -603,7 +603,7 @@ export class Rhyzu extends Leader {
       const icon = bonusIcon(Rhyzu.rhyzuCost[leader.index])!
       // this.cost.addChild(icon); // new CenterText(Rhyzu.rhyzuCost[leader.isRhyzu], undefined, 'red')
       this.cost.addChild(new CenterText(Rhyzu.rhyzuCost[leader.isRhyzu], undefined, C.RED));
-      this.inc = new NamedContainer(`rhyzu_inc`);
+      this.inc = new NamedContainer(`rhyzu_inc`);  // maintenance income or cost for this Rhyzu
       this.inc.addChild(new CenterText(Rhyzu.rhyzuInc[leader.isRhyzu], undefined, C.coinGold))
       this.addChild(this.cost, this.inc);
       this.paint(); // set cost/inc not visible
