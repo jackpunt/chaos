@@ -170,7 +170,7 @@ export class ResearchCell extends NamedContainer {
     // parse ps; do it;
     // use gameState.pricePhase & this.level
     if (this.ps == '%') {
-      faction.offerNextLevel(true, cb); // --> forEachPhase: activateForDiscovery()
+      faction.offerDiscoveryAction(true, cb); // --> forEachPhase: activateForDiscovery()
     } else if (this.ps == 'B') {
       // count build points from this.ps
       // enable D&D on Buildings & Foundations
@@ -180,14 +180,30 @@ export class ResearchCell extends NamedContainer {
   immediate(faction: Faction, cb: CB = () => {}) {
     faction.researchLevelOfPhase[this.pName].level = this.level;  // RL is moved!
     this.iButton.activate(false);
+    // check for immediate bonus:
+    if (this.is) {
+      this.doImmediateBonus(this.is);
+    }
     cb();   // outer caller can clean up.
     this.stage.update();
+  }
+  doImmediateBonus(bs: string) {
+    if (bs == 'PT') {
+      // TODO: select and Place a ProdToken.
+    }
   }
   /** enable doing aux action; pay Bank */
   auxillary(faction: Faction, cb: () => void = () => {}) {
     this.aButton.activate(false);
     // parse as; do it;
-    cb();
+    if (this.as == "G2:%") {
+      if (faction.player.gems >= 2) {
+        faction.player.gems -= 2;
+        faction.offerDiscoveryAction(true, cb);
+      } else {
+        cb();
+      }
+    }
   }
 
   makeButton(xywh: XYWH) {

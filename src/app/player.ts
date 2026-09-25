@@ -10,7 +10,7 @@ import { Faction, factionColors, type FactionId, type FactionName } from "./fact
 import { BgFound, Foundation } from "./foundation";
 import { type Battle, type GamePlay } from "./game-play";
 import { type PlayerId } from "./game-state";
-import { ChaosBuilding, ChaosUnit, Factory, Leader, Outposts, PriceToken, PTokenShape, Rhyzu, Stronghold, type ChaosUnitType, type PriceId } from "./meeples";
+import { ChaosBuilding, ChaosUnit, Factory, Leader, Outpost, PriceToken, PTokenShape, Rhyzu, Stronghold, type ChaosUnitType, type PriceId } from "./meeples";
 import { ResearchCell, ResearchLevel, ResGrid } from "./research-cell";
 import { bonusIcon, CO, pricePhases } from "./table-params";
 import { CardBack, CardHex, CardPanel, TacticsCard } from "./tactics-card";
@@ -203,6 +203,7 @@ export class Player extends PlayerLib {
     if (this.movesInPlay.find(p => p.from == from && p.to == to)) return undefined;
     const newMove = new MoveInPlay(this, from, to);
     this.movesInPlay.push(newMove);   // moveInPlay.length is "MovePoints consumed".
+    this.panel.baseTile.moveCounter.incValue(-1);
     return newMove;
   }
 
@@ -524,14 +525,14 @@ export class Panel extends PlayerPanel {
     this.addIncomeStripe(0, row, this.getBounds().width - this.wh);
     const specBg = spec.bg;      // buildings with gemLocks
     let x00 = x0 + wh * col;
-    specBg.forEach((bldgs, btype) => {  // btype: 0: Factory, 1: Outposts, 2: Stronghold
+    specBg.forEach((bldgs, btype) => {  // btype: 0: Factory, 1: Outpost, 2: Stronghold
       const nbldgs = bldgs.length;
       const homeAry = new Array<Foundation>(nbldgs); // each Factory instance shares the same homeAry
       const [BC, bText, bid] = [
         [Factory, 'E2', 'F'],    // Foundry
-        [Outposts, 'C', 'P'],    // outPost
+        [Outpost, 'C', 'P'],    // outPost
         [Stronghold, 'G1', 'S'], // Stronghold
-      ][btype] as [typeof Factory|typeof Outposts|typeof Stronghold, BONUS, number]
+      ][btype] as [typeof Factory|typeof Outpost|typeof Stronghold, BONUS, number]
 
       bldgs.toReversed().forEach((bldg, rndx) => {
         const ndx = nbldgs - 1 - rndx; // actual ndx in homeAry
@@ -601,6 +602,13 @@ export class Panel extends PlayerPanel {
 
   /** fighters available in each stage of recruiting; [0] is fast-trackable; [lim] is in Base */
   recruits = [] as NumCounter[];
+  /** available recruit actions */
+  _recruitCounter!: NumCounter;
+  get recruitPoints() { return this._recruitCounter.value; }
+  set recruitPoints(n: number) {
+    this._recruitCounter.value = n;
+    this.stage.update();
+  }
   /** a Counters & Buttons to move recruits into Base */
   addRecruits(spec: Faction, tw = this.wh * 4) {
     const wh = this.wh, x0 = wh * .55, y0 = wh * .55, s1 = wh * 1.1;
@@ -618,7 +626,7 @@ export class Panel extends PlayerPanel {
       return button;
     }
     // count the available recruit actions
-    const ravail = new NumCounter(`ravail`, 0, C.white, fs)
+    const ravail = this._recruitCounter = new NumCounter(`ravail`, 0, C.white, fs)
     ravail.clickToInc();
     ravail.x += 0;
     ravail.y = by;

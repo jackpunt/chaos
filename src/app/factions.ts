@@ -227,13 +227,13 @@ export class Faction {
 
   // offer a Discovery action ('%')
   // for each phase, activate mid-row of next level; then turn them all off
-  offerNextLevel(activate = true, cb: CB = () => {}) {
+  offerDiscoveryAction(activate = true, cb: CB = () => {}) {
     pricePhases.forEach(pName => {
       const { phaseRow, level } = this.researchLevelOfPhase[pName];
       if (level < phaseRow.length) {
         // TODO: stash & 'restore/recompute' status of enabled aButton
         // click -> rl.level = rc.level
-        phaseRow[level+1].activateForDiscovery(this, activate, () => { this.offerNextLevel(false); cb(); });
+        phaseRow[level+1].activateForDiscovery(this, activate, () => { this.offerDiscoveryAction(false); cb(); });
       }
     })
   }

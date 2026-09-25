@@ -1,15 +1,14 @@
 import { C, permute, removeEltFromArray, S, stime, type XY } from "@thegraid/common-lib";
 import { AliasLoader, NamedContainer, type Paintable, PathShape, PolyShape, RectShape } from "@thegraid/easeljs-lib";
 import type { DisplayObject } from "@thegraid/easeljs-module";
-import { type DragContext, type DragFuncs, H, type HasDragger, type HexDir, HexShape, type IHex2, MapTile, Player as PlayerLib, rightClickable, type Table, Tile, TP } from "@thegraid/hexlib";
+import { type DragContext, type DragFuncs, H, type HasDragger, type HexDir, HexShape, type IHex2, MapTile, NumCounter, Player as PlayerLib, rightClickable, type Table, Tile, TP } from "@thegraid/hexlib";
 import { type ChaosHex2, type ChaosHex2 as Hex2, type HexMap2 } from "./chaos-hex";
 import { type ChaosTable } from "./chaos-table";
 import { NumCounterHex } from "./counters";
 import { Faction, type FactionId } from "./factions";
 import { Foundation } from "./foundation";
 import type { GamePlay } from "./game-play";
-import type { AI_Trap, ChaosBuilding, Factory, Morale, Outposts, Relic, Stronghold } from "./meeples";
-import { ChaosToken, Leader } from "./meeples";
+import { type AI_Trap, type ChaosBuilding, ChaosToken, type Factory, Leader, type Morale, type Outpost, ProdToken, type Relic, type Stronghold } from "./meeples";
 import { superMethod } from "./mixins";
 import type { Player } from "./player";
 import type { FactionOnTileState } from "./scenario-parser";
@@ -297,10 +296,10 @@ export namespace MoveInPlay {
   // TeleGraphic for SwampCnx
   // There no HexDir or Edge associated with swamp teleportation.
   // place figherCounter in a corner of from Hex.
-
-  /** Graphic indicating Leyrien teleportation via Swamp */
+  //
   // green hex with a fighterCounter, in 'a corner' of the fromHex
   // with a line pointing to the toHex.FoT(Leyrien)
+  /** Graphic indicating Leyrien teleportation via Swamp */
   export class TeleGraphic extends NamedContainer {
     dir: HexDir;
     constructor(mip: MoveInPlay, pair: HexPair) {
@@ -378,7 +377,7 @@ export class FactionOnTile extends NamedContainer {
   buildings: ChaosBuilding[] = [];      // if this Faction has buildings on tile
   /**  number of fighters on tile */
   get fighters() { return this.fighterIcon.value };
-  set fighters(n: number) { this.fighterIcon.value = n }
+  set fighters(n: number) { this.fighterIcon.value = Math.max(n, 0) }
   get inRegion() { return this.tile }
   leaders: Leader[] = [ ];              // 2+ slots (own + Rhyzu), Zcharo: 4, Oxataya: 4
   strength = 0;                         // Apparent strength of Faction
@@ -439,8 +438,15 @@ export class FactionOnTile extends NamedContainer {
     this.update()
   }
 
+  setFighterVis() {
+    const isMoving = (this.player.gamePlay.movePlayer == this.player);
+    this.fighterIcon.visible = isMoving || (this.fighters > 0);
+    this.moveIcon.visible = isMoving;
+  }
+
   addFighter(n = 1) {
-    this.fighters = Math.max(0, this.fighters + n);
+    this.fighters += n;  // this entrypoint is unused; faction.addFighter
+    this.setFighterVis();  // QQQ: update here or above in setFighterVis?
     this.update();
   }
 
@@ -586,8 +592,9 @@ export class ChaosTile extends MapTile {
   }
 
   readonly terrain!: TERRAIN; // immutable
-  harvest!: HARVEST;          // can place harvest buff token to change
-  harvest_buff?: HARVEST;     // TODO: need additional HARVEST types
+  prodToken!: ProdToken;
+  // harvest!: HARVEST;          // can place harvest buff token to change
+  get harvest() { return this.prodToken.harvest }
 
   /** Details of Faction Presence on Tile; index by FactionId */
   factions: FactionOnTile[] = [];
@@ -623,13 +630,13 @@ export class ChaosTile extends MapTile {
 
   // Meeples: isLegalTarget(hex, ctx) => !hex[this.type] && foundations.find(f=>!f.bldg)
   Factory!: Factory;        //
-  Outposts!: Outposts;      //
+  Outpost!: Outpost;        //
   Stronghold!: Stronghold;  //
 
   constructor(Aname: string, t: TERRAIN, h: HARVEST, player?: PlayerLib) {
     super(Aname, player);
     this.terrain = t;
-    this.harvest = h;
+    this.prodToken = new ProdToken(h);
     this.nameText.y = this.radius * .66;
     this.addChild(this.nameText);        // re-add above afHex
     this.addHarvest();
@@ -644,9 +651,13 @@ export class ChaosTile extends MapTile {
   }
 
   addHarvest() {
-    const icon = bonusIcon(this.harvest)!;
-    icon.y = this.radius * .41;
-    this.addChild(icon);
+    this.prodToken.mouseEnabled = false;
+    this.addChild(this.prodToken)
+  }
+
+  override textVis(vis?: boolean): void {
+    this.prodToken?.textVis(vis);  // update prodToken before this.reCache()
+    super.textVis(vis);
   }
 
   override makeShape(): Paintable {
@@ -714,9 +725,7 @@ export class ChaosTile extends MapTile {
     const facId = typeof arg == 'number' ? arg : arg.facId;
     const player = typeof arg == 'number' ? Faction.factionById.get(arg)!.player : arg;
     const fot = this.factions[facId] ?? (this.factions[facId] = new FactionOnTile(player, this));
-    const isMoving = (this.gamePlay.movePlayer == player);
-    fot.fighterIcon.visible = isMoving || (fot.fighters > 0);
-    fot.moveIcon.visible = isMoving;
+    fot.setFighterVis();
     return fot;
   }
   // Delegate FoT actions to the associated FoT.
@@ -724,7 +733,7 @@ export class ChaosTile extends MapTile {
   addLeader(ldr: Leader, add?: boolean) {
     this.getFoT(ldr.player).addLeader(ldr, add)
   }
-  /** add or remove n Figheters onn FoT */
+  /** add or remove n Figheters on FoT */
   addFighter(player: Player, n = 1 ) {
     this.getFoT(player).addFighter(n)
   }
@@ -742,12 +751,23 @@ export class BaseTile extends ChaosTile {
     super(`${faction.name}Base`, 'Base', faction.bh, faction.player);
 
     const image = AliasLoader.loader.getBitmap(faction.name);
-    const si = .75;
+    const si = .75;      // scale of Image
     image.scaleX *= si;
     image.scaleY *= si;
     image.y += this.radius * .1;
     this.addChild(image)
+    this.addMoveCounter()
   }
+
+  moveCounter!: NumCounter;
+  addMoveCounter(y0 = this.radius * .1) {
+    const counter = this.moveCounter = new NumCounter(`movePoints`, 0, C.WHITE, TP.hexRad * .3, );
+    counter.visible = false;
+    counter.y = y0;
+    this.addChild(counter);
+    counter.clickToInc(true, 5);   // temp for testing
+  }
+
  override addHarvest() {
     const icon = bonusIcon(this.harvest)!;
     icon.y = this.radius * .61;
@@ -775,12 +795,11 @@ export class BaseTile extends ChaosTile {
     return true;
   }
 
+  // Table.dragStart: if (!tile.cantBeMovedBy()) --> { tile.dragStart(); table.markLegalHexes(); ... }
   override dragStart(ctx: DragContext): void {
-    super.dragStart(ctx); // --> cantBeMovedBy()
-    {
-      // unlink base & remove baseFoundations! (because shiftkey-move)
-      this.rmBaseFoundationsAndUnlink(ctx); // if is dragging...
-    }
+    super.dragStart(ctx); // pro-forma
+    // unlink base & remove baseFoundations! (because shiftkey-move)
+    this.rmBaseFoundationsAndUnlink(ctx); // if is dragging...
   }
 
   // dragStart -> markLegal; dragFunc(ctx.info.first) -> setLegalColors
@@ -868,7 +887,8 @@ export class BaseTile extends ChaosTile {
     this.placeFactionBaseFoundations(pair);
   }
 
-  baseRegions?: HexPair;  // Note: only used by ChaosTile('Base')
+  /** The two Regions adjacent to BaseTile: starting base foundations (factions.bf). */
+  baseRegions?: HexPair;  // Note: only used by ChaosTile('Base') - constraint on PlaceRelic
   // ASSERT: adjRegions.length == 2
   placeFactionBaseFoundations(adjRegions: HexPair) {
     this.baseRegions = adjRegions;
@@ -877,7 +897,7 @@ export class BaseTile extends ChaosTile {
     adjRegions.forEach((hex, n) => {
       const adjTile = hex.ctile!
       adjTile.addFoundation(founds[n]);
-      // TODO: moveInPlay().moveFighters(1)
+      // Require 1 Fighter in each baseRegion:
       this.getFoT(this.player).fighterIcon.incValue(-1);
       adjTile.getFoT(this.player).fighterIcon.incValue(1); // ...fighters += 1; ???
       adjTile.getFoT(this.player);  // update visibility of new value
@@ -887,7 +907,8 @@ export class BaseTile extends ChaosTile {
       const hex0 = this.hex as Hex2, map = hex0.map as HexMap2;
       hex0.forEachLinkHex(hex1 => !!hex1.ctile?.isLake && map.placeMtn(hex0, hex1))
     }
-    // block Circadians from all adjacent:
+    // block Circadians from all adjacent: (cosmetic, Circadians 'Base' is not accessible)
+    // Circadian DropShip is a PairTarget; Base has TeleGraphic tunnels to each DropShip adjacent Tile ?
     if (this.player?.facId == 0) {
       const hex0 = this.hex as Hex2, map = hex0.map as HexMap2;
       hex0.forEachLinkHex(hex1 => !hex1.ctile?.isMtn && map.placeMtn(hex0, hex1))
@@ -897,20 +918,19 @@ export class BaseTile extends ChaosTile {
 
   /** on this.dragStart(); undo previous placement, recall leaders, fighters & movesInPlay */
   rmBaseFoundationsAndUnlink(ctx: DragContext) {
-    this.gamePlay.removeTargets(); // adjPairTargets or movesInPlay
+    this.gamePlay.removeTargets(); // adjPairTargets or movesInPlay from stage
     const hex = this.fromHex;
     if (!hex?.isOnMap) return;
     const map = hex.map as HexMap2;
     // remove any Mtn between hex and nHex; link thru Mtn is already removed...
-    map.linkDirs.forEach(dir => {
-      const nHex = map.getHex(map.nextRowCol(hex, dir));
-      if (nHex) map.removeMtn(hex, nHex)
-    })
+    map.adjacentToRowCol(hex).forEach(({ hex: nHex, dir }) => map.removeMtn(hex, nHex))
+
     const movePlayer = this.gamePlay.movePlayer;
     this.gamePlay.movePlayer = undefined;       // indicate player is not moving (hide 0-fighters)
-    const baseFot = this.getFoT(this.player)
+    const baseFot = this.getFoT(this.player);
     // return fighters and Leaders: (not just the adj foundation locations: all the map! for PlaceBaseAndMove tests)
     this.player.fotPresence.forEach(fot => {
+      if (fot == baseFot) return;
       const nf = fot.fighters;
       baseFot.fighterIcon.incValue(nf);        // send fighters back to base
       fot.fighters = 0;

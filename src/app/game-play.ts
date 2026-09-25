@@ -98,7 +98,7 @@ export class GamePlay extends GamePlayLib {
     const tokens = plan[np2][rn];   // use 2 tokens when np == 3
     let tndx = 0;
     priceNames.forEach((priceName, ndx) => {
-      if (!this.phasePricer(priceName) && tndx < tokens.length) {
+      if (this.phasePricer(priceName) == undefined && tndx < tokens.length) {
         const tid = tokens[tndx++];   // assert: will never get to MoveLast
         const token = this.neutralPlayer.panel.priceTokens.find(pt => pt && pt.vid == tid)!;
         token.setTokenOnPhase(ndx);
@@ -147,6 +147,20 @@ export class GamePlay extends GamePlayLib {
     })
   }
 
+  recruitAction(player = this.curPlayer, active = true) {
+    if (active) {
+      const level = player.faction.researchLevelOfPhase['Recruit'].level;
+      const nRecruit = [2, 4, 5, 7, 9][level];
+      player.panel.recruitPoints = nRecruit;
+    } else {
+      // move fighters from Panel to Base; TODO: (facId == 5) allow recruit to Stronghold
+      const nRecruit = player.panel.baseRecruitCounter.value;
+      player.panel.baseTile.getFoT(player).fighters += nRecruit;
+      player.panel.baseRecruitCounter.value = 0;
+      player.panel.recruitPoints = 0;  // unused RPs are lost.
+    }
+  }
+
   // TODO:
   // General: TacticsCard.onScreenRadius: use static makeShape()
   // General: MoveIcon mis-clicks?
@@ -164,12 +178,13 @@ export class GamePlay extends GamePlayLib {
   // SetPrices: Move --> FlareGun (gunPlayer) [8/26]
   // SetPrices: Recurit, Build, MoveLast --> Energy & Gem & Card [8/26]
   // Each Phase: start with Pricer (or Neutral --> gunPlayer) [8/26]
-  // Each Phase: player to pay or pass; pay for auxillary
+  // Each Phase: player to pay or pass; pay for auxillary [~9/23]
+  // Setup: display Production Tokens
   // Discover: advancement bonus; give E,G,C; Move(3) R2;
   // Discover: present Production Tokens, allow selection & placement for Harvest(2); Build(1,3) Foundation
   // Discover: click to select Primary & Auxillary Research. (inc ResearchLevel)
   // Build: D&D a Foundation; D&D a Building; w/gemLocks
-  // Harvest: click-to-Harvest (enable eligble Regions)
+  // Harvest: click-to-Harvest (enable eligble Regions) E, G, C, R, %, etc (ProdToken)
   // Recruit: click-to-Recruit (Oxataya: option to move Fighters to Strongholds)
   // Recruit: Aux: select/deploy (& pay gem) Leader
   // Move: select & show 'bridge' between src->dest Region. [9/16]
@@ -190,16 +205,19 @@ export class GamePlay extends GamePlayLib {
   /** move points from 'Move' action, for the given Faction, from ResearchLevel of Phase 'Move' */
   mpForFaction(faction: Faction) {
     const level = faction.researchLevelOfPhase['Move'].level;
-    return [2, 4, 5, 7, 9][level];
+    return [2, 3, 4, 5, 6][level];
   }
   /** Faction's turn to Move, with nMove movepoints */
   moveFaction(faction: Faction, nMove = this.mpForFaction(faction)) {
     this.movePoints = nMove;
     this.movePlayer = faction.player;
+    const baseTile = faction.player.panel.baseTile;
+    baseTile.moveCounter.incValue(nMove);
+    baseTile.moveCounter.visible = true;
     // set visibity on fot.moveIcon & fot.fighterIcon; set pre-Move state
     faction.player.presence.forEach(fot => fot.setPreMove());
     console.log(stime(this, `.moveFaction: preFighters=`), faction.player.presence.map(fot => fot.preFighters));
-
+    baseTile.stage.update();
     // TODO: D&D stuff for MoveShape [8/12]
     // TODO: after 'done' find & clear all the MoveShape on all MapTile [8/12]
     // start() -> saveState(player, phase); state.restart() -> restore state(player, phase)
@@ -218,6 +236,7 @@ export class GamePlay extends GamePlayLib {
     const fotPres = this.movePlayer.fotPresence;
     this.movePlayer.movesInPlay.length = 0;
     this.movePlayer = undefined;
+    faction.player.panel.baseTile.moveCounter.visible = false;
     if (faction.facId == 3) {
       const tgoftile = MoveInPlay.teleGraphics
       fotPres.forEach(fot => {

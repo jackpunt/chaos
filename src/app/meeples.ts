@@ -4,7 +4,7 @@ import { Container, Graphics, MouseEvent, Rectangle } from "@thegraid/easeljs-mo
 import { Meeple, MeepleShape, Tile, TP, type DragContext, type Hex, type HexM, type IHex2 } from "@thegraid/hexlib";
 import { CardShape } from "./card-shape";
 import { TokenHex, type ChaosHex2 as Hex2, type HexMap2 } from "./chaos-hex";
-import type { BONUS, ChaosTile, FactionOnTile, LeaderTile, TERRAIN } from "./chaos-tile";
+import type { BONUS, ChaosTile, FactionOnTile, HARVEST, LeaderTile, TERRAIN } from "./chaos-tile";
 import { factionNeutral, type FactionId } from "./factions";
 import { BgFound, Foundation } from "./foundation";
 import type { GamePlay } from "./game-play";
@@ -20,7 +20,7 @@ type XYp = [x: number, y: number];
 const chaosUnitType = ['Fighter', 'Leader'] as const;
 export type ChaosUnitType = typeof chaosUnitType[number];
 
-const chaosBuildingType = ['Factory', 'Outposts', 'Stronghold'] as const;
+const chaosBuildingType = ['Factory', 'Outpost', 'Stronghold'] as const;
 export type ChaosBuildingType = typeof chaosBuildingType[number];
 export class PaintableCont extends NamedContainer implements Paintable {
 
@@ -120,7 +120,7 @@ class StrongholdShape extends PathShapeMeeple {
 // other have unitary homeHex (LeaderCard)
 
 /** ChaosMeeple [moveable/dragable objects] comprises:
- * - ChaosPresence: ChaosUnit(Leader, Fighter) & ChaosBuilding(Factory, Outposts, Stronghold)
+ * - ChaosPresence: ChaosUnit(Leader, Fighter) & ChaosBuilding(Factory, Outpost, Stronghold)
  * - Relic
  * - PriceToken
  *
@@ -160,11 +160,18 @@ export class ChaosToken extends Tile {
   declare gamePlay: GamePlay;
   declare player: Player;
   homeXY!: XY;                // sendHome location, if needed
-
 }
 
-/** maybe someday itemize them */
-export type LeaderName = string;
+/** one of the eight placeable production tokens */
+export class ProdToken extends ChaosToken {
+  constructor(public harvest: HARVEST) {
+    super(`Prod_${harvest}`);
+    const icon = bonusIcon(harvest)!;
+    icon.y = TP.hexRad * .41;
+    this.addChild(icon);
+  }
+}
+
 
 type CombatStats = [ str: number, atk: number, shield: number ];
 
@@ -188,6 +195,9 @@ export interface ILeader extends LeaderSpec {
   special: () => CombatStats; // also effects before-during-after combat, or move or recruit or ...
   // specialByPhase: Map<phase, function>
 }
+
+/** maybe someday itemize them */
+export type LeaderName = string;
 
 // canonize and publish for typing field & return type
 type LeaderCard = InstanceType<typeof Leader.LeaderCard>;
@@ -831,7 +841,7 @@ export class Factory extends ChaosBuilding {
   }
 }
 
-export class Outposts extends ChaosBuilding {
+export class Outpost extends ChaosBuilding {
   override bText = 'C' as BONUS;
   override makeShape0(size = TP.meepleRad): Paintable {
     return new OutpostShape(undefined, size)
@@ -1228,5 +1238,5 @@ export class PTokenShape extends RectShape {
   }
 }
 
-// Also: factory, outposts, stronghold, foundation, relic, discovery-marker?, fame-marker?
+// Also: factory, outpost, stronghold, foundation, relic, discovery-marker?, fame-marker?
 // and cardboard: rhy-zu-token, morale {fame, strength}, ai-trap,

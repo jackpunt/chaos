@@ -183,6 +183,9 @@ export class GameState extends GameStateLib {
           }
         } else {
           this.gunPlayer = this.gamePlay.allPlayers[pid];  // last to place Base is first with the Gun.
+          if (!!this.autoPlace && this.autoPlace !== 'PlaceRelic') {
+            this.gamePlay.placeInitialRelics(); // auto place Relics (permute)
+          }
           this.phase(this.autoPlace ?? 'PlaceRelic');
         }
       },
@@ -291,8 +294,13 @@ export class GameState extends GameStateLib {
         this.setCurPlayerNdx(ndx);
         this.doneButton();
         // set Panel.recruit points; wait for done?
+        this.gamePlay.recruitAction()
+        // this.curPlayer.panel.recruitPoints = ;
        },
-      done: () => this.startOrPhase('Move'),
+      done: () => {
+        this.gamePlay.recruitAction(undefined, false)
+        this.startOrPhase('Move')
+      },
     },
     Move: {
       // TODO: discriminate MoveFirst/MoveLast; phaseNdx currently gunplayer!

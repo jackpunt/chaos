@@ -64,8 +64,9 @@ export function pentagon (xs: number, ys: number, fillc: string, tilt = 0, strok
 };
 
 // TODO: maybe use TextTweaks to place the glyphs?
-/** Foundation bonus; also use for Income icons */
-/** E: energy, G: gem, C: card, R: recruit, U: upgrade(gold), *: gemlock
+/** Foundation bonus; also use for Income icons
+ *
+ * E: energy, G: gem, C: card, R: recruit, U: upgrade(gold), *: gemlock
  *
  * harv:
  * - 'F' Fame
