@@ -218,7 +218,7 @@ export class Faction {
     if (level < phaseRow.length) {
       const rc = phaseRow[level];
       if (activate) {
-        rc.activateForAction(this, () => rc.primary(this, () => this.resetAuxLevel(rc)), () => rc.auxillary(this) );
+        rc.activateForAction(this, () => this.resetAuxLevel(rc), () => {} ); // primary(this, cb), auxillary(this, cb)
       } else {
         rc.activateForAction(this);
       }

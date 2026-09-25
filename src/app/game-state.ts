@@ -77,7 +77,10 @@ export class GameState extends GameStateLib {
   /** simple map from facId to Player */
   playerByFacId: (Player|undefined)[] = [];
 
-  phasePrices: Partial<Record<PriceName, PriceToken>> = {};
+  tokenOnPhase: Partial<Record<PriceName, PriceToken>> = {};
+  priceToken(pName: PricePhase | PriceName) {
+    return (pName == 'Move') ? this.tokenOnPhase.MoveFirst || this.tokenOnPhase.MoveLast : this.tokenOnPhase[pName];
+  }
 
   constructor(gamePlay: GamePlay) {
     super(gamePlay)
@@ -103,15 +106,15 @@ export class GameState extends GameStateLib {
   get pricePhase() { return this.state.Aname as PricePhase }
 
   firstMover() {
-    const mfId = (this.gamePlay.phasePricer('MoveFirst'));
-    const mlId = (this.gamePlay.phasePricer('MoveLast'));
-    return (mfId !== undefined) ? mfId : this.nextNdx(mlId);
+    const mft = (this.priceToken('MoveFirst'));
+    const mlt = (this.priceToken('MoveLast'));
+    return (mft !== undefined) ? mft.facId : this.nextNdx(mlt?.facId);
   }
 
   /** (phasePricer or gunPlayer).index */
   phaseLeader(phase: PhaseName) {
     // facId: "SetPrices" "Combat", "Income", "Relic" --> gunPlayer
-    const facId = (phase == "Move") ? this.firstMover() : this.gamePlay.phasePricer(phase as PriceName);
+    const facId = (phase == "Move") ? this.firstMover() : this.priceToken(phase as PricePhase)?.facId;
     const plyr = this.playerByFacId[facId!] ?? this.gunPlayer;
 
     console.log(stime(this, `.phaseLeader: ${phase} --> ${plyr.index}: ${plyr.facName}`));
@@ -238,7 +241,7 @@ export class GameState extends GameStateLib {
         console.log(stime(this, `SetPrices.start: ndx=${ndx}`))
         this.setCurPlayerNdx(ndx);
         this.doneButton();
-        // PriceToken.dropFunc()
+        // PriceToken.dropFunc() --> PT.setTokenOnPhase(priceIndex);
       },
       done: () => {
         const next = this.nextNdx(this.curPlayerNdx);
@@ -247,13 +250,13 @@ export class GameState extends GameStateLib {
           return;
         }
         // this code block so SetPrices is run twice when only 2-Players
-        const openSlots = priceNames.filter(pn => !this.phasePrices[pn]).length; // HACK! Move has 2 slots...
+        const openSlots = priceNames.filter(pn => !this.tokenOnPhase[pn]).length; // HACK! Move has 2 slots...
         if (openSlots > this.nPlayers) {
           this.state.start(this.phaseNdx);     // restart with original gunPlayer when nPlayers == 2
           return;
         }
 
-        this.gamePlay.awardPriceBonuses();
+        this.gamePlay.awardPriceBonuses();     // soon enough. player can't use bonus until Discovery...
         if (this.nPlayers < pricePhases.length) this.gamePlay.setPriceNeutral();
         this.gamePlay.movePendingToAvail();
         this.phase('Discovery');

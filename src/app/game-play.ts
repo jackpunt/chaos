@@ -52,12 +52,6 @@ export class GamePlay extends GamePlayLib {
 
   override startTurn() {
   }
-  /** which faction priced the given Phase.
-   * @param priceName includes MoveFirst & MoveLast
-   */
-  phasePricer(priceName: PriceName) {
-   return this.gameState.phasePrices[priceName]?.facId;
-  }
 
   get pairTargets() { return PairTarget.targets }
 
@@ -67,15 +61,16 @@ export class GamePlay extends GamePlayLib {
     this.pairTargets.length = 0;
   }
 
-  // used during initial bringup
+  // used during initial bringup: Faction chooses a PricePhase
   autoSetPrices(ndx: PlayerId) {
     const plyr = this.allPlayers[ndx];
     const tokens = plyr.panel.priceTokens;
     const tokensInPlay = tokens.filter(pt => pt.status == 'inplay');
     if (tokensInPlay.length <= (TP.numPlayers == 2 ? 1 : 0)) {
       const token = tokens.filter(pt => pt.status == 'avail').sort((a, b) => b.vid - a.vid)[0];
-      const prices = this.gameState.phasePrices;
-      const priceIndex = (!prices.MoveLast) ? 5 : priceNames.findIndex(pn => !prices[pn])
+      const tokenOnPhase = this.gameState.tokenOnPhase;
+      // choose MoveLast, Disc, Recruit, Build, Harvest (not optimal)
+      const priceIndex = [5, 0, 3, 1, 2].find(ndx => !tokenOnPhase[priceNames[ndx]])!
       token.setTokenOnPhase(priceIndex);
       token.stage.update();
     }
@@ -83,9 +78,9 @@ export class GamePlay extends GamePlayLib {
   }
 
   awardPriceBonuses() {
-    this.gameState.phasePrices['Build']?.player.gemCounter.incValue(2);
-    this.gameState.phasePrices['Recruit']?.player.coinCounter.incValue(2);
-    this.gameState.phasePrices['MoveFirst']?.player.addCard();
+    this.gameState.tokenOnPhase['Build']?.player.gemCounter.incValue(2);
+    this.gameState.tokenOnPhase['Recruit']?.player.coinCounter.incValue(2);
+    this.gameState.tokenOnPhase['MoveFirst']?.player.addCard();
   }
 
   setPriceNeutral() {
@@ -98,7 +93,7 @@ export class GamePlay extends GamePlayLib {
     const tokens = plan[np2][rn];   // use 2 tokens when np == 3
     let tndx = 0;
     priceNames.forEach((priceName, ndx) => {
-      if (this.phasePricer(priceName) == undefined && tndx < tokens.length) {
+      if (this.gameState.priceToken(priceName) == undefined && tndx < tokens.length) {
         const tid = tokens[tndx++];   // assert: will never get to MoveLast
         const token = this.neutralPlayer.panel.priceTokens.find(pt => pt && pt.vid == tid)!;
         token.setTokenOnPhase(ndx);
@@ -117,8 +112,8 @@ export class GamePlay extends GamePlayLib {
 
   moveInPlayToInVault() {
     priceNames.forEach(pn => {
-      const pt = this.gameState.phasePrices[pn];
-      this.gameState.phasePrices[pn] = undefined;
+      const pt = this.gameState.tokenOnPhase[pn];
+      this.gameState.tokenOnPhase[pn] = undefined;
       if (!pt) return;
       pt.status = 'invault';
       pt.moveToVault();

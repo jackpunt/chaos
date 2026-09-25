@@ -1182,7 +1182,7 @@ export class PriceToken extends ChaosMeeple {
     this.moveTo(this.gamePlay.table.priceHex[priceIndex]);
     this.onPhase = priceName;
     this.status = 'inplay';
-    this.gamePlay.gameState.phasePrices[priceName] = this;
+    this.gamePlay.gameState.tokenOnPhase[priceName] = this;
     if (priceName.startsWith('Move')) this.advanceGun();
 
     const facName = factionNeutral[this.facId];

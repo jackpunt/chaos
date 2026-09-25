@@ -4,6 +4,8 @@ import type { DisplayObject } from "@thegraid/easeljs-module";
 import type { HasDragger } from "@thegraid/hexlib";
 import { type Faction } from "./factions";
 import { CO, gemlockIcon, TP, type CB, type PricePhase } from "./table-params";
+import type { PriceToken } from "./meeples";
+import type { Player } from "./player";
 
 
 // %, Energy, Gem, Card, Build, Recruit, Leader, Harvest, Move,
@@ -122,12 +124,14 @@ export class ResearchCell extends NamedContainer {
   // pa (row-phase), a (row-phase)
   // first light them both; pay priceToken; (a-> are you sure?)
   // then light only aux (); pay to bank;
+  // pon: after_primary; aon=after_aux
+  // TODO: confirm ability to pay before activating?
   activateForAction(faction: Faction, pon?: CB, aon?: CB) {
     const panel = faction.player.gamePlay.table.neutralPanel; // faction.player.panel;
     if (pon) {
       this.pButton.on(S.click, () => {
         this.pButton.activate(false);
-        pon();
+        this.primary(faction, pon);
       }, this, true)
       this.pButton.activate(true);
     } else {
@@ -138,13 +142,13 @@ export class ResearchCell extends NamedContainer {
         if (this.pButton.isActive) {
           panel.areYouSure(`Skip primary action?`, () => {
             this.pButton.activate(false);
-            aon();
+            this.auxillary(faction, aon);
           }, () => {
             this.activateForAction(faction);             // disable both
             this.activateForAction(faction, pon, aon);   // reenable both
           });
         } else {
-          aon();
+          this.auxillary(faction, aon);
         }
       }, this, true);
       this.aButton.activate(true);
@@ -164,9 +168,29 @@ export class ResearchCell extends NamedContainer {
     this.iButton.activate(activate);
   }
 
+  payAction(pt: PriceToken, player: Player) {
+    const gamePlay = pt.gamePlay;
+    // pay for action
+    const [toFac, toBank, toLeft, toRight] = pt.vdist;
+    if (toLeft !== undefined || toRight !== undefined) {
+      const lNdx = gamePlay.gameState.nextNdx(+1), lplyr = gamePlay.allPlayers[lNdx];
+      const rNdx = gamePlay.gameState.nextNdx(-1), rplyr = gamePlay.allPlayers[rNdx];
+      player.payEnergy(toLeft, lplyr);
+      player.payEnergy(toRight, rplyr);
+    }
+    player.payEnergy(toFac, gamePlay.gameState.playerByFacId[pt.facId]);
+    player.payEnergy(toBank);
+  }
+
   /** enable doing primary action for this phase at this level; pay Bank/Pricer */
   primary(faction: Faction, cb: CB = () => {}) {
     this.pButton.activate(false); // redundant? see above: activateForAction
+    const player = faction.player;
+    const pt = player.gamePlay.gameState.priceToken(this.pName)!;
+    if (pt.facId !== faction.facId) {
+      if (pt.vid > player.coins) return; // unable to pay
+      this.payAction(pt, player)
+    }
     // parse ps; do it;
     // use gameState.pricePhase & this.level
     if (this.ps == '%') {

@@ -133,6 +133,13 @@ export class Player extends PlayerLib {
   get gems() { return this.gemCounter?.value; }
   set gems(v) { this.gemCounter?.updateValue(v); }
 
+  payGems(n = 1) { this.gems -= n }
+
+  payEnergy(n = 1, toPlayer?: Player) {
+    this.coins -= n;
+    if (toPlayer) toPlayer.coins += n; // else coins go to 'bank'
+  }
+
   /** IHex2[] where player has presence */
   get hexPresence() {
     return this.presence.map(fot => fot.tile.hex as Hex2)
