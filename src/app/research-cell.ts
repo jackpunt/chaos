@@ -178,7 +178,7 @@ export class ResearchCell extends NamedContainer {
       player.payEnergy(toLeft, lplyr);
       player.payEnergy(toRight, rplyr);
     }
-    player.payEnergy(toFac, gamePlay.gameState.playerByFacId[pt.facId]);
+    player.payEnergy(toFac, gamePlay.playerByFacId(pt.facId));
     player.payEnergy(toBank);
   }
 

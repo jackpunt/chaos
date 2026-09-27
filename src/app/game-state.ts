@@ -74,7 +74,7 @@ export class GameState extends GameStateLib {
     return this.playerByFacId[nfac ?? -1];
   }
 
-  /** simple map from facId to Player */
+  /** sparse array to map from facId to Player */
   playerByFacId: (Player|undefined)[] = [];
 
   tokenOnPhase: Partial<Record<PriceName, PriceToken>> = {};
@@ -90,12 +90,12 @@ export class GameState extends GameStateLib {
 
   override start(startPhase?: string, startArgs?: any[]): void {
     this.nPlayers = this.gamePlay.allPlayers.length;
-    this.playerByFacId = factionNames.map((fn, facId) => this.gamePlay.allPlayers.find(plyr => (plyr.facId == facId)))
+    this.playerByFacId = factionNames.map((fn, facId) => this.gamePlay.playerByFacId(facId as FactionId))
     this.gunPlayer = this.playerByFacId.find(plyr => plyr !== undefined)!; // first/lowest numbered faction
     super.start(startPhase, startArgs);
   }
 
-  autoPlace?: string = 'SetPrices';    // undefined for normal --> 'PlaceRelic'
+  autoPlace?: string = '';    // undefined for normal --> 'PlaceRelic'
   override startPhase = 'PlaceBase';
   override startArgs: any[] = [];
 
@@ -189,7 +189,7 @@ export class GameState extends GameStateLib {
           if (!!this.autoPlace && this.autoPlace !== 'PlaceRelic') {
             this.gamePlay.placeInitialRelics(); // auto place Relics (permute)
           }
-          this.phase(this.autoPlace ?? 'PlaceRelic');
+          this.phase(this.autoPlace || 'PlaceRelic');
         }
       },
       // done(this.player.index)

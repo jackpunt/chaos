@@ -4,14 +4,14 @@ import { GamePlay as GamePlayLib, SetupElt, TP as TPLib } from "@thegraid/hexlib
 import type { HexMap2 } from "./chaos-hex";
 import type { ChaosTable } from "./chaos-table";
 import { MoveInPlay, PairTarget, type BONUS, type ChaosTile, type TERRAIN } from "./chaos-tile";
-import type { Faction } from "./factions";
+import type { Faction, FactionId } from "./factions";
 import { BgFound } from "./foundation";
 import type { GameSetup } from "./game-setup";
 import { GameState, type PlayerId } from "./game-state";
 import { Relic } from "./meeples";
 import type { Player } from "./player";
 import { ScenarioParser } from "./scenario-parser";
-import { priceNames, TP, type PriceName } from "./table-params";
+import { priceNames, TP } from "./table-params";
 import type { TacticsCard } from "./tactics-card";
 
 
@@ -39,6 +39,9 @@ export class GamePlay extends GamePlayLib {
 
   /** Players in table order; the order they were created. */
   override get allPlayers() { return super.allPlayers as Player[] }
+  playerByFacId(facId: FactionId) {
+    return this.allPlayers.find(plyr => (plyr.facId == facId))
+  }
 
   override get curPlayer() { return super.curPlayer as Player; }
   override set curPlayer(plyr: Player) { this._curPlayer = plyr; } // proforma, must reassert the setter!
@@ -172,6 +175,7 @@ export class GamePlay extends GamePlayLib {
   // Setup/phase: show FlareGun indication on faction Panel [8/26]
   // SetPrices: Move --> FlareGun (gunPlayer) [8/26]
   // SetPrices: Recurit, Build, MoveLast --> Energy & Gem & Card [8/26]
+  // SetPrices: JRayek: mark & recruit Rhyzu
   // Each Phase: start with Pricer (or Neutral --> gunPlayer) [8/26]
   // Each Phase: player to pay or pass; pay for auxillary [~9/23]
   // Setup: display Production Tokens

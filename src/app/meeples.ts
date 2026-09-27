@@ -646,10 +646,14 @@ export class Rhyzu extends Leader {
     this.addRzIcon(this.card); // fields (rzIcon) get [re]initialized after super()
     this.paint(CO.rhy_zu, true);   // paint this.rzIcon
     this.baseShape.paint(undefined, true); // Icon
+    // add icon to Jrayek's PriceTokens:
+    const pt = this.gamePlay.playerByFacId(4)!.panel.priceTokens[this.isRhyzu]; //
+    pt.addRhyzuIcon(this.makeShape());
   }
   override makeShape(size?: number) {
     return super.makeShape(size, { strokec: C.BLACK, ss: .5 });  // Rhyzu Icon distinguished by black outline
   }
+
 
   // update rzIcon color when setPlayer()
   override paint(colorn?: string, force?: boolean): void {
@@ -993,7 +997,7 @@ type PT_Status = 'avail' | 'inplay' | 'invault' | 'pending'; // pending-->avail 
 
 export class PriceToken extends ChaosMeeple {
 
-  static bonus35 = [ ['^', 'C'], ['>', '%']] as PriceBonus[][];
+  static bonus35 = [ ['^', 'C'], ['', '> %']] as PriceBonus[][];
   static bonus_2 = [ ['^'], ['^']] as PriceBonus[][];
 
   // distinguish for number of players;
@@ -1060,7 +1064,7 @@ export class PriceToken extends ChaosMeeple {
     this.bTexts = ((np == 2) ? PriceToken.bonus_2 : PriceToken.bonus35)[this.vid-1];
     this.fillCont(this);
     this.status = ['avail', 'invault', 'avail', 'avail', 'avail', 'invault'][vid-1] as PT_Status;
-    if (facId == 5 + 1) this.status = 'avail';
+    if (facId == 5 + 1) this.status = 'avail';  // neutral faction
     if (this.status == 'avail') { this.setAvailable() } else { this.moveToVault() }
     // TODO: implement expiration, and (%) and retrieve(^) and card(C)
     this.effect = () => {};
@@ -1071,6 +1075,7 @@ export class PriceToken extends ChaosMeeple {
     const bgcolor = C.nameToRgbaString(this.player!.color, .7)
     const base = this.baseShape;
     const over = new RectShape(base._rect)
+    const bTexts = this.bTexts;
     over.paint(bgcolor, true);
     cont.addChild(over)
 
@@ -1100,6 +1105,16 @@ export class PriceToken extends ChaosMeeple {
       setTR(tf, s*.45, x1, y1);
       const tb = textBlock(`${toBank}`, CO.bColor)
       setTR(tb, s*.45, x2, y1);
+    } else if (toFac > 0 && bTexts?.[0] == '^') {
+      const tf = textBlock(`${toFac}`, this.pColor!)
+      setTR(tf, s*.45, x1, y1)
+      const tb = textBlock(`^`, CO.bColor)
+      setTR(tb, s*.45, x2, y1);
+    } else if (toBank > 0 && bTexts?.[0] == '^') {
+      const tf = textBlock(`^`, this.pColor!)
+      setTR(tf, s*.45, x1, y1)
+      const tb = textBlock(`${toBank}`, CO.bColor)
+      setTR(tb, s*.45, x2, y1);
     } else if (toFac > 0) {  // single payment to Faction:
       const tf = textBlock(`${toFac}`, this.pColor!)
       setTR(tf, s*.7, 0, y1)
@@ -1111,8 +1126,13 @@ export class PriceToken extends ChaosMeeple {
       const tir = textBlock(`x${eject}`, C.transparent, s * .3)
       setTR(tir, s*.7, 0, toBank > 0 ? y2 : y1)
     }
-    if (!neutral && this.bTexts) {
-      const text = this.bTexts.join(' ')
+    // static bonus35 = [ ['^', 'C'], ['', '> %']]
+    // static bonus_2 = [ ['^'],      ['^']]
+    // place '^' in slot for Player or Bank, whichever is otherwise 0
+    // place 'C' to right (cardIcon?), place '> %' in center
+    // bTexts[(pt#1), (pt#2)]  -- bonus_2 or bonus35
+    if (!neutral && this.bTexts?.[1]) {
+      const text = this.bTexts[1];
       const tir = textBlock(text, C.nameToRgbaString(this.pColor!, .6), s * .4)
       setTR(tir, s*.7, 0, y2);
     }
@@ -1121,6 +1141,17 @@ export class PriceToken extends ChaosMeeple {
   }
   override makeShape(size = TP.meepleRad): Paintable {
     return new PTokenShape(size)
+  }
+
+  addRhyzuIcon(icon: Paintable) {
+    icon.paint(CO.rhy_zu)
+    if (this.bTexts?.[1]) {
+      const lastChild = this.children[this.numChildren-1];
+      lastChild.x  = -lastChild.y;  // move bonus graphic to the right.
+    }
+    icon.y = this.getBounds().y + icon.getBounds().height * .55;
+    icon.x = this.getBounds().x + icon.getBounds().width * .55;
+    this.addChild(icon)
   }
 
   /** the TargetMark for PriceToken  */
