@@ -159,7 +159,9 @@ export class ResearchCell extends NamedContainer {
   }
 
   // i (%-action, disc-phase); Advance a Token, gemLock, iBonus
-  /** enable iButton; click -> set faction to selected level */
+  /** enable iButton; click -> set faction to selected level
+   * @param activate [true] to enable iButton -> immediate() -> cb(); false to deactivate iButton.
+   */
   activateForDiscovery(faction: Faction, activate = true, cb: () => void) {
     if (activate) {
       // TODO: stash state of pButton & aButton while selecting iButton;
@@ -215,7 +217,7 @@ export class ResearchCell extends NamedContainer {
     if (matchv('%')) {
       const pvcb = () => {
         if (pv-- > 0) {
-          faction.offerDiscoveryAction(true, pvcb); // TODO: set Panel Buttons (ex: use only 2 of 3 Discovery)
+          faction.offerDiscoveryAction(1, pvcb); // TODO: set Panel Buttons (ex: use only 1 of 2 Discovery)
         } else {
           cb();
         }
@@ -247,54 +249,16 @@ export class ResearchCell extends NamedContainer {
       const bs = this.is;
       if (bs.includes(' | ')) {
         const [lb, rb] = bs.split(' | ');
-        const lf = () => this.doImmediateBonus(faction, lb, cb)
-        const rf = () => this.doImmediateBonus(faction, rb, cb)
+        const lf = () => faction.doImmediateBonus(lb, cb)
+        const rf = () => faction.doImmediateBonus(rb, cb)
         faction.player.gamePlay.neutralPlayer.panel.popupChoice(lb, rb, lf, rf)
       } else {
-        this.doImmediateBonus(faction, this.is, cb);
+        faction.doImmediateBonus(this.is, cb);
       }
     } else {
       cb();   // outer caller can clean up.
     }
     this.stage.update();
-  }
-  // En, Gn, Rn, C, F oundation, PT, UT;
-  // Note: 'this' may be undefined! (from afterUpdate(..., panel))
-  doImmediateBonus(faction: Faction, bs: string, cb: CB) {
-    const player = faction.player;
-    // use match to determine repetition value (v)
-    let match: RegExpMatchArray | null, v!: number;
-    const matchv = (b: 'E'|'G'|'R') => {
-      match = bs!.match(`${b}(\\d)`); // immediate is only benefit
-      if (!match) return;
-      v = Number.parseInt(match[1])
-      if (Number.isNaN(v)) debugger;
-      return v;
-    }
-    console.log(stime(this, `.doImmediateBonus: bs=${bs}`));
-    if (bs == 'C') {
-      player.gainCard();
-      cb();
-    } else if (bs == 'F') {
-      console.log(stime(this, `.doImmediateBonus: player.enablePlaceFoundation(cb)`));
-      faction.offerBuildAction(1, cb);
-    } else if (bs == 'PT') {
-      console.log(stime(this, `.doImmediateBonus: player.offerProdToken(cb)`));
-      cb();
-    } else if (bs == 'UT') {
-      console.log(stime(this, `.doImmediateBonus: player.offerLeaderUpgrade(cb)`));
-      cb();
-    } else if (matchv('E')) {
-      player.coins += v;
-      cb();
-    } else if (matchv('G')) {
-      player.gems += v;
-      cb();
-    } else if (matchv('R')) {
-      player.gamePlay.offerRecruit(player, v, cb)
-    } else {
-      debugger;
-    }
   }
 
   // TODO: exception for Oxataya (TODO: only once when 2-player)
@@ -324,7 +288,7 @@ export class ResearchCell extends NamedContainer {
     console.log(stime(this, `.auxillary: as=${this.as}`));
     if (matchv('G', '%')) {
       if (fao || faction.player.payGems(cv)) {
-        setTimeout(() => faction.offerDiscoveryAction(true, cb), 10);
+        setTimeout(() => faction.offerDiscoveryAction(1, cb), 10); // QQQ: do we *need* setTimeout?
       } else {
         npcb(cv);
       }

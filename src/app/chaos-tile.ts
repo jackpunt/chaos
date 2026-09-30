@@ -105,10 +105,10 @@ const terrainIds = ['Mtn', 'Hills', 'Swamp', 'Plains', 'Lake', 'Base', 'Ldr'] as
 const bonusIds = ['-', 'E3', 'E2', 'E1', 'C', 'G1', 'R1', '%'] as const; //
 
 // %, Energy, Gem, Card, Build, Recruit, Leader, Harvest, Move, Upgrade(leader), Attribute(upgrade)
-/** upgrade tokens which can be flipped; Lm2: Leader deploy/upgrade for -2E; Bm1: Build for -1E */
-const baseProdTokenIds = ['%', 'R3', 'G2', 'E4', 'E1C', 'R1C', 'Lm2', 'Bm1'] as const; // 8 basic
-const upgradeProdTokenIds = ['%E2', 'R4', 'G2R1', 'E6', 'E3C', 'R2C', 'LE0', 'BG0'] as const;
-// BG0: Build w/free gemlock (~B -2E if you have the unlock Foundation)
+/** ProdTokens which can be flipped; E2:L/U = Leader deploy/upgrade; E1:B = Build, B_ul = Build ignore gemlock */
+const baseProdTokenIds =    ['%',   'R3', 'G2',    'E4', 'E1_C', 'R1_C', 'E2:L/U', 'E1:B'] as const; // 8 basic
+const upgradeProdTokenIds = ['%E2', 'R4', 'G2_R1', 'E6', 'E3_C', 'R2_C', 'L/U', 'B_ul'] as const; // upgraded
+// B_ul = Build w/free gemlock
 
 export type TERRAIN = typeof terrainIds[number];
 export type BONUS = typeof bonusIds[number];
@@ -118,17 +118,11 @@ export type PROD_TOKEN = BASE_PROD_TOKEN | UPGRADE_PROD_TOKEN;
 export type HARVEST = BONUS | PROD_TOKEN;
 export type FAME_BONUS = 'E1' | 'E2' | 'C' | 'G1' | '%' | 'R1' | 'R2' | 'M1' | 'Win' | 'End'; // M1 is Redeploy
 
-// the harvest token when upgraded gains the second
-const flipBuff: Partial<Record<PROD_TOKEN, string>> = {
-  '%': '%E2',
-  R3: 'R4',
-  G2: 'G2R1',
-  E4: 'E6',
-  E1C: 'E3C',
-  R1C: 'R2C',
-  Lm2: 'LE0',
-  Bm1: 'BG0',
-};
+/** upgrade side of ProdToken */
+function upgradeProdToken(basic: BASE_PROD_TOKEN) {
+  const ndx = baseProdTokenIds.indexOf(basic)
+  return upgradeProdTokenIds[ndx];
+}
 
 
 const colorOfTerrain: Record<TERRAIN, string> = {
@@ -775,9 +769,8 @@ export class BaseTile extends ChaosTile {
   }
 
  override addHarvest() {
-    const icon = bonusIcon(this.harvest)!;
-    icon.y = this.radius * .61;
-    this.addChild(icon);
+    super.addHarvest()
+    this.prodToken.y = this.radius * .2; // move down, below Image
   }
 
   // no Foundations allowed in Base

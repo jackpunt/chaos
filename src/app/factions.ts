@@ -230,16 +230,26 @@ export class Faction {
 
   // offer a Discovery action ('%')
   // for each phase, activate mid-row of next level; then turn them all off
-  offerDiscoveryAction(activate = true, cb: CB = () => {}) {
+  offerDiscoveryAction(pv = 1, cb: CB = () => {}) {
     pricePhases.forEach(pName => {
       const { phaseRow, level } = this.researchLevelOfPhase[pName];
       if (level < phaseRow.length-1) {
         // TODO: stash & 'restore/recompute' status of enabled aButton
         // click -> rl.level = rc.level
         // TODO: do not activate if gemlock && player can't pay?
-        phaseRow[level+1].activateForDiscovery(this, activate, () => { this.offerDiscoveryAction(false); cb(); });
+        phaseRow[level+1].activateForDiscovery(this, true, () => this.deactivateDiscovery(cb));
       }
     })
+  }
+
+  deactivateDiscovery(cb: CB) {
+    pricePhases.forEach(pName => {
+      const { phaseRow, level } = this.researchLevelOfPhase[pName];
+      if (level < phaseRow.length-1) {
+        phaseRow[level+1].activateForDiscovery(this, false, () => {});
+      }
+    })
+    cb();
   }
 
   /** allow Build Action (pv times) then run cb() */
@@ -278,6 +288,49 @@ export class Faction {
       }
     }
     pvcb(); // recursive loop until all BuildActions used and panel doneButton clicked.
+  }
+
+  // Discovery: En, Gn, Rn, C, (place) F, PT, UT;
+  // Foundation: En, Gn, C, %
+  // Income: from ProdToken!
+  // Note: 'this' may be undefined! (from afterUpdate(..., panel))
+  doImmediateBonus(bs: string, cb: CB) {
+    const player = this.player;
+    // use match to determine repetition value (v)
+    let match: RegExpMatchArray | null, iv!: number;
+    const matchv = (b: 'E'|'G'|'R') => {
+      match = bs!.match(`${b}(\\d)`); // immediate is only benefit
+      if (!match) return;
+      iv = Number.parseInt(match[1])
+      if (Number.isNaN(iv)) debugger;
+      return iv;
+    }
+    console.log(stime(this, `.doImmediateBonus: bs=${bs}`));
+    if (bs == 'C') {
+      player.gainCard();
+      cb();
+    } else if (bs == '%') {
+      this.offerDiscoveryAction(iv, cb)
+    } else if (bs == 'F') {
+      console.log(stime(this, `.doImmediateBonus: player.offerPlaceFoundation(cb)`));
+      this.offerBuildAction(1, cb);
+    } else if (bs == 'PT') {
+      console.log(stime(this, `.doImmediateBonus: player.offerProdToken(cb)`));
+      cb();
+    } else if (bs == 'UT') {
+      console.log(stime(this, `.doImmediateBonus: player.offerLeaderUpgrade(cb)`));
+      cb();
+    } else if (matchv('E')) {
+      player.coins += iv;
+      cb();
+    } else if (matchv('G')) {
+      player.gems += iv;
+      cb();
+    } else if (matchv('R')) {
+      player.gamePlay.offerRecruit(player, iv, cb)
+    } else {
+      debugger;
+    }
   }
 
   /** override for phase specific checks; Faction attributes */

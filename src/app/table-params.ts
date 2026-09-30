@@ -77,14 +77,17 @@ export function pentagon (xs: number, ys: number, fillc: string, tilt = 0, strok
 };
 
 // TODO: maybe use TextTweaks to place the glyphs?
-/** Foundation bonus; also use for Income icons
+/** Bonus Icon:
+ * Foundation (Base pair & Relic), ProdToken (Harvest),
+ * SetPrices bonus, PriceToken icons(^, >), RelicBonus row, gemlockIcon
+ * FAME_BONUS (on Fame track) M1 (redeploy, win)
  *
- * E: energy, G: gem, C: card, R: recruit, U: upgrade(gold), *: gemlock
+ * Ev: energy, Gv: gem, C: card, Rv: recruit, U: upgrade(gold), .: gemlock
  *
  * harv:
- * - 'F' Fame
+ * - 'F' Fame (for RelicBonus)
  * - 'Up' Upgrade Attribute (Circadians)
- * - 'M0' Leyrien's Morale in Base
+ * - 'M0' Leyrien's Morale in Base (may need 'Atk' graphic when it flips: M2)
  * fs: fontSize
  * tc: textColor
  */

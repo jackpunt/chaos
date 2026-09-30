@@ -835,6 +835,9 @@ export class ChaosBuilding extends ChaosPresence {
       this.scaleX = this.scaleY = Foundation.mapScale
       this.x = f.x; this.y = f.y;
       f.parent.addChild(this);
+      if (f.bonus) {
+        this.player.faction.doImmediateBonus(f.bonus, () => {});
+      }
     }
     TP.whenBuildingPlaced(this, targetHex);  // build or un-build, depending on targetHex
   }
