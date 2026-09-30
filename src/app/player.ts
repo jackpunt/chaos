@@ -1,4 +1,4 @@
-import { arrayN, C, Constructor, permute, stime, type XY } from "@thegraid/common-lib";
+import { arrayN, C, Constructor, permute, S, stime, type XY } from "@thegraid/common-lib";
 import { AliasLoader, CenterText, CircleShape, NamedContainer, RectShape, TextInRect, UtilButton, type Paintable } from "@thegraid/easeljs-lib";
 import type { DisplayObject } from "@thegraid/easeljs-module";
 import { HexMap, LegalMark, newPlanner, NumCounter, Player as PlayerLib, PlayerPanel, TP, type IHex2, type MapCont, type Tile } from "@thegraid/hexlib";
@@ -12,7 +12,7 @@ import { type Battle, type GamePlay } from "./game-play";
 import { type PlayerId } from "./game-state";
 import { ChaosBuilding, ChaosUnit, Factory, Leader, Outpost, PriceToken, PTokenShape, Rhyzu, Stronghold, type ChaosUnitType, type PriceId } from "./meeples";
 import { ResearchCell, ResearchLevel, ResGrid } from "./research-cell";
-import { bonusIcon, CO, pricePhases } from "./table-params";
+import { bonusIcon, CO, pricePhases, type CB } from "./table-params";
 import { CardBack, CardHex, CardPanel, TacticsCard } from "./tactics-card";
 
 /** Canonical Faction colors, aligned with gameSetup.factionNames.
@@ -133,11 +133,23 @@ export class Player extends PlayerLib {
   get gems() { return this.gemCounter?.value; }
   set gems(v) { this.gemCounter?.updateValue(v); }
 
-  payGems(n = 1) { this.gems -= n }
+  payGems(n = 1) {
+    if (this.gems >= n) {
+      this.gems -= n;
+      return true;
+    } else {
+      return false;
+    }
+  }
 
   payEnergy(n = 1, toPlayer?: Player) {
-    this.coins -= n;
-    if (toPlayer) toPlayer.coins += n; // else coins go to 'bank'
+    if (this.coins >= n) {
+      this.coins -= n;
+      if (toPlayer) toPlayer.coins += n; // else coins go to 'bank'
+      return true;
+    } else {
+      return false;
+    }
   }
 
   /** IHex2[] where player has presence */
@@ -159,6 +171,7 @@ export class Player extends PlayerLib {
     const rv: FactionOnTile[] = [];
     this.gamePlay.hexMap.forEachHex(hex => {
       const fot = hex.ctile?.hasFot(this.facId);
+      // force ctile.getFoT() to set visibilty
       if (!!fot && hex.ctile?.getFoT(this) && (fot.fighters > 0 || fot.leaders.length > 0 || fot.buildings.length > 0)) rv.push(fot);
     })
     return rv;
@@ -189,11 +202,15 @@ export class Player extends PlayerLib {
   /** put cardRack on a movable CardPanel; PlayerPanel ISA HexMap, and cardPanel is its mapCont. */
   makeCardRack(table: Table, row?: number, ncols = 6) {
   }
+  gainCard() {
+    const card = this.gamePlay.table.takeCard();
+    this.panel.cardPanel.addCard(card);
+  }
 
   addCard(card?: TacticsCard) {
     const hex2 = this.cardRack.find(hex => !hex.tile) as Hex2;
-    if (!hex2) return;                               // TODO: auxillary hex for new card & choose
-    if (!card) card = TacticsCard.source.nextUnit(); // sourcHexUnit assured to be undefined (see takeUnit())
+    if (!hex2) return;
+    if (!card) card = this.gamePlay.table.takeCard(); // sourcHexUnit assured to be undefined (see takeUnit())
     card?.placeTile(hex2);
     return card;
   }
@@ -309,6 +326,11 @@ export class Panel extends PlayerPanel {
     this.addChild(this.avail)
     this.vault = table.tokenVault[faction.facId];// place to show 'invault' PriceToken (faction.image)
     this.vault.visible = true;
+  }
+
+  popupChoice(ltext: string, rtext: string, lf: CB, rf: CB, qtext = 'Choose') {
+    const cStrings = ['', ltext, rtext]
+    this.areYouSure(qtext, lf, rf, () => {}, cStrings);
   }
 
   /** common wh for relics & foundations & buildings & PriceToken */
@@ -465,10 +487,47 @@ export class Panel extends PlayerPanel {
     this.setupBase(faction);
     this.makeLeaders();
     if (this.factionId == 4) this.addRhyzu();
+    this.addButtons(this.player.color);
     return this.children;
   }
   override bg0 = 'rgb(82, 81, 81)';
   override bg1 = this.bg0;
+
+  // Buttons to control Actions: [Discovery], Build, Harvest, Recruit, Move
+  resetButton!: UtilButton;
+  doneButton!: UtilButton;
+  addButtons(bgColor: string) {
+    const nb = (wx: number, wy: number, txt = 'label') => {
+      const fontSize = this.wh * .3, strokec = C.WHITE;
+      const b = new UtilButton(txt, { bgColor, fontSize, strokec });
+      b.x = this.wh * wx;
+      b.y = this.wh * wy;
+      this.addChild(b);
+      return b;
+    }
+    this.doneButton = nb(7.0, 4.8, 'done');
+    this.resetButton = nb(4.5, 4.8, 'reset');
+  }
+  /** set text and the function to run when button is clicked (one-shot) */
+  setButton(b = this.doneButton, text = b.label_text, cb?: CB) {
+    b.label_text = text;
+    b.activate(true);
+    if (cb) {
+      b.removeAllEventListeners(S.click);
+      b.on(S.click, (evt) => { b.activate(false); cb(); }, this, true)
+    }
+  }
+  setDoneButton(text: string, cb: CB) {
+    this.setButton(this.doneButton, text, cb)
+  }
+  setResetButton(text: string, cb: CB) {
+    this.setButton(this.resetButton, text, cb)
+  }
+  deactivateButtons() {
+    this.doneButton.activate(false);
+    this.resetButton.activate(false);
+  }
+
 
   addImage(x = this.wh, y = this.wh * 3) {
     const img = AliasLoader.loader.getBitmap(this.player.facName);
@@ -579,7 +638,10 @@ export class Panel extends PlayerPanel {
     return { bg, fg }
   }
 
-  /** the 5 left-side bonus Foundations */
+  /** the 5 Foundations:  */
+  foundations: Partial<Record<FoundationId, Foundation>> = {};
+
+  /** the 5 left-side bonus Foundations; also put Faction Image on this Panel */
   addFoundations(spec: Faction, table: Table) {
     const gl = spec.fg, r = [ 1, 2, 3, 2, 3 ], c = [ 1, 1, 1, 0, 0 ];
     const fn: Record<FoundationId, string> = {
@@ -595,8 +657,10 @@ export class Panel extends PlayerPanel {
       const x = x0 + s1 * c[ndx];
       const y = y0 + s1 * r[ndx];
       const maker = (fs: number) => {
-        const bg = new BgFound(fid, bText as BONUS, fs);;
-        const fg = new Foundation(fid, '-', fs);
+        const bg = new BgFound(fid, bText as BONUS, fs);; // could have be the 'hexShape' of a newHex() ?
+        const fg = new Foundation(fid, '-', fs);  // the dragable Foundation.
+        fg.player = this.player;
+        this.foundations[fid] = fg;               // retain for future reference.
         if (ndx == 0 || ndx == gl) {
           fg.addGemLock(.35, 0);
         }
@@ -648,8 +712,7 @@ export class Panel extends PlayerPanel {
           this.player.gems += 1;
         } else if (spec.r3 == 'C') {
           // if (spec.r3 == 'C') draw a card into hand
-          const card = this.player.gamePlay.table.takeCard();
-          this.cardPanel.addCard(card);
+          this.player.gainCard();
           this.toggleCards(true);
           this.stage.update()
         }
@@ -657,16 +720,16 @@ export class Panel extends PlayerPanel {
     })
     // Fast track:
     if (ft > 0) { // AI does not have a FT button.
-    const ft_button = addButton(`FT:${ft}`, wh * 2, by);
-    const ftc = spec.ft;      // fast track cost
-    ft_button.on('click', () => {
-      if (ravail.value > 0 && this.player.coins >= ftc) {
-        this.player.coinCounter.incValue(-ftc); // pay fast-track cost
-        ravail.incValue(-1);     // consume a Recruit action
-        rctrs[0].incValue(-1);   // decrement Unit count is left-most fighter supply.
-        rctrs[base].incValue(1); // <-- into base
-      }
-    });
+      const ft_button = addButton(`FT:${ft}`, wh * 2, by);
+      const ftc = spec.ft;      // fast track cost
+      ft_button.on('click', () => {
+        if (ravail.value > 0 && this.player.coins >= ftc) {
+          this.player.coinCounter.incValue(-ftc); // pay fast-track cost
+          ravail.incValue(-1);     // consume a Recruit action
+          rctrs[0].incValue(-1);   // decrement Unit count is left-most fighter supply.
+          rctrs[base].incValue(1); // <-- into base
+        }
+      });
     }
     // counters at each stage of recruit; last one represents the Base.
     const rctrs = this.recruits;
@@ -689,6 +752,7 @@ export class Panel extends PlayerPanel {
         })
       }
     })
+    // TODO: add reset [start over] & done [send to baseTile] buttons
   }
 
   baseRecruitCounter!: NumCounter;
@@ -793,13 +857,15 @@ export class Panel extends PlayerPanel {
     cardPanel.fillAryWithCardHex(this, this.cardRack, high/2, ncols)
     cardPanel.visible = false;
     // a Button to toggle visibility:
-    const cButton = new UtilButton('Cards', { active: true, corner: .1, fontSize: dxdc * .2, border: [.1, .1, .2, 0] });
+    const cButton = this.cButton = new UtilButton('Cards', { active: true, corner: .1, fontSize: dxdc * .2, border: [.1, .1, .2, 0] });
     cButton.x = x0 + s1 * 1;
     cButton.y = y0 + s1 * 3.8; //height - 1.7 * dydr;
     this.addChild(cButton);
     cButton.on('click', () => this.toggleCards());
     return cardPanel;
   }
+  /** button to show/hide CardPanel */
+  cButton!: UtilButton;
   toggleCards(vis = !this.cardPanel.visible) {
     const cardPanel = this.cardPanel;
     cardPanel.visible = vis;                 // toggle visibility

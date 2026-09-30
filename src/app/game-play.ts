@@ -11,7 +11,7 @@ import { GameState, type PlayerId } from "./game-state";
 import { Relic } from "./meeples";
 import type { Player } from "./player";
 import { ScenarioParser } from "./scenario-parser";
-import { priceNames, TP } from "./table-params";
+import { priceNames, TP, type CB } from "./table-params";
 import type { TacticsCard } from "./tactics-card";
 
 
@@ -81,9 +81,9 @@ export class GamePlay extends GamePlayLib {
   }
 
   awardPriceBonuses() {
-    this.gameState.tokenOnPhase['Build']?.player.gemCounter.incValue(2);
+    this.gameState.tokenOnPhase['Build']?.player.gemCounter.incValue(1);
     this.gameState.tokenOnPhase['Recruit']?.player.coinCounter.incValue(2);
-    this.gameState.tokenOnPhase['MoveFirst']?.player.addCard();
+    this.gameState.tokenOnPhase['MoveFirst']?.player.gainCard();
   }
 
   setPriceNeutral() {
@@ -145,18 +145,27 @@ export class GamePlay extends GamePlayLib {
     })
   }
 
-  recruitAction(player = this.curPlayer, active = true) {
-    if (active) {
+  /** set nRecruit, activate Buttons for Reset & Done --> cb() */
+  offerRecruit(player: Player, nRecruit: number, cb: CB) {
+    this.recruitAction(player, nRecruit)
+    // doneRecruit(cb): { moveRecruitsToBase(); cb(); }
+    // for now, will table.doneButton suffice? no: M5 -> R2 Immediate Bonus (and card effects, ProdToken, etc)
+  }
+
+  recruitAction(player = this.curPlayer, nRecruit?: number) {
+    function nForLevel () {
       const level = player.faction.researchLevelOfPhase['Recruit'].level;
-      const nRecruit = [2, 4, 5, 7, 9][level];
-      player.panel.recruitPoints = nRecruit;
-    } else {
-      // move fighters from Panel to Base; TODO: (facId == 5) allow recruit to Stronghold
-      const nRecruit = player.panel.baseRecruitCounter.value;
-      player.panel.baseTile.getFoT(player).fighters += nRecruit;
-      player.panel.baseRecruitCounter.value = 0;
-      player.panel.recruitPoints = 0;  // unused RPs are lost.
+      return [2, 4, 5, 7, 9][level];
     }
+    player.panel.recruitPoints = nRecruit ?? nForLevel();
+  }
+
+  moveRecruitsToBase(player = this.curPlayer) {
+    // move fighters from Panel to Base; TODO: (facId == 5) allow recruit to Stronghold
+    const nRecruit = player.panel.baseRecruitCounter.value;
+    player.panel.baseTile.getFoT(player).fighters += nRecruit;
+    player.panel.baseRecruitCounter.value = 0;
+    player.panel.recruitPoints = 0;  // unused RPs are lost.
   }
 
   // TODO:

@@ -2,8 +2,10 @@ import { C } from "@thegraid/common-lib";
 import { CenterText, CircleShape, EllipseShape, PaintableShape, PathShape, RectShape } from "@thegraid/easeljs-lib";
 import { Container } from "@thegraid/easeljs-module";
 import { TP as TPLib, } from "@thegraid/hexlib";
+import type { ChaosHex2 } from "./chaos-hex";
 import type { HARVEST } from "./chaos-tile";
-import type { PriceBonus } from "./meeples";
+import type { Foundation } from "./foundation";
+import type { ChaosBuilding, PriceBonus } from "./meeples";
 
 // some types & constants moved out of GameState:
 /** generic callback */
@@ -25,9 +27,20 @@ export class TP extends TPLib {
     tp.cacheTiles = 2.5;
     PaintableShape.defaultRadius = tp.hexRad;
   }
-
+  /** reset each round */
+  static freeAuxForOxataya = true;
+  static aButtonEvent?: MouseEvent = undefined;
   // timeout: see also 'autoEvent'
   static stepDwell:  number = 150
+
+  /** used to track Build actions */
+  static newlyBuilt: (ChaosBuilding | Foundation)[] = [];
+
+  /** Build action: Before-Advice callback on placeBuilding(hex) or placeFoundation(hex)  */
+  static whenBuildingPlacedCB?: (building: ChaosBuilding | Foundation, hex?: ChaosHex2) => void;
+  static whenBuildingPlaced(built: Foundation | ChaosBuilding, hex?: ChaosHex2) {
+    if (TP.whenBuildingPlacedCB) TP.whenBuildingPlacedCB(built, hex);
+  }
 }
 
 

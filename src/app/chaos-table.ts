@@ -104,7 +104,7 @@ export class ChaosTable extends Table {
   override get panelWidth() { return 7 }
 
   override panelLocsForNp(np: number): number[] {
-    return [[], [0], [0, 2], [0, 3, 2], [0, 3, 5, 2], [0, 3, 4, 5, 2], [0, 3, 4, 5, 2, 1]][np];
+    return [[], [0], [0, 1], [0, 3, 2], [0, 3, 5, 2], [0, 3, 4, 5, 2], [0, 3, 4, 5, 2, 1]][np];
   }
   neutralPanelLoc(): [row: number, col: number, dir: 1 | -1] {
     const locs = super.getPanelLocs()
@@ -244,7 +244,7 @@ export class ChaosTable extends Table {
     })
   }
 
-  /** take card from top of deck (TacticsCard.souce) */
+  /** take card from top of deck (TacticsCard.souce) reshuffle if necessary */
   takeCard() {
     const source = this.cardSource; // TacticsCard.source;
     if (source.numAvailable == 0) TacticsCard.reshuffle();

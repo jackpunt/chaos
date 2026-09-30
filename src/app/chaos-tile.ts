@@ -688,7 +688,7 @@ export class ChaosTile extends MapTile {
       this.foundations[ndx] = f;
       f.onTile = this;   // record Foundation is onTile on the map.
       // Graphically above this.hex:
-      const hex = this.chex, dx = f.radius * 1.03, dy = hex.radius * 2.34;   // <<< foundation.y
+      const hex = this.chex, dx = f.radius * 1.3, dy = hex.radius * 2.34;   // <<< foundation.y
       f.scaleX = f.scaleY = Foundation.mapScale;  // scale down when drop on map
       f.x = hex.x + (ndx-1) * dx * f.scaleX;
       f.y = hex.y + dy * f.scaleY;
@@ -758,6 +758,12 @@ export class BaseTile extends ChaosTile {
     this.addChild(image)
     this.addMoveCounter()
   }
+  // override hasFot(facId: FactionId = this.player.facId): FactionOnTile {
+  //   return super.hasFot(facId)
+  // }
+  // override getFoT(arg: Player | FactionId = this.player.facId): FactionOnTile {
+  //   return super.getFoT(arg)
+  // }
 
   moveCounter!: NumCounter;
   addMoveCounter(y0 = this.radius * .1) {

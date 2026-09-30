@@ -487,8 +487,9 @@ export class CardPanel extends MapCont {
     return (hex instanceof CardHex)
   }
 
+  get panel() { return (this.parent as Panel) }
   // readonly cardRack: CardHex[] = [];
-  get cardRack() { return (this.parent as Panel).cardRack; }
+  get cardRack() { return this.panel.cardRack }
 
   /** make this CardPanel dragable. */
   makeDragable(table: HasDragger) {
@@ -522,8 +523,13 @@ export class CardPanel extends MapCont {
   }
 
   addCard(card?: TacticsCard) {
-    const hex = this.cardRack.find(hex => !hex.card)
+    const cardRack = this.cardRack;
+    const hex = cardRack.find(hex => !hex.card)
     card?.placeTile(hex);
+    const nCards = cardRack.filter(h => !!h.card).length;
+    this.panel.cButton.label_text = `${nCards} Card${nCards == 1 ? '' : 's'}`;
+    // TODO: set 'Cards' label button to include number of cards
+    // TODO: auxillary hex for new card (> hand limit) & choose
   }
 
   /** get all the phaseEffects */  // TODO: change the name or maybe remove

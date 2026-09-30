@@ -7,9 +7,14 @@ import { Relic, type PriceToken } from "./meeples";
 import type { Player } from "./player";
 import { pentagon, priceNames, pricePhases, type PhaseName, type PriceName, type PricePhase } from "./table-params";
 
+declare module '@thegraid/hexlib' {
+  interface Phase {
+    notDone?: () => string | undefined; // '' or reason/reminder of what needs to be done.
+  }
+}
 
 // Never stop/state a END of a phase, always proceed to next Phase, so curPlayer is the next to take Action.
-type SaveState = [ phase: Phase, cpndx: FactionId, prices: PriceToken[] ];
+type SaveState = [ phase: PhaseName, cpndx: FactionId, prices: PriceToken[] ];
 
 /** 0 -- maxPlayers; is index into allPlayers[pid]; represents Table Order! */
 export type PlayerId = 0 | 1 | 2 | 3 | 4; // index into allPlayers
@@ -76,6 +81,8 @@ export class GameState extends GameStateLib {
 
   /** sparse array to map from facId to Player */
   playerByFacId: (Player|undefined)[] = [];
+  /** packed array of Player in table order */
+  get tablePlayers() { return this.gamePlay.allPlayers; }
 
   tokenOnPhase: Partial<Record<PriceName, PriceToken>> = {};
   priceToken(pName: PricePhase | PriceName) {
@@ -88,14 +95,15 @@ export class GameState extends GameStateLib {
     this.table.overlayCont.addChild(this.gunIcon);
   }
 
+  // Beginning of game game, from startPhase:
   override start(startPhase?: string, startArgs?: any[]): void {
     this.nPlayers = this.gamePlay.allPlayers.length;
     this.playerByFacId = factionNames.map((fn, facId) => this.gamePlay.playerByFacId(facId as FactionId))
-    this.gunPlayer = this.playerByFacId.find(plyr => plyr !== undefined)!; // first/lowest numbered faction
+    this.gunPlayer = this.tablePlayers[0];
     super.start(startPhase, startArgs);
   }
 
-  autoPlace?: string = '';    // undefined for normal --> 'PlaceRelic'
+  autoPlace?: string = 'SetPrices';    // undefined for normal --> 'PlaceRelic'
   override startPhase = 'PlaceBase';
   override startArgs: any[] = [];
 
@@ -124,8 +132,9 @@ export class GameState extends GameStateLib {
 
   // Record phaseLeader: set phaseNdx before invoking super.phase()
   override phase(phase: string, ...args: any[]): void {
-    this.phaseNdx = this.phaseLeader(phase as PhaseName)
+    const prevPhase = phase as PhaseName;
     super.phase(phase, ...args);
+    this.phaseNdx = this.phaseLeader(prevPhase)
   }
 
   /** start(nextNdx) or phase(nextPhase, args) */
@@ -134,6 +143,14 @@ export class GameState extends GameStateLib {
       // disable previous offer:
       this.curPlayer.faction.offerPrimaryAndAux(this.pricePhase, false);
     }
+    const notDone = this.state.notDone?.();
+    if (notDone) {
+      // TODO: make visible to player
+      console.log(stime(this, `${this.curPlayer.facName} not done with ${this.state.Aname}: ${notDone}`))
+      this.state.start(this.curPlayerNdx);
+      return;
+    }
+
     const next = this.nextNdx(this.curPlayerNdx);
     if (next !== this.phaseNdx) {
       this.state.start(next); // loop for each player
@@ -209,15 +226,37 @@ export class GameState extends GameStateLib {
           this.state.start(index); // loop for each player
         } else {
           this.gamePlay.placeInitialRelics();
-          this.phase('BeginRound', 1); // begin with Round = 1
+          this.phase('DeployLeaders'); // begin with Round = 1
         }
       }
     },
 
     /** in table order, place Leader & rest of fighters; movePoints = 2? OR set 2 movesInPlay or click? */
     DeployLeaders: {
-      start: () => {
+      start: (pndx = 0) => {
+        this.setCurPlayerNdx(pndx);
+        const plyr = this.curPlayer, baseTile = plyr.panel.baseTile;
+        baseTile.moveCounter.value = 0;
+        this.gamePlay.moveFaction(plyr.faction, 2); //
+        plyr.panel.baseTile.baseRegions?.find(hex => {
+          plyr.newMoveInPlay(baseTile, hex.ctile!);
+        });
+        this.doneButton();
+      },
 
+      notDone: () => {
+        const plyr = this.curPlayer, facId = plyr.facId;
+        if (!plyr.panel.baseTile.baseRegions?.find(hex => hex.ctile!.hasFot(facId).leaders.length > 0)) {
+          return "must place a Leader";
+        } else {
+          const plyr = this.curPlayer, baseTile = plyr.panel.baseTile;
+          baseTile.moveCounter.value = 0;
+          this.gamePlay.endMoveFaction(); //
+        }
+        return;
+      },
+      done: () => {
+        this.startOrPhase('BeginRound')
       }
     },
 
@@ -265,8 +304,8 @@ export class GameState extends GameStateLib {
     Discovery: {
       start: (ndx = this.phaseNdx) => {
         this.setCurPlayerNdx(ndx);
-        this.doneButton();
         this.curPlayer.faction.offerPrimaryAndAux(this.pricePhase); // 'Discovery'
+        this.doneButton();
       },
       // TODO:
       done: () => {
@@ -276,32 +315,34 @@ export class GameState extends GameStateLib {
     Build: {
       start: (ndx = this.phaseNdx) => {
         this.setCurPlayerNdx(ndx);
-        this.doneButton();
+        this.curPlayer.faction.offerPrimaryAndAux(this.pricePhase); // 'Build'
         // for each Build point: D&D a Building or Foundation --> done()
         // maybe buy a aux Build | Card
-        this.curPlayer.faction.offerPrimaryAndAux(this.pricePhase); // 'Build'
+        this.doneButton();
       },
       done: () => this.startOrPhase('Harvest'),
     },
     Harvest: {
       start: (ndx = this.phaseNdx) => {
         this.setCurPlayerNdx(ndx);
-        this.doneButton();
+        this.curPlayer.faction.offerPrimaryAndAux(this.pricePhase); // 'Harvest'
         // add Energy; for each Gear: select BONUS
         // auto if no choices
+        this.doneButton();
       },
       done: () => this.startOrPhase('Recruit'),
     },
     Recruit: {
       start: (ndx = this.phaseNdx) => {
         this.setCurPlayerNdx(ndx);
-        this.doneButton();
+        this.curPlayer.faction.offerPrimaryAndAux(this.pricePhase); // 'Recruit'
         // set Panel.recruit points; wait for done?
         this.gamePlay.recruitAction()
         // this.curPlayer.panel.recruitPoints = ;
+        this.doneButton();
        },
       done: () => {
-        this.gamePlay.recruitAction(undefined, false)
+        this.gamePlay.moveRecruitsToBase();  // optionally to SH for Oxataya
         this.startOrPhase('Move')
       },
     },

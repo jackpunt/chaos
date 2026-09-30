@@ -1,9 +1,12 @@
+import { removeEltFromArray, stime } from "@thegraid/common-lib";
 import type { Phase } from "@thegraid/hexlib";
+import type { ChaosHex2 as Hex2 } from "./chaos-hex";
 import type { BONUS, FAME_BONUS, HARVEST } from "./chaos-tile";
-import type { Leader, PriceToken } from "./meeples";
+import type { Foundation } from "./foundation";
+import type { ChaosBuilding, Leader, PriceToken } from "./meeples";
 import type { Player } from "./player";
 import { type ResearchCell, type ResearchLevel } from "./research-cell";
-import { pricePhases, type CB, type PricePhase } from "./table-params";
+import { pricePhases, TP, type CB, type PricePhase } from "./table-params";
 //
 function expandArray<T>(rec: Record<number, T>): (T | undefined)[] {
   const length = Math.max(-1, ...Object.keys(rec).map(Number)) + 1; // .filter(k ->!isNan(k))
@@ -208,7 +211,7 @@ export class Faction {
     if (level !== rc.level ) {
       rc.aButton.activate(false);
       const rc1 = phaseRow[level];
-      rc1.aButton.activate(true);
+      rc1.activateForAction(this, undefined, () => {})
     }
   }
 
@@ -230,12 +233,51 @@ export class Faction {
   offerDiscoveryAction(activate = true, cb: CB = () => {}) {
     pricePhases.forEach(pName => {
       const { phaseRow, level } = this.researchLevelOfPhase[pName];
-      if (level < phaseRow.length) {
+      if (level < phaseRow.length-1) {
         // TODO: stash & 'restore/recompute' status of enabled aButton
         // click -> rl.level = rc.level
+        // TODO: do not activate if gemlock && player can't pay?
         phaseRow[level+1].activateForDiscovery(this, activate, () => { this.offerDiscoveryAction(false); cb(); });
       }
     })
+  }
+
+  /** allow Build Action (pv times) then run cb() */
+  offerBuildAction(pv: number, cb: CB) {
+    // allow pv Build actions:
+    const newlyBuilt = TP.newlyBuilt;
+    newlyBuilt.length = 0;
+    TP.whenBuildingPlacedCB = (building: ChaosBuilding | Foundation, hex?: Hex2) => {
+      const bldg = building as ChaosBuilding, found = building as Foundation;
+      const [onMap, fromMap] = (building.isMeep) ? [!!bldg.found.onTile, !bldg.fromPanel] : [!!found.onTile, found.fromMap]
+      console.log(stime(this, `.whenBuildingPlacedCB:`), building.Aname, {onMap, fromMap}, newlyBuilt);
+      if (onMap && !fromMap) {
+        newlyBuilt.push(building);  // will be newly placed on hex
+        pvcb();
+      } else if (!onMap && fromMap) {
+        removeEltFromArray(building, newlyBuilt);  // unbuild; pvcb will see length changed
+      } // else: ignore Move from map to map, or pick&drop on panel
+    }
+    const pvcb = () => {
+      const panel = this.player.panel;
+      if (pv - newlyBuilt.length > 0) {
+        console.log(stime(this, `.buildAction(${pv}) ${pv - newlyBuilt.length}`))
+        // ChaosBuilding.placeBuilding() --> TP.whenBuildingPlacedCB(bldg, hex)
+        panel.setDoneButton(`Build Done ${pv}`, () => {
+          console.log(stime(this, `.buildDone: ? newlyBuilt=)`), newlyBuilt)
+          pvcb();
+        });
+        panel.setResetButton(`Reset Build`, () => {
+          console.log(stime(this, `.resetBuild: newlyBuilt.forEach(b => b.sendHome() ?)`), newlyBuilt)
+          pvcb();
+        });
+      } else {
+        console.log(stime(this, `.pvcb: all MovePoints built:)`), newlyBuilt);
+        panel.deactivateButtons();
+        cb();
+      }
+    }
+    pvcb(); // recursive loop until all BuildActions used and panel doneButton clicked.
   }
 
   /** override for phase specific checks; Faction attributes */

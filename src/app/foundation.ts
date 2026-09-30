@@ -1,11 +1,12 @@
 import { C, type XY } from "@thegraid/common-lib";
 import { CenterText, RectShape, type Paintable } from "@thegraid/easeljs-lib";
 import type { DisplayObject } from "@thegraid/easeljs-module";
-import { Tile, TP, type DragContext, type HasDragger } from "@thegraid/hexlib";
+import { Tile, type DragContext, type HasDragger } from "@thegraid/hexlib";
 import { ChaosHex2 as Hex2 } from "./chaos-hex";
 import { type BONUS, type ChaosTile } from "./chaos-tile";
 import type { ChaosBuilding } from "./meeples";
-import { bonusIcon, gemlockIcon } from "./table-params";
+import type { Player } from "./player";
+import { bonusIcon, gemlockIcon, TP } from "./table-params";
 
 
 // the Relic Foundations & extra non-Relic Foundations
@@ -13,11 +14,13 @@ import { bonusIcon, gemlockIcon } from "./table-params";
 // the per-player bonus Foundations: (player.ts: foundationIds)
 // Moves during Build phase (or Discover bonus)
 export class Foundation extends Tile {
-  static color1 = 'rgb(149, 90, 159)';
-  static color2 = 'rgba(188, 188, 188, 0.52)';
+  static upColor = 'rgb(160, 102, 171)';
+  static dnColor = 'rgba(188, 188, 188, 0.52)';
   static mapScale = .3;  // scale when on main map
 
-  /** Hex this Foundation has been placed upon; in tile.foundations[] */
+  declare player: Player;
+
+  /** cTile this Foundation has been placed upon; in tile.foundations[] */
   onTile?: ChaosTile;
 
   // typically a building must land on a Foundation
@@ -37,15 +40,15 @@ export class Foundation extends Tile {
   }
   // panel Foundations ('-'); other startup & Relic Foundations have a BONUS with icon
   bonus: BONUS;
-  // buildings have an income bonus (Ex, C, G1)
+  // Panel slots for Buildings have an income bonus Icon (Ex, C, G1/%)
   icon!: DisplayObject;
   gemlock?: DisplayObject;
-  homeXY?: XY;
+  homeXY?: XY;    // set by ChaosTile.addFoundation to account for ndxForFoundation()
 
   override get radius() { return TP.meepleRad; }
 
   /**
-   *
+   * Foundation with maybe a BONUS, maybe a Player.
    * @param Aname container identification
    * @param bonus underlying bonus text (S2, H, [Region, Trap, S1, Morale, D2+S, Recruit])
    * @param fs fontSize of icon text
@@ -77,18 +80,22 @@ export class Foundation extends Tile {
   }
 
   faceup = true; // Used for Player Bonus Foundations
+  /** toggle this.faceup */
   faceUp(up = !this.faceup) {
-    this.faceup = up;
+    this.faceup = up;       // onTile(up) shows mauve or Icon; on Panel(!up) show transparent to see bgFound
     this.icon.visible = up;
     this.gemlock && (this.gemlock.visible = !up);
-    this.paint(up ? Foundation.color1 : Foundation.color2)
+    this.paint(up ? Foundation.upColor : Foundation.dnColor); // light-mauve : grey@.5
   }
 
   override isDragable(ctx?: DragContext): boolean {
     return !this.onTile;
   }
 
+  /** set to true if resetMove moves Foundation from onTile to Panel */
+  fromMap = false;
   override dragStart(ctx: DragContext): void {
+    this.fromMap = !!this.onTile;   // expect 'false'
     this.faceUp(true);
     super.dragStart(ctx);
   }
@@ -98,15 +105,23 @@ export class Foundation extends Tile {
     const tile = toHex.ctile!;
     if (!tile) return false;
     if (tile.isLdr || tile.isBase) return false;
+    // the only draggable Foundation is from player.Panel:
+    if (!this.player.hexPresence.includes(toHex)) return false;
     return (tile.canAddFoundation());
   }
+
 
   override dropFunc(targetHex: Hex2, ctx: DragContext): void {
     if (!targetHex) {
       this.sendHome(); // Note: once placed on map, home is on HexMap, not Panel
       return;
     }
+    this.placeFoundation(targetHex);
+  }
+
+  placeFoundation(targetHex: Hex2) {
     targetHex.ctile?.addFoundation(this); // may set scaleX, scaleY
+    TP.whenBuildingPlaced(this, targetHex); // place or remove foundation
   }
 
   override sendHome(): void {
@@ -114,7 +129,7 @@ export class Foundation extends Tile {
     this.y = this.homeXY?.y ?? 0;
     const onTile = !!this.onTile;
     this.scaleX = this.scaleY = onTile ? Foundation.mapScale : 1;
-    this.faceUp(!!this.onTile);
+    this.faceUp(onTile);
   }
 }
 

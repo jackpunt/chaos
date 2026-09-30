@@ -3,9 +3,9 @@ import { CenterText, NamedContainer, RectShape, UtilButton, type DragInfo, type 
 import type { DisplayObject } from "@thegraid/easeljs-module";
 import type { HasDragger } from "@thegraid/hexlib";
 import { type Faction } from "./factions";
-import { CO, gemlockIcon, TP, type CB, type PricePhase } from "./table-params";
-import type { PriceToken } from "./meeples";
+import { type PriceToken } from "./meeples";
 import type { Player } from "./player";
+import { CO, gemlockIcon, TP, type CB, type PricePhase } from "./table-params";
 
 
 // %, Energy, Gem, Card, Build, Recruit, Leader, Harvest, Move,
@@ -19,8 +19,8 @@ export type ResGrid = Record<PricePhase, ResSpecs>;
 export const ResGrid: ResGrid = {
   Discovery:   [['%', 'G2:%'], ['%', 'G2:%', 'E2 | G1' ], ['%', 'G1:%', 'E3 | C' ], ['%', 'G1:%', 'E4 | G2' ], ['% %', 'G1:C', 'C' ]],
   Build:       [['B', 'E4:B'], ['B', 'E3:B', 'F | C'], ['B B', 'E4:B'], ['B B', 'E3:B', 'F | C'], ['B B B', 'E2:C']],
-  Harvest:[['E4+H1', 'E2:G1'], ['E5+H2', 'E2:G1'], ['E6+H2', 'E2:G1', 'PT'], ['E7+H3', 'E2:G1'], ['E9+H3', 'E4:G2', 'UT']],
-  Recruit:     [['R2', 'E4:L'], ['R4', 'E5:L'], ['R5', 'E4:L', 'G1 | C'], ['R7', 'E4:L'], ['R9', 'E4:L', 'E3']],
+  Harvest:[['E4_H1', 'E2:G1'], ['E5_H2', 'E2:G1'], ['E6_H2', 'E2:G1', 'PT'], ['E7_H3', 'E2:G1'], ['E9_H3', 'E4:G2', 'UT']],
+  Recruit:     [['R2', 'E4:L'], ['R4', 'E5:L'], ['R5', 'E4:L', 'G1 | C'], ['R7', 'E4:L'], ['R9', 'E3:L', 'E3']],
   Move:        [['M2', 'E5:U'], ['M3', 'E5:U'], ['M4', 'E4:U', '', true], ['M5', 'E4:U', 'R2 | C'], ['M6', 'E4:U']],
 }
 
@@ -126,29 +126,30 @@ export class ResearchCell extends NamedContainer {
   // then light only aux (); pay to bank;
   // pon: after_primary; aon=after_aux
   // TODO: confirm ability to pay before activating?
-  activateForAction(faction: Faction, pon?: CB, aon?: CB) {
+  activateForAction(faction: Faction, pcb?: CB, acb?: CB) {
     const panel = faction.player.gamePlay.table.neutralPanel; // faction.player.panel;
-    if (pon) {
+    if (pcb) {
       this.pButton.on(S.click, () => {
         this.pButton.activate(false);
-        this.primary(faction, pon);
+        this.primary(faction, pcb);
       }, this, true)
       this.pButton.activate(true);
     } else {
       this.pButton.activate(false);
     }
-    if (aon) {
-      this.aButton.on(S.click, () => {
+    if (acb) {
+      this.aButton.on(S.click, (evt) => {
+        TP.aButtonEvent = evt;
         if (this.pButton.isActive) {
           panel.areYouSure(`Skip primary action?`, () => {
             this.pButton.activate(false);
-            this.auxillary(faction, aon);
+            this.auxillary(faction, acb);
           }, () => {
             this.activateForAction(faction);             // disable both
-            this.activateForAction(faction, pon, aon);   // reenable both
+            this.activateForAction(faction, pcb, acb);   // reenable both
           });
         } else {
-          this.auxillary(faction, aon);
+          this.auxillary(faction, acb);
         }
       }, this, true);
       this.aButton.activate(true);
@@ -181,51 +182,197 @@ export class ResearchCell extends NamedContainer {
     player.payEnergy(toFac, gamePlay.playerByFacId(pt.facId));
     player.payEnergy(toBank);
   }
+  /** @return tokenOnPhase[pName] */
+  getPriceToken(faction: Faction) {
+    return faction.player.gamePlay.gameState.priceToken(this.pName)!;
+  }
 
   /** enable doing primary action for this phase at this level; pay Bank/Pricer */
   primary(faction: Faction, cb: CB = () => {}) {
     this.pButton.activate(false); // redundant? see above: activateForAction
     const player = faction.player;
-    const pt = player.gamePlay.gameState.priceToken(this.pName)!;
+    const pt = this.getPriceToken(faction);
+    // pt.facId gets the primary action for free:
     if (pt.facId !== faction.facId) {
       if (pt.vid > player.coins) return; // unable to pay
       this.payAction(pt, player)
     }
+    // % B E H R M
+    let match: RegExpMatchArray | null, pv0 = 0, pv = 0, hv = 0;
+    const matchv = (p: '%'|'B'|'H'|'R'|'M', ps = this.ps) => {
+      match = ps.match(`${p}(\\d)?(_H(\\d))?`); // (p)_H(hv)
+      if (!match) return;
+      const np = ps.split(' ').length;
+      pv = pv0 = Number.parseInt(match[1] ?? `${np}`); // repetions of p: 'M3' or 'B B B'
+      if (Number.isNaN(pv)) debugger;
+      hv = (match[3] !== undefined) ? Number.parseInt(match[3]) : 1; // assert: (bv > 1) only if (b == 'G')
+      if (Number.isNaN(hv)) debugger;
+      return pv;
+    }
+
+    console.log(stime(this, `.primary(${this.ps})`));
     // parse ps; do it;
-    // use gameState.pricePhase & this.level
-    if (this.ps == '%') {
-      faction.offerDiscoveryAction(true, cb); // --> forEachPhase: activateForDiscovery()
-    } else if (this.ps == 'B') {
-      // count build points from this.ps
-      // enable D&D on Buildings & Foundations
+    if (matchv('%')) {
+      const pvcb = () => {
+        if (pv-- > 0) {
+          faction.offerDiscoveryAction(true, pvcb); // TODO: set Panel Buttons (ex: use only 2 of 3 Discovery)
+        } else {
+          cb();
+        }
+      }
+      pvcb();
+    } else if (matchv('B')) {
+      faction.offerBuildAction(pv, cb); // pv actions; TODO; check Foundation placement
+    } else {
+
     }
   }
-  /** advance ResearchLevel, apply Bonus */
+
+  /** advance ResearchLevel, apply Bonus; pay gemLock */
   immediate(faction: Faction, cb: CB = () => {}) {
+    const player = faction.player;
+    if (this.gemlock) {
+      const unlock = !!player.panel.foundations['unlock']!.hex?.isOnMap && (player.coins >= 2);
+      const agem = (player.gems >= 1)
+      if (!(agem || unlock)) return;
+      const gf = () => player.payGems(1), ef = () => player.payEnergy(2);
+      if (agem && unlock) {
+        player.gamePlay.neutralPlayer.panel.popupChoice('gem', 'E2', gf, ef);
+      } else if (agem) { gf() } else { ef() }
+    }
     faction.researchLevelOfPhase[this.pName].level = this.level;  // RL is moved!
     this.iButton.activate(false);
     // check for immediate bonus:
     if (this.is) {
-      this.doImmediateBonus(this.is);
+      const bs = this.is;
+      if (bs.includes(' | ')) {
+        const [lb, rb] = bs.split(' | ');
+        const lf = () => this.doImmediateBonus(faction, lb, cb)
+        const rf = () => this.doImmediateBonus(faction, rb, cb)
+        faction.player.gamePlay.neutralPlayer.panel.popupChoice(lb, rb, lf, rf)
+      } else {
+        this.doImmediateBonus(faction, this.is, cb);
+      }
+    } else {
+      cb();   // outer caller can clean up.
     }
-    cb();   // outer caller can clean up.
     this.stage.update();
   }
-  doImmediateBonus(bs: string) {
-    if (bs == 'PT') {
-      // TODO: select and Place a ProdToken.
+  // En, Gn, Rn, C, F oundation, PT, UT;
+  // Note: 'this' may be undefined! (from afterUpdate(..., panel))
+  doImmediateBonus(faction: Faction, bs: string, cb: CB) {
+    const player = faction.player;
+    // use match to determine repetition value (v)
+    let match: RegExpMatchArray | null, v!: number;
+    const matchv = (b: 'E'|'G'|'R') => {
+      match = bs!.match(`${b}(\\d)`); // immediate is only benefit
+      if (!match) return;
+      v = Number.parseInt(match[1])
+      if (Number.isNaN(v)) debugger;
+      return v;
+    }
+    console.log(stime(this, `.doImmediateBonus: bs=${bs}`));
+    if (bs == 'C') {
+      player.gainCard();
+      cb();
+    } else if (bs == 'F') {
+      console.log(stime(this, `.doImmediateBonus: player.enablePlaceFoundation(cb)`));
+      faction.offerBuildAction(1, cb);
+    } else if (bs == 'PT') {
+      console.log(stime(this, `.doImmediateBonus: player.offerProdToken(cb)`));
+      cb();
+    } else if (bs == 'UT') {
+      console.log(stime(this, `.doImmediateBonus: player.offerLeaderUpgrade(cb)`));
+      cb();
+    } else if (matchv('E')) {
+      player.coins += v;
+      cb();
+    } else if (matchv('G')) {
+      player.gems += v;
+      cb();
+    } else if (matchv('R')) {
+      player.gamePlay.offerRecruit(player, v, cb)
+    } else {
+      debugger;
     }
   }
+
+  // TODO: exception for Oxataya (TODO: only once when 2-player)
   /** enable doing aux action; pay Bank */
   auxillary(faction: Faction, cb: () => void = () => {}) {
+    const player = faction.player;
+    const pt = this.getPriceToken(faction);
+    const fao = TP.freeAuxForOxataya && (faction.facId == 5) && (pt.facId == 5);
+
+    // use match to determine cost(c) and benefit(b)
+    let match: RegExpMatchArray | null, cv!: number, bv!: number;
+    const matchv = (c: 'E'|'G'|'R', b: '%'|'G'|'C'|'B'|'L'|'U') => {
+      match = this.as.match(`${c}(\\d):${b}(\\d)?`); // cost : benefit
+      if (!match) return;
+      cv = Number.parseInt(match[1])
+      if (Number.isNaN(cv)) debugger;
+      bv = (match[2] !== undefined) ? Number.parseInt(match[2]) : 1; // assert: (bv > 1) only if (b == 'G')
+      if (Number.isNaN(bv)) debugger;
+      return cv;
+    }
+    const npcb = (v?: any) => {
+      console.log(stime(this, `.aux: ${this.as} no pay! ${v}`), faction.name);
+      cb();
+    }
     this.aButton.activate(false);
     // parse as; do it;
-    if (this.as == "G2:%") {
-      if (faction.player.gems >= 2) {
-        faction.player.gems -= 2;
-        faction.offerDiscoveryAction(true, cb);
+    console.log(stime(this, `.auxillary: as=${this.as}`));
+    if (matchv('G', '%')) {
+      if (fao || faction.player.payGems(cv)) {
+        setTimeout(() => faction.offerDiscoveryAction(true, cb), 10);
       } else {
+        npcb(cv);
+      }
+    } else if (matchv('G','C')) {
+      if (fao || player.payGems(cv)) {
+        player.gainCard();
         cb();
+      } else {
+        npcb(cv);
+      }
+      // Aux Build
+    } else if (matchv('E', 'B')) {
+      if (fao || player.payEnergy(cv)) {
+        console.log(stime(this, `.auxillary: faction.offerBuildAction(1, cb)`));
+        faction.offerBuildAction(1, cb);
+      } else {
+        npcb(cv);
+      }
+    } else if (matchv('E', 'C')) {
+      if (fao || player.payEnergy(cv)) {
+        player.gainCard();
+        cb();
+      } else {
+        npcb(cv);
+      }
+      // Aux Harvest
+    } else if (matchv('E', 'G')) {  // En:Gm
+      if (fao || player.payEnergy(cv)) {
+        player.gems += bv;
+        cb();
+      } else {
+        npcb(cv);
+      }
+      // Aux Recruit
+    } else if (matchv('E', 'L')) {
+      if (fao || player.payEnergy(cv)) {
+        console.log(stime(this, `.auxillary: faction.offerRecruitLeader(1, cb)`));
+        cb();
+      } else {
+        npcb(cv);
+      }
+      // Aux Move
+    } else if (matchv ('E', 'U')) {
+      if (fao || player.payEnergy(cv)) {
+        // faction.offerUpgradLeader(cb);
+        cb();
+      } else {
+        npcb(cv);
       }
     }
   }

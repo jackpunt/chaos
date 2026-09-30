@@ -1,7 +1,7 @@
 import { C, Constructor, F, S, stime, type XY, type XYWH } from "@thegraid/common-lib";
 import { CenterText, CircleShape, EllipseShape, NamedContainer, PathShape, RectShape, TextInRect, type Paintable, type RectWithDispOptions, type TextInRectOptions } from "@thegraid/easeljs-lib";
 import { Container, Graphics, MouseEvent, Rectangle } from "@thegraid/easeljs-module";
-import { Meeple, MeepleShape, Tile, TP, type DragContext, type Hex, type HexM, type IHex2 } from "@thegraid/hexlib";
+import { Meeple, MeepleShape, Tile, type DragContext, type Hex, type HexM, type IHex2, } from "@thegraid/hexlib";
 import { CardShape } from "./card-shape";
 import { TokenHex, type ChaosHex2 as Hex2, type HexMap2 } from "./chaos-hex";
 import type { BONUS, ChaosTile, FactionOnTile, HARVEST, LeaderTile, TERRAIN } from "./chaos-tile";
@@ -10,7 +10,7 @@ import { BgFound, Foundation } from "./foundation";
 import type { GamePlay } from "./game-play";
 import type { GameState } from "./game-state";
 import type { Player } from "./player";
-import { bonusIcon, CO, priceNames, type PhaseName, type PriceName } from "./table-params";
+import { bonusIcon, CO, priceNames, TP, type PhaseName, type PriceName } from "./table-params";
 
 
 type BackSide = ChaosUnit['baseShape']['backSide'];
@@ -719,6 +719,7 @@ export class Rhyzu extends Leader {
 //
 export class ChaosBuilding extends ChaosPresence {
   addStrength = 0;    // maybe something more general with Effects or Advice
+  declare player: Player;
 
   override get radius() { return TP.meepleRad; }
   readonly bText!: BONUS;           // 'E2' 'C' 'G1'
@@ -756,7 +757,14 @@ export class ChaosBuilding extends ChaosPresence {
 
   override isLegalTarget(toHex: Hex2, ctx?: DragContext): boolean {
     const tile = toHex.ctile;
+    if (!this.player.hexPresence.includes(toHex)) return false;
     return !!tile?.foundations.find(f => f && (!f.bldg || f.bldg == this))
+  }
+  override cantBeMovedBy(player: Player, ctx: DragContext): string | boolean | undefined {
+    if (ctx.lastCtrl) return undefined;   // TODO: Temporary override everything!
+    if (!this.player.panel.doneButton.isActive) return "No Build Points";
+    if (!this.fromPanel && !TP.newlyBuilt.includes(this)) return "not newly built";
+    return super.cantBeMovedBy(player, ctx); // check (player == this.player)
   }
 
   override sendHome(): void {
@@ -768,14 +776,20 @@ export class ChaosBuilding extends ChaosPresence {
     this.found = this.homeAry[ndx];
   }
 
+  /** useful for determining 'Move' direction. */
+  fromPanel = true;   // initially all Buildings are on panel.
+
   override dragStart(ctx: DragContext): void {
     const ndx = this.homeAry.findIndex(f => f.bldg == this); // Panel slot of this Building's current Foundation
     if (ndx < 0) {
+      this.fromPanel = false;
       this.scaleX = this.scaleY = 1;  // not coming from Panel, undo mapScale
       return;        // OK to drag
     }
+    // check that this is coming from the left-most slot of homeAry:
     const fndx = this.homeAry.findIndex(f => f.bldg !== undefined)
     if (ndx == fndx) {
+      this.fromPanel = true;
       this.homeAry[ndx].bldg = undefined; // OK to drag; remove from Panel
     } else {
       this.stopDrag();          // leave on Panel
@@ -822,6 +836,7 @@ export class ChaosBuilding extends ChaosPresence {
       this.x = f.x; this.y = f.y;
       f.parent.addChild(this);
     }
+    TP.whenBuildingPlaced(this, targetHex);  // build or un-build, depending on targetHex
   }
   // invoke before super.dropFunc -> moveTo(hex)
   // but after dragger.drop: dropCont.addChild(dobj)
