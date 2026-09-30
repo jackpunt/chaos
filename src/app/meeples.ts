@@ -1,5 +1,5 @@
 import { C, Constructor, F, S, stime, type XY, type XYWH } from "@thegraid/common-lib";
-import { CenterText, CircleShape, EllipseShape, NamedContainer, PathShape, RectShape, TextInRect, type Paintable, type RectWithDispOptions, type TextInRectOptions } from "@thegraid/easeljs-lib";
+import { CenterText, CircleShape, EllipseShape, NamedContainer, PathShape, RectShape, TextInRect, UtilButton, type Paintable, type RectWithDispOptions, type TextInRectOptions } from "@thegraid/easeljs-lib";
 import { Container, Graphics, MouseEvent, Rectangle } from "@thegraid/easeljs-module";
 import { Meeple, MeepleShape, Tile, type DragContext, type Hex, type HexM, type IHex2, } from "@thegraid/hexlib";
 import { CardShape } from "./card-shape";
@@ -166,10 +166,15 @@ export class ChaosToken extends Tile {
 export class ProdToken extends ChaosToken {
   constructor(public harvest: HARVEST) {
     super(`Prod_${harvest}`);
-    const icon = bonusIcon(harvest)!;
+    const icon = bonusIcon(harvest);
     icon.y = TP.hexRad * .41;
     this.addChild(icon);
   }
+  // override makeShape(size?: number): Paintable {
+  //   const ub = new UtilButton('.', {})
+  //   ub.addChild(bonusIcon(this.harvest)!)
+  //   return ub;
+  // }
 }
 
 
@@ -610,7 +615,7 @@ export class Rhyzu extends Leader {
     constructor(public leader: Rhyzu ) {
       super(leader.Aname);    // player is undefined: blocks Tile.paintInConstructor
       this.cost = new NamedContainer(`rhyzu_cost`);
-      const icon = bonusIcon(Rhyzu.rhyzuCost[leader.index])!
+      const icon = bonusIcon(Rhyzu.rhyzuCost[leader.index]);
       // this.cost.addChild(icon); // new CenterText(Rhyzu.rhyzuCost[leader.isRhyzu], undefined, 'red')
       this.cost.addChild(new CenterText(Rhyzu.rhyzuCost[leader.isRhyzu], undefined, C.RED));
       this.inc = new NamedContainer(`rhyzu_inc`);  // maintenance income or cost for this Rhyzu

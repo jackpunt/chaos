@@ -5,12 +5,12 @@ import { HexMap, LegalMark, newPlanner, NumCounter, Player as PlayerLib, PlayerP
 import { CardShape } from "./card-shape";
 import { ChaosHex2 as Hex2 } from "./chaos-hex";
 import { type ChaosTable, type ChaosTable as Table } from "./chaos-table";
-import { BaseTile, ChaosTile, LeaderTile, MoveInPlay, type BONUS, type FactionOnTile, type HARVEST, type HexPair } from "./chaos-tile";
+import { baseProdTokenIds, BaseTile, ChaosTile, LeaderTile, MoveInPlay, type BONUS, type FactionOnTile, type HARVEST, type HexPair } from "./chaos-tile";
 import { Faction, factionColors, type FactionId, type FactionName } from "./factions";
 import { BgFound, Foundation } from "./foundation";
 import { type Battle, type GamePlay } from "./game-play";
 import { type PlayerId } from "./game-state";
-import { ChaosBuilding, ChaosUnit, Factory, Leader, Outpost, PriceToken, PTokenShape, Rhyzu, Stronghold, type ChaosUnitType, type PriceId } from "./meeples";
+import { ChaosBuilding, ChaosUnit, Factory, Leader, Outpost, PriceToken, ProdToken, PTokenShape, Rhyzu, Stronghold, type ChaosUnitType, type PriceId } from "./meeples";
 import { ResearchCell, ResearchLevel, ResGrid } from "./research-cell";
 import { bonusIcon, CO, pricePhases, type CB } from "./table-params";
 import { CardBack, CardHex, CardPanel, TacticsCard } from "./tactics-card";
@@ -337,7 +337,7 @@ export class Panel extends PlayerPanel {
   wh = TP.meepleRad;
 
 
-  // special Panel with Pricin & ResearchCell matrix
+  /** special Panel with Pricing & ResearchCell matrix */
   layoutNeutralPanel(table: ChaosTable) {
     this.setOutline(4, 'rgba(241, 226, 165, 0.3)');
     const np = table.gamePlay.allPlayers.length, wh = this.wh;
@@ -354,6 +354,7 @@ export class Panel extends PlayerPanel {
     this.addPriceSlots()
     this.addResearchLines()
     this.localToLocal(wh * 2.93, y, table.vault.parent, table.vault); // position vault above Panel
+    // this.addProdTokenPool()
     return;
   }
 
@@ -381,7 +382,7 @@ export class Panel extends PlayerPanel {
         const cy = tShape.y = y0 + dy; // 'LAST' is moved down on slot
         const bonusTxt = PriceBonus[i];
         if (bonusTxt && !isLast) {
-          const bonus = bonusIcon(bonusTxt as HARVEST, fs)!;
+          const bonus = bonusIcon(bonusTxt as HARVEST, fs);
           bonus.x = cx;
           bonus.y = cy - wh * .2;
           slot.addChild(bonus)
@@ -435,7 +436,7 @@ export class Panel extends PlayerPanel {
   /** (only on neutralPanel) Container of all the ResearchCells; parent = neutralPanel */
   researchLines!: NamedContainer;
 
-  /** invoked on neutralPanel */
+  /** (only on neutralPanel) A Container with a row of ResearchCells for each PricePhase */
   addResearchLines() {
     this.researchCells = [];
     const rls = this.researchLines = new NamedContainer('ResLines');
@@ -461,7 +462,13 @@ export class Panel extends PlayerPanel {
     return rls;
   }
 
+  /** (only on neutralPanel) Container of dragable ProdToken */
+  // addProdTokenPool() {
+  //   baseProdTokenIds.forEach(pid => {
+  //     const pt: ProdToken = new ProdToken(pid);
 
+  //   })
+  // }
 
   /**
    * add components:
@@ -564,7 +571,7 @@ export class Panel extends PlayerPanel {
       const fs = h / 2, dx = w * .23;
       const resIcon = bonusIcon('%', fs*.8)!;
       resIcon.x = - dx; resIcon.y = 0;
-      const specIcon = bonusIcon(rb[n], fs*.8) ?? new CenterText(rb[n], fs, C.white);
+      const specIcon = rb[n] ? bonusIcon(rb[n], fs*.8) : new CenterText(rb[n], fs, C.white);
       specIcon.x = + dx; specIcon.y = 0;
       cont.addChild(bgrect, resIcon, specIcon);
       cont.x = x0 + n * (w + gap);
@@ -589,8 +596,9 @@ export class Panel extends PlayerPanel {
   addBuildings(spec: Faction, row = 1.1, col = 2.4) {
     const wh = this.wh, x0 = wh * .55, y0 = wh * .55, fs = wh * .2; // fs = foundation size
     this.addIncomeStripe(0, row, this.getBounds().width - this.wh);
-    const specBg = spec.bg;      // buildings with gemLocks
+    const specBg = spec.bg;      // buildings with gemLocks (and F0-Ex)
     let x00 = x0 + wh * col;
+    // bldgs: [0/1] building is gemLocked
     specBg.forEach((bldgs, btype) => {  // btype: 0: Factory, 1: Outpost, 2: Stronghold
       const nbldgs = bldgs.length;
       const homeAry = new Array<Foundation>(nbldgs); // each Factory instance shares the same homeAry
@@ -598,14 +606,16 @@ export class Panel extends PlayerPanel {
         [Factory, 'E2', 'F'],    // Foundry
         [Outpost, 'C', 'P'],    // outPost
         [Stronghold, 'G1', 'S'], // Stronghold
-      ][btype] as [typeof Factory|typeof Outpost|typeof Stronghold, BONUS, number]
+      ][btype] as [typeof Factory|typeof Outpost|typeof Stronghold, BONUS, string]
+      const F0_btext = 'E2  /    \n/\n    /  G1';
 
       bldgs.toReversed().forEach((bldg, rndx) => {
         const ndx = nbldgs - 1 - rndx; // actual ndx in homeAry
-        const x = x00 + ndx * wh * 1.01; // place bg from left-to-right
+        const x = x00 + ndx * wh * 1.01; // place bgf from left-to-right
         const y = y0 + wh * row;
         // TODO: use TextTweaks to convert E*, C, G* to glyphs?
-        const bonus = bldg < 2 ? bText : [ 'E2  /    \n/\n    /  G1', 'E3'][bldg-2] as BONUS;
+        // 1 or 0 indicates a gemLock (or none); 2 or 3 is only on F0: E2/G or E3
+        const bonus = [bText, bText, F0_btext, 'E3'][bldg] as BONUS;
         const Aname = `${bid}${this.player.facId}.${ndx}`;
         const bgf = homeAry[ndx] = new BgFound(Aname, bonus, fs); // background Foundation on Panel
         if (bldg == 1) bgf.addGemLock(-.25, .65);

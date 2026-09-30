@@ -48,7 +48,7 @@ export class Foundation extends Tile {
   override get radius() { return TP.meepleRad; }
 
   /**
-   * Foundation with maybe a BONUS, maybe a Player.
+   * Foundation with maybe a BONUS.
    * @param Aname container identification
    * @param bonus underlying bonus text (S2, H, [Region, Trap, S1, Morale, D2+S, Recruit])
    * @param fs fontSize of icon text
@@ -56,7 +56,7 @@ export class Foundation extends Tile {
   constructor(Aname: string, bonus: BONUS = '-', fs?: number) {
     super(Aname)
     this.bonus = bonus;
-    this.icon = bonusIcon(bonus, TP.hexRad * .3) ?? this.textBonus(bonus, fs);
+    this.icon = bonus.includes('\n') ? this.textBonus(bonus, fs) : bonusIcon(bonus, TP.hexRad * .3);
     this.addChild(this.icon);
     this.nameText.y -= 6
   }

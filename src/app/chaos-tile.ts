@@ -12,7 +12,7 @@ import { type AI_Trap, type ChaosBuilding, ChaosToken, type Factory, Leader, typ
 import { superMethod } from "./mixins";
 import type { Player } from "./player";
 import type { FactionOnTileState } from "./scenario-parser";
-import { bonusIcon, CO, pentagon } from "./table-params";
+import { CO, pentagon } from "./table-params";
 
 declare module '@thegraid/easeljs-module' {
   interface Graphics {
@@ -106,8 +106,8 @@ const bonusIds = ['-', 'E3', 'E2', 'E1', 'C', 'G1', 'R1', '%'] as const; //
 
 // %, Energy, Gem, Card, Build, Recruit, Leader, Harvest, Move, Upgrade(leader), Attribute(upgrade)
 /** ProdTokens which can be flipped; E2:L/U = Leader deploy/upgrade; E1:B = Build, B_ul = Build ignore gemlock */
-const baseProdTokenIds =    ['%',   'R3', 'G2',    'E4', 'E1_C', 'R1_C', 'E2:L/U', 'E1:B'] as const; // 8 basic
-const upgradeProdTokenIds = ['%E2', 'R4', 'G2_R1', 'E6', 'E3_C', 'R2_C', 'L/U', 'B_ul'] as const; // upgraded
+export const baseProdTokenIds =    ['%',   'R3', 'G2',    'E4', 'E1_C', 'R1_C', 'E2:L/U', 'E1:B'] as const; // 8 basic
+export const upgradeProdTokenIds = ['%E2', 'R4', 'G2_R1', 'E6', 'E3_C', 'R2_C', 'L/U', 'B_ul'] as const; // upgraded
 // B_ul = Build w/free gemlock
 
 export type TERRAIN = typeof terrainIds[number];

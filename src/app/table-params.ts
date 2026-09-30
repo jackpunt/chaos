@@ -91,8 +91,8 @@ export function pentagon (xs: number, ys: number, fillc: string, tilt = 0, strok
  * fs: fontSize
  * tc: textColor
  */
-export function bonusIcon(harv?: HARVEST | PriceBonus, fs = TP.hexRad * .15, tc?: string ) {
-    if (!harv || harv.length > 3) return undefined;  // panel foundations
+export function bonusIcon(harv: HARVEST | PriceBonus, fs = TP.hexRad * .15, tc?: string ) {
+    // Color for each bonus CircleShape:
     const spotmap = { E: 'yellow', G: CO.gColor, C: 'white', R: 'orange', U: 'gold', '.': 'grey',
        '%': C.GREEN, F: 'rgb(127,127,127)' };
     const cardRot = 12;
@@ -106,7 +106,7 @@ export function bonusIcon(harv?: HARVEST | PriceBonus, fs = TP.hexRad * .15, tc?
     const h0 = harv[0] as keyof typeof spotmap;
     const cHarv = spotmap[h0] ?? C.transparent;
     const w = fs * .22/.15, h = (h0 == 'F' || h0 == 'U') ? w : w * 2.5/1.75; // 1.4;
-    // TODO: F -> FameShape (grey with white text)
+    // TODO: F -> FameShape (grey with white text); some icon for 'U'
     const shape = (h0 == 'C' || h0 == 'U') ? miniCard() : (h0 == 'F') ? miniCard(C.grey224) : new CircleShape(cHarv, fs, '');
     const tColor = tc ?? C.pickTextColor(cHarv, ['black', 'white']);
     const harvp = harv.replace('F', '+');

@@ -130,7 +130,7 @@ export class Faction {
   rb!: BONUS[];
   /** Panel Foundation with Gemlock (other than 0: Stronghold_Gem -> Research) */
   fg!: number;
-  /** Foundations w/Gemlock (for the 5 Panel Foundations) */
+  /** Buildings w/Gemlock; bg[0][0] is Energy Bonus for Income; [[F0-Ex, Fg, Fg, Fg], [Og, Og, Og], [Sg, Sg, Sg]] */
   bg!: number[][];
   /** number of Fighters in each recruit stage */
   nr!: number[];
