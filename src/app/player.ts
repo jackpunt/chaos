@@ -170,11 +170,16 @@ export class Player extends PlayerLib {
   get presence() {
     const rv: FactionOnTile[] = [];
     this.gamePlay.hexMap.forEachHex(hex => {
-      const fot = hex.ctile?.hasFot(this.facId);
-      // force ctile.getFoT() to set visibilty
-      if (!!fot && hex.ctile?.getFoT(this) && (fot.fighters > 0 || fot.leaders.length > 0 || fot.buildings.length > 0)) rv.push(fot);
+      if (!hex.ctile) return;
+      // force call to ctile.getFoT() to update visibilty
+      if (this.isPresent(hex.ctile)) rv.push(hex.ctile.getFoT(this.facId));
     })
     return rv;
+  }
+  /** return true if player.facId has FoT with fighters, leaders or buildings */
+  isPresent(ctile: ChaosTile) {
+    const fot = ctile.hasFot(this.facId);
+    return fot && (fot.fighters > 0 || fot.leaders.length > 0 || fot.buildings.length > 0)
   }
 
   /** Tiles containing Units or Buildings of this Player */
@@ -354,7 +359,7 @@ export class Panel extends PlayerPanel {
     this.addPriceSlots()
     this.addResearchLines()
     this.localToLocal(wh * 2.93, y, table.vault.parent, table.vault); // position vault above Panel
-    // this.addProdTokenPool()
+    this.addProdTokenPool(wh * 10, wh * .5)
     return;
   }
 
@@ -463,12 +468,23 @@ export class Panel extends PlayerPanel {
   }
 
   /** (only on neutralPanel) Container of dragable ProdToken */
-  // addProdTokenPool() {
-  //   baseProdTokenIds.forEach(pid => {
-  //     const pt: ProdToken = new ProdToken(pid);
+  addProdTokenPool(x = 40, y = 20) {
+    const cont = new NamedContainer('ProdTokenPool', x, y)
+    this.addChild(cont); // show pool on Panel
+    this.table.newHex2(-.5, 5.9, 'ProdTokenPool', Hex2, this); // allow return to pool
 
-  //   })
-  // }
+    const dx = this.wh * .67, dy = dx;
+    const table = this.table;
+    baseProdTokenIds.forEach((pid, n) => {
+      const pt: ProdToken = new ProdToken(pid, cont);
+      const yn = Math.floor(n/3), xn = n % 3;
+      pt.homeXY = { x: dx * xn, y: dy * yn } // ??? or localToLocal?
+      pt.sendHome();
+      // pt.makeDragable(this.table); // does not matter; table.startGame runs makeDragable on everything.
+      // pt.mouseEnabled = true;
+    })
+
+  }
 
   /**
    * add components:

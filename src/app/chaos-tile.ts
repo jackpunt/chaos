@@ -119,7 +119,7 @@ export type HARVEST = BONUS | PROD_TOKEN;
 export type FAME_BONUS = 'E1' | 'E2' | 'C' | 'G1' | '%' | 'R1' | 'R2' | 'M1' | 'Win' | 'End'; // M1 is Redeploy
 
 /** upgrade side of ProdToken */
-function upgradeProdToken(basic: BASE_PROD_TOKEN) {
+export function upgradeProdToken(basic: BASE_PROD_TOKEN) {
   const ndx = baseProdTokenIds.indexOf(basic)
   return upgradeProdTokenIds[ndx];
 }
@@ -586,8 +586,8 @@ export class ChaosTile extends MapTile {
   }
 
   readonly terrain!: TERRAIN; // immutable
-  prodToken!: ProdToken;
-  // harvest!: HARVEST;          // can place harvest buff token to change
+  prodToken!: ProdToken;      // can drop ProdToken to upgrade
+  origToken!: ProdToken;
   get harvest() { return this.prodToken.harvest }
 
   /** Details of Faction Presence on Tile; index by FactionId */
@@ -630,10 +630,10 @@ export class ChaosTile extends MapTile {
   constructor(Aname: string, t: TERRAIN, h: HARVEST, player?: PlayerLib) {
     super(Aname, player);
     this.terrain = t;
-    this.prodToken = new ProdToken(h);
+    this.prodToken = this.origToken = new ProdToken(h);
     this.nameText.y = this.radius * .66;
     this.addChild(this.nameText);        // re-add above afHex
-    this.addHarvest();
+    this.addHarvest(this.origToken);
     // this.setPlayerAndPaint(player);
     this.paint();
     ChaosTile.allChaosTiles.push(this);
@@ -644,9 +644,19 @@ export class ChaosTile extends MapTile {
     super.paint(colorn, force)
   }
 
-  addHarvest() {
-    this.prodToken.mouseEnabled = false;
-    this.addChild(this.prodToken)
+  // similar to pToken.moveTo(this.hex)
+  addHarvest(pToken: ProdToken) {
+    this.removeChild(this.prodToken);   // retain referene in this.origToken
+    this.prodToken.hex = undefined;     // one meep per hex...
+    if (this.hex) this.hex.meep = undefined; // Note: all ChaosTile have a hex.
+    if (pToken !== this.origToken) {
+      pToken.hex = this.hex;            // superMethod(this, 'moveTo', hex) --> this.hex = hex
+      // --> this.hex.meep = pToken;
+    }
+    pToken.x = pToken.y = 0;
+    this.prodToken = pToken;
+    this.addChild(pToken)
+    this.updateCache();
   }
 
   override textVis(vis?: boolean): void {
@@ -703,7 +713,7 @@ export class ChaosTile extends MapTile {
   }
 
   override makeDragable(table: HasDragger & DragFuncs): void {
-    return; // tiles not generally dragable
+    return; // ChaosTile not generally Dragable
   }
   override isDragable(ctx?: DragContext): boolean {
     return false;   // User/GUI cannot rearrange MapTile
@@ -768,9 +778,9 @@ export class BaseTile extends ChaosTile {
     counter.clickToInc(true, 5);   // temp for testing
   }
 
- override addHarvest() {
-    super.addHarvest()
-    this.prodToken.y = this.radius * .2; // move down, below Image
+ override addHarvest(pToken: ProdToken) {
+    super.addHarvest(pToken)
+    pToken.y = this.radius * .2; // move down, below Image
   }
 
   // no Foundations allowed in Base
@@ -787,7 +797,7 @@ export class BaseTile extends ChaosTile {
   }
 
   override makeDragable(table: HasDragger & DragFuncs): void {
-    superMethod(this, Tile, 'makeDragable', table)
+    superMethod(this, Tile, 'makeDragable', table); // Dragable & clickToDrag
   }
 
   override isDragable(ctx?: DragContext): boolean {

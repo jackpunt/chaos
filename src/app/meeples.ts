@@ -1,10 +1,10 @@
 import { C, Constructor, F, S, stime, type XY, type XYWH } from "@thegraid/common-lib";
 import { CenterText, CircleShape, EllipseShape, NamedContainer, PathShape, RectShape, TextInRect, UtilButton, type Paintable, type RectWithDispOptions, type TextInRectOptions } from "@thegraid/easeljs-lib";
 import { Container, Graphics, MouseEvent, Rectangle } from "@thegraid/easeljs-module";
-import { Meeple, MeepleShape, Tile, type DragContext, type Hex, type HexM, type IHex2, } from "@thegraid/hexlib";
+import { Meeple, MeepleShape, Tile, type DragContext, type DragFuncs, type HasDragger, type Hex, type HexM, type IHex2 } from "@thegraid/hexlib";
 import { CardShape } from "./card-shape";
 import { TokenHex, type ChaosHex2 as Hex2, type HexMap2 } from "./chaos-hex";
-import type { BONUS, ChaosTile, FactionOnTile, HARVEST, LeaderTile, TERRAIN } from "./chaos-tile";
+import { upgradeProdToken, type BASE_PROD_TOKEN, type BONUS, type ChaosTile, type FactionOnTile, type HARVEST, type LeaderTile, type TERRAIN } from "./chaos-tile";
 import { factionNeutral, type FactionId } from "./factions";
 import { BgFound, Foundation } from "./foundation";
 import type { GamePlay } from "./game-play";
@@ -162,19 +162,79 @@ export class ChaosToken extends Tile {
   homeXY!: XY;                // sendHome location, if needed
 }
 
-/** one of the eight placeable production tokens */
-export class ProdToken extends ChaosToken {
-  constructor(public harvest: HARVEST) {
+/** Basic Harvest icon or one of the eight placeable production tokens.
+ *
+ * baseShape is a UtilButton showing a bonusIcon.
+ *
+ * @param homeCont provided for moveable ProdToken
+*/
+export class ProdToken extends ChaosMeeple {
+  harvest!: HARVEST;
+  homeCont?: Container;
+  declare baseShape: UtilButton;
+
+  constructor(harvest: HARVEST, homeCont?: Container) {
     super(`Prod_${harvest}`);
-    const icon = bonusIcon(harvest);
-    icon.y = TP.hexRad * .41;
-    this.addChild(icon);
+    this.setHarvest(harvest);
+    this.homeCont = homeCont;
   }
-  // override makeShape(size?: number): Paintable {
-  //   const ub = new UtilButton('.', {})
-  //   ub.addChild(bonusIcon(this.harvest)!)
-  //   return ub;
-  // }
+
+  setHarvest(harvest: HARVEST) {
+    this.baseShape.removeAllEventListeners(S.click);
+    this.removeAllChildren();
+    this.harvest = harvest;
+    this.baseShape = this.bonusButton(harvest);
+    this.addChild(this.baseShape, this.nameText);
+  }
+
+  upgrade() {
+    this.setHarvest(upgradeProdToken(this.harvest as BASE_PROD_TOKEN))
+    // this.stage.update();
+  }
+
+  /** bonusIcon on a UtilButton */
+  bonusButton(harvest: HARVEST)  {
+    const ub = new UtilButton('.', { active: true, fontSize: .1 })   // small TextRect, to be obscured by clickable bonusIcon
+    ub.addChild(bonusIcon(harvest)!)
+    ub.setBounds(undefined, 0, 0, 0);
+    ub.y = TP.hexRad * .41;
+    return ub;
+  }
+
+  override makeDragable(table: HasDragger & DragFuncs): void {
+    if (!this.homeCont) return;  // origToken is not Dragable!
+    super.makeDragable(table);
+  }
+
+  override isLegalTarget(toHex: Hex2, ctx?: DragContext): boolean {
+    if (toHex.Aname.startsWith('ProdTokenPool')) return true;
+    if (!toHex.ctile || toHex.ctile.isMtn) return false;
+    if (!this.gamePlay.curPlayer.isPresent(toHex.ctile)) return false; // check for curPlayer presence
+    return super.isLegalTarget(toHex, ctx);  // checks for hex.meep
+  }
+
+  override dragStart(ctx: DragContext): void {
+    const tile = (this.fromHex as Hex2|undefined)?.ctile;
+    if (tile) {
+      tile.addHarvest(tile.origToken)
+    }
+    super.dragStart(ctx);   // proforma
+  }
+
+  override dropFunc(targetHex: Hex2, ctx: DragContext): void {
+    if (!targetHex || targetHex.Aname.startsWith('ProdTokenPool')) {
+      this.sendHome();
+    } else {
+      targetHex.ctile?.addHarvest(this);
+    }
+  }
+
+  // return moveable to ProdTokenPool on neutralPanel
+  override sendHome(): void {
+    this.x = this.homeXY.x;
+    this.y = this.homeXY.y;
+    this.homeCont?.addChild(this);
+  }
 }
 
 
