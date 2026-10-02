@@ -53,7 +53,7 @@ export class GameState extends GameStateLib {
     this._round += 1;  // TODO -- other things.
   }
 
-  /** initiator for this Phase */
+  /** initiator for this Phase, PlayerId */
   phaseNdx: PlayerId = 0;
 
   /**
@@ -103,7 +103,15 @@ export class GameState extends GameStateLib {
     super.start(startPhase, startArgs);
   }
 
-  autoPlace?: string = 'SetPrices';    // undefined for normal --> 'PlaceRelic'
+  /** ordinal of given PhaseName (or any key of this.states) */
+  stateNdx(phase: string) { return Object.keys(this.states).indexOf(phase)}
+
+  /** run auto placements until autoPhase */
+  autoPhase?: string = 'Harvest';    // undefined for normal --> 'PlaceRelic'
+  autoPhaseIsAfter(phase: string) {
+    return this.autoPhase && this.stateNdx(phase) < this.stateNdx(this.autoPhase);
+  }
+
   override startPhase = 'PlaceBase';
   override startArgs: any[] = [];
 
@@ -198,15 +206,12 @@ export class GameState extends GameStateLib {
         if (plyr) {
           this.setCurPlayerNdx(plyr.index);
           this.doneButton();
-          if (this.autoPlace) {
+          if (this.autoPhaseIsAfter('PlaceBase')) {
             this.curPlayer.autoPlaceBase(() => this.table.doneClicked());
           }
         } else {
           this.gunPlayer = this.gamePlay.allPlayers[pid];  // last to place Base is first with the Gun.
-          if (!!this.autoPlace && this.autoPlace !== 'PlaceRelic') {
-            this.gamePlay.placeInitialRelics(); // auto place Relics (permute)
-          }
-          this.phase(this.autoPlace || 'PlaceRelic');
+          this.phase('PlaceRelic');
         }
       },
       // done(this.player.index)
@@ -220,6 +225,7 @@ export class GameState extends GameStateLib {
         const index = this.nextNdx(lastNdx, -1);
         this.setCurPlayerNdx(index as PlayerId);
         this.doneButton();
+        if (this.autoPhaseIsAfter('PlaceRelic')) this.state.done!();  // --> placeInitialRelics()
       },
       done: (index = this.curPlayer.index) => {
         if (index !== this.phaseNdx) {
@@ -242,11 +248,17 @@ export class GameState extends GameStateLib {
           plyr.newMoveInPlay(baseTile, hex.ctile!);
         });
         this.doneButton();
+        if(this.autoPhaseIsAfter('DeployLeaders')) {
+          const plyr = this.curPlayer, facId = plyr.facId;
+          const ldr = plyr.faction.leaders[0];
+          const hex = plyr.panel.baseTile.baseRegions![0].ctile?.getFoT(facId).addLeader(ldr);
+          this.state.done!();
+        }
       },
 
       notDone: () => {
         const plyr = this.curPlayer, facId = plyr.facId;
-        if (!plyr.panel.baseTile.baseRegions?.find(hex => hex.ctile!.hasFot(facId).leaders.length > 0)) {
+        if (!plyr.panel.baseTile.baseRegions?.find(hex => hex.ctile!.hasFoT(facId).leaders.length > 0)) {
           return "must place a Leader";
         } else {
           const plyr = this.curPlayer, baseTile = plyr.panel.baseTile;
@@ -267,6 +279,7 @@ export class GameState extends GameStateLib {
         this._round = round;   // 'PlaceBase' & 'Relics' invoke with new roundNum
         this.gamePlay.saveGame();
         this.doneButton(`Begin Round: ${this.roundNum}`); // activate
+        if (this.autoPhaseIsAfter('BeginRound')) this.state.done!();
       },
       done: () => {
         Relic.allRelics[0].toMapScale(true);
@@ -281,6 +294,9 @@ export class GameState extends GameStateLib {
         this.setCurPlayerNdx(ndx);
         this.doneButton();
         // PriceToken.dropFunc() --> PT.setTokenOnPhase(priceIndex);
+        if (this.autoPhaseIsAfter('SetPrices')) {
+          this.gamePlay.autoSetPrices(ndx); // --> this.state.done!()
+        }
       },
       done: () => {
         const next = this.nextNdx(this.curPlayerNdx);
@@ -306,8 +322,9 @@ export class GameState extends GameStateLib {
         this.setCurPlayerNdx(ndx);
         this.curPlayer.faction.offerPrimaryAndAux(this.pricePhase); // 'Discovery'
         this.doneButton();
+        if (this.autoPhaseIsAfter(this.state.Aname!)) this.state.done!(); // nobody buys this Phase
+        // TODO: discover something? [not required, can D&D tokens afterwards]
       },
-      // TODO:
       done: () => {
         this.startOrPhase('Build')}
         ,
@@ -319,6 +336,8 @@ export class GameState extends GameStateLib {
         // for each Build point: D&D a Building or Foundation --> done()
         // maybe buy a aux Build | Card
         this.doneButton();
+        if (this.autoPhaseIsAfter(this.state.Aname!)) this.state.done!(); // nobody buys this Phase
+        // TODO: place some Factory so we can Harvest!
       },
       done: () => this.startOrPhase('Harvest'),
     },
@@ -329,6 +348,7 @@ export class GameState extends GameStateLib {
         // add Energy; for each Gear: select BONUS
         // auto if no choices
         this.doneButton();
+        if (this.autoPhaseIsAfter(this.state.Aname!)) this.state.done!(); // nobody buys this Phase
       },
       done: () => this.startOrPhase('Recruit'),
     },
