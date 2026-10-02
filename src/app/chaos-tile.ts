@@ -8,7 +8,7 @@ import { NumCounterHex } from "./counters";
 import { Faction, type FactionId } from "./factions";
 import { Foundation } from "./foundation";
 import type { GamePlay } from "./game-play";
-import { type AI_Trap, type ChaosBuilding, ChaosToken, type Factory, Leader, type Morale, type Outpost, ProdToken, type Relic, type Stronghold } from "./meeples";
+import { type AI_Trap, type baseProdTokenIds, type ChaosBuilding, ChaosToken, type Factory, Leader, type Morale, type Outpost, ProdToken, type Relic, type Stronghold, type upgradeProdTokenIds } from "./meeples";
 import { superMethod } from "./mixins";
 import type { Player } from "./player";
 import type { FactionOnTileState } from "./scenario-parser";
@@ -105,10 +105,6 @@ const terrainIds = ['Mtn', 'Hills', 'Swamp', 'Plains', 'Lake', 'Base', 'Ldr'] as
 const bonusIds = ['-', 'E3', 'E2', 'E1', 'C', 'G1', 'R1', '%'] as const; //
 
 // %, Energy, Gem, Card, Build, Recruit, Leader, Harvest, Move, Upgrade(leader), Attribute(upgrade)
-/** ProdTokens which can be flipped; E2:L/U = Leader deploy/upgrade; E1:B = Build, B_ul = Build ignore gemlock */
-export const baseProdTokenIds =    ['%',   'R3', 'G2',    'E4', 'E1_C', 'R1_C', 'E2:L/U', 'E1:B'] as const; // 8 basic
-export const upgradeProdTokenIds = ['%E2', 'R4', 'G2_R1', 'E6', 'E3_C', 'R2_C', 'L/U', 'B_ul'] as const; // upgraded
-// B_ul = Build w/free gemlock
 
 export type TERRAIN = typeof terrainIds[number];
 export type BONUS = typeof bonusIds[number];
@@ -117,13 +113,6 @@ export type UPGRADE_PROD_TOKEN = typeof upgradeProdTokenIds[number];
 export type PROD_TOKEN = BASE_PROD_TOKEN | UPGRADE_PROD_TOKEN;
 export type HARVEST = BONUS | PROD_TOKEN;
 export type FAME_BONUS = 'E1' | 'E2' | 'C' | 'G1' | '%' | 'R1' | 'R2' | 'M1' | 'Win' | 'End'; // M1 is Redeploy
-
-/** upgrade side of ProdToken */
-export function upgradeProdToken(basic: BASE_PROD_TOKEN) {
-  const ndx = baseProdTokenIds.indexOf(basic)
-  return upgradeProdTokenIds[ndx];
-}
-
 
 const colorOfTerrain: Record<TERRAIN, string> = {
   Mtn: C.grey64,
@@ -303,7 +292,7 @@ export namespace MoveInPlay {
       const corner = this.pickCorner(pair);
       this.dir = corner.dir;
       this.x = corner.pt.x; this.y = corner.pt.y; // x,y on overCont: += (fHex.x, fHex.y)
-      const fot = fHex.ctile?.hasFot(mip.player.facId)!;
+      const fot = fHex.ctile?.hasFoT(mip.player.facId)!;
       // find coords relative to fHex:
       const ptx = corner.pt.x - fHex.x, pty = corner.pt.y - fHex.y;
       const fx = 0, tx = (tHex.x - fHex.x) + fot.x -ptx;
@@ -372,7 +361,7 @@ export class FactionOnTile extends NamedContainer {
   /**  number of fighters on tile */
   get fighters() { return this.fighterIcon.value };
   set fighters(n: number) { this.fighterIcon.value = Math.max(n, 0) }
-  get inRegion() { return this.tile }
+
   leaders: Leader[] = [ ];              // 2+ slots (own + Rhyzu), Zcharo: 4, Oxataya: 4
   strength = 0;                         // Apparent strength of Faction
   pins = 0;
@@ -720,7 +709,7 @@ export class ChaosTile extends MapTile {
   }
 
   /** return the FoT(player) if this tile has one. */
-  hasFot(facId: FactionId) {
+  hasFoT(facId: FactionId) {
     return this.factions[facId]
   }
   // TODO: specialize LeaderTile.getFoT() to provide FoT at Center
@@ -762,12 +751,6 @@ export class BaseTile extends ChaosTile {
     this.addChild(image)
     this.addMoveCounter()
   }
-  // override hasFot(facId: FactionId = this.player.facId): FactionOnTile {
-  //   return super.hasFot(facId)
-  // }
-  // override getFoT(arg: Player | FactionId = this.player.facId): FactionOnTile {
-  //   return super.getFoT(arg)
-  // }
 
   moveCounter!: NumCounter;
   addMoveCounter(y0 = this.radius * .1) {
@@ -947,7 +930,7 @@ export class BaseTile extends ChaosTile {
       fot.leaders.length = 0;
     })
     this.player.movesInPlay.length = 0;    // clear move-counter (re-enable Moves)
-    this.player.presence;                  // vis on 0-sized fighters
+    this.player.setAllFighterVis();               // vis on 0-sized fighters
     this.gamePlay.movePlayer = movePlayer; // restore curent movePlayer
 
     // remove Foundations that were placed adjacent to Base;

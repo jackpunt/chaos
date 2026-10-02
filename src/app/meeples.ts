@@ -1,10 +1,10 @@
 import { C, Constructor, F, S, stime, type XY, type XYWH } from "@thegraid/common-lib";
 import { CenterText, CircleShape, EllipseShape, NamedContainer, PathShape, RectShape, TextInRect, UtilButton, type Paintable, type RectWithDispOptions, type TextInRectOptions } from "@thegraid/easeljs-lib";
 import { Container, Graphics, MouseEvent, Rectangle } from "@thegraid/easeljs-module";
-import { Meeple, MeepleShape, Tile, type DragContext, type DragFuncs, type HasDragger, type Hex, type HexM, type IHex2 } from "@thegraid/hexlib";
+import { Meeple, MeepleShape, Table, Tile, type DragContext, type DragFuncs, type HasDragger, type Hex, type HexM, type IHex2 } from "@thegraid/hexlib";
 import { CardShape } from "./card-shape";
 import { TokenHex, type ChaosHex2 as Hex2, type HexMap2 } from "./chaos-hex";
-import { upgradeProdToken, type BASE_PROD_TOKEN, type BONUS, type ChaosTile, type FactionOnTile, type HARVEST, type LeaderTile, type TERRAIN } from "./chaos-tile";
+import { type BASE_PROD_TOKEN, type BONUS, type ChaosTile, type FactionOnTile, type HARVEST, type LeaderTile, type TERRAIN } from "./chaos-tile";
 import { factionNeutral, type FactionId } from "./factions";
 import { BgFound, Foundation } from "./foundation";
 import type { GamePlay } from "./game-play";
@@ -133,10 +133,10 @@ export class ChaosMeeple extends Meeple {
 
   /** invoke from startDrag() to prevent movement */
   stopDrag(targetHex?: Hex2) {
-    const table = this.player.gamePlay.table, test = true;
-    if (test && (table.dragger.dragCont.children[0] != this)) debugger;
+    const test = true;
+    if (test && (Table.table.dragger.dragCont.children[0] != this)) debugger;
     // --> dragger.stopDrag(); which looks at dragCont.children[0]
-    this.player.gamePlay.table.stopDragging(targetHex)
+    Table.table.stopDragging(targetHex)
   }
 
 }
@@ -162,6 +162,11 @@ export class ChaosToken extends Tile {
   homeXY!: XY;                // sendHome location, if needed
 }
 
+/** ProdTokens which can be flipped; E2:L/U = Leader deploy/upgrade; E1:B = Build, B_ul = Build ignore gemlock */
+export const baseProdTokenIds =    ['%',   'R3', 'G2',    'E4', 'E1_C', 'R1_C', 'E2:L/U', 'E1:B'] as const; // 8 basic
+export const upgradeProdTokenIds = ['%E2', 'R4', 'G2_R1', 'E6', 'E3_C', 'R2_C', 'L/U', 'B_ul'] as const; // upgraded
+// B_ul = Build w/free gemlock
+
 /** Basic Harvest icon or one of the eight placeable production tokens.
  *
  * baseShape is a UtilButton showing a bonusIcon.
@@ -169,6 +174,13 @@ export class ChaosToken extends Tile {
  * @param homeCont provided for moveable ProdToken
 */
 export class ProdToken extends ChaosMeeple {
+
+  /** obtain ID for upgrade side of ProdToken */
+  static upgradeId(basic: BASE_PROD_TOKEN) {
+    const ndx = baseProdTokenIds.indexOf(basic)
+    return upgradeProdTokenIds[ndx];
+  }
+
   harvest!: HARVEST;
   homeCont?: Container;
   declare baseShape: UtilButton;
@@ -188,7 +200,7 @@ export class ProdToken extends ChaosMeeple {
   }
 
   upgrade() {
-    this.setHarvest(upgradeProdToken(this.harvest as BASE_PROD_TOKEN))
+    this.setHarvest(ProdToken.upgradeId(this.harvest as BASE_PROD_TOKEN))
     // this.stage.update();
   }
 
@@ -209,16 +221,24 @@ export class ProdToken extends ChaosMeeple {
   override isLegalTarget(toHex: Hex2, ctx?: DragContext): boolean {
     if (toHex.Aname.startsWith('ProdTokenPool')) return true;
     if (!toHex.ctile || toHex.ctile.isMtn) return false;
-    if (!this.gamePlay.curPlayer.isPresent(toHex.ctile)) return false; // check for curPlayer presence
+    if (!this.gamePlay.curPlayer.isOnTile(toHex.ctile)) return false; // check for curPlayer presence
     return super.isLegalTarget(toHex, ctx);  // checks for hex.meep
   }
 
   override dragStart(ctx: DragContext): void {
-    const tile = (this.fromHex as Hex2|undefined)?.ctile;
-    if (tile) {
-      tile.addHarvest(tile.origToken)
+    const fromHex = (this.fromHex as Hex2|undefined);
+    const fromTile = fromHex?.ctile;
+    if (!this.gamePlay.curPlayer.faction.allowProdTokenPoolCB && !ctx.lastShift) {
+      this.stopDrag();         // return to this.fromHex if any
+      if (!fromTile) {
+        this.sendHome();       // return to ProdTokenPool
+      }
+    } else {
+      if (fromTile) {
+        fromTile.addHarvest(fromTile.origToken); // restore underlying original Harvest on tile.
+      }
+      super.dragStart(ctx);   // proforma
     }
-    super.dragStart(ctx);   // proforma
   }
 
   override dropFunc(targetHex: Hex2, ctx: DragContext): void {
@@ -226,6 +246,9 @@ export class ProdToken extends ChaosMeeple {
       this.sendHome();
     } else {
       targetHex.ctile?.addHarvest(this);
+      const cb = this.gamePlay.curPlayer.faction.allowProdTokenPoolCB;
+      this.gamePlay.curPlayer.faction.allowProdTokenPoolCB = undefined;  // one-shot drop
+      cb && cb();       // this.dragStart() confirmed CB! (but: lastShift!)
     }
   }
 
@@ -822,7 +845,7 @@ export class ChaosBuilding extends ChaosPresence {
 
   override isLegalTarget(toHex: Hex2, ctx?: DragContext): boolean {
     const tile = toHex.ctile;
-    if (!this.player.hexPresence.includes(toHex)) return false;
+    if (!this.player.isOnHex(toHex)) return false;
     return !!tile?.foundations.find(f => f && (!f.bldg || f.bldg == this))
   }
   override cantBeMovedBy(player: Player, ctx: DragContext): string | boolean | undefined {

@@ -106,7 +106,7 @@ export class Foundation extends Tile {
     if (!tile) return false;
     if (tile.isLdr || tile.isBase) return false;
     // the only draggable Foundation is from player.Panel:
-    if (!this.player.hexPresence.includes(toHex)) return false;
+    if (!this.player.isOnHex(toHex)) return false;
     return (tile.canAddFoundation());
   }
 

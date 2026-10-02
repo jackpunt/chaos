@@ -1,4 +1,4 @@
-import { removeEltFromArray, stime } from "@thegraid/common-lib";
+import { removeEltFromArray, S, stime } from "@thegraid/common-lib";
 import type { Phase } from "@thegraid/hexlib";
 import type { ChaosHex2 as Hex2 } from "./chaos-hex";
 import type { BONUS, FAME_BONUS, HARVEST } from "./chaos-tile";
@@ -155,9 +155,6 @@ export class Faction {
   /** ResearchLevel for each Phase */
   researchLevelOfPhase!: Record<PricePhase, ResearchLevel>;
 
-  // PricingTokens available to play
-  pTokens: PriceToken[] = [];
-
   /** available Leaders */
   leaders: Leader[] = [];
 
@@ -252,6 +249,12 @@ export class Faction {
     cb();
   }
 
+  /** not allowed to drag ChaosBuilding */
+  onlyFoundation = false;
+
+  /** allow drag from ProdTokenPool, then invoke CB */
+  allowProdTokenPoolCB?: CB;
+
   /** allow Build Action (pv times) then run cb() */
   offerBuildAction(pv: number, cb: CB) {
     // allow pv Build actions:
@@ -290,6 +293,23 @@ export class Faction {
     pvcb(); // recursive loop until all BuildActions used and panel doneButton clicked.
   }
 
+  offerHarvestActions(hv: number, cb: CB) {
+  // enable UtilButton on each Tile where faction has harvest-enabled ChaosBuilding
+    const allHarvest = !!this.player.panel.foundations['harvest'].hex?.isOnMap;
+    const hfot = this.player.fotPresence.filter(fot => allHarvest ? fot.buildings.length > 0 : fot.buildings.find(b => b.Aname.startsWith('F')))
+    let hdone = 0;
+    hfot.forEach(fot => {
+      const pToken = fot.tile.prodToken, btn = pToken.baseShape;
+      pToken.gamePlay.table.dragger.stopDragable(pToken);  // forever on its Tile; removeEventListeners
+      const clickToHarvest = (evt: Object) => {
+        btn.activate(false, true);
+        this.doImmediateBonus(pToken.harvest, () => (++hdone < hv) || cb());
+      }
+      btn.on(S.click, clickToHarvest, true);
+      btn.activate(true);
+    })
+  }
+
   // Discovery: En, Gn, Rn, C, (place) F, PT, UT;
   // Foundation: En, Gn, C, %
   // Income: from ProdToken!
@@ -313,10 +333,11 @@ export class Faction {
       this.offerDiscoveryAction(iv, cb)
     } else if (bs == 'F') {
       console.log(stime(this, `.doImmediateBonus: player.offerPlaceFoundation(cb)`));
-      this.offerBuildAction(1, cb);
+      this.offerBuildAction(1, cb); // TODO: restrict to Foundation
     } else if (bs == 'PT') {
       console.log(stime(this, `.doImmediateBonus: player.offerProdToken(cb)`));
-      cb();
+      this.allowProdTokenPoolCB = cb;
+      // TODO: activate panelReset/Done(cb)
     } else if (bs == 'UT') {
       console.log(stime(this, `.doImmediateBonus: player.offerLeaderUpgrade(cb)`));
       cb();

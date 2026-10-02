@@ -220,10 +220,10 @@ export class GamePlay extends GamePlayLib {
     this.movePoints = nMove;
     this.movePlayer = faction.player;
     const baseTile = faction.player.panel.baseTile;
-    baseTile.moveCounter.incValue(nMove);
+    baseTile.moveCounter.value = (nMove);
     baseTile.moveCounter.visible = true;
     // set visibity on fot.moveIcon & fot.fighterIcon; set pre-Move state
-    faction.player.presence.forEach(fot => fot.setPreMove());
+    faction.player.presence.forEach(fot => { fot.setFighterVis(); fot.setPreMove(); });
     console.log(stime(this, `.moveFaction: preFighters=`), faction.player.presence.map(fot => fot.preFighters));
     baseTile.stage.update();
     // TODO: D&D stuff for MoveShape [8/12]
@@ -241,19 +241,21 @@ export class GamePlay extends GamePlayLib {
   endMoveFaction() {
     if (!this.movePlayer) return;
     const faction = this.movePlayer.faction;
-    const fotPres = this.movePlayer.fotPresence;
     this.movePlayer.movesInPlay.length = 0;
     this.movePlayer = undefined;
-    faction.player.panel.baseTile.moveCounter.visible = false;
+    const moveCounter = faction.player.panel.baseTile.moveCounter;
+    moveCounter.value = 0;
+    moveCounter.visible = false;
     if (faction.facId == 3) {
-      const tgoftile = MoveInPlay.teleGraphics
+      const tgOfTile = MoveInPlay.teleGraphics
+      const fotPres = faction.player.fotPresence;
       fotPres.forEach(fot => {
         // Leyrien: for each potential fHex.ctile, remove & delete any TeleGraphics
-        tgoftile.get(fot.tile)?.forEach(tg => tg.parent.removeChild(tg));
-        tgoftile.delete(fot.tile)
+        tgOfTile.get(fot.tile)?.forEach(tg => tg.parent.removeChild(tg));
+        tgOfTile.delete(fot.tile)
       })
     }
-    faction.player.presence; // touch all FoT, setting visibility
+    faction.player.setAllFighterVis(); // touch all FoT, setting visibility
     this.removeTargets(); // remove all MoveInPlay
   }
 

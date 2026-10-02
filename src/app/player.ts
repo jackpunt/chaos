@@ -1,16 +1,16 @@
-import { arrayN, C, Constructor, permute, S, stime, type XY } from "@thegraid/common-lib";
+import { arrayN, C, Constructor, permute, S, stime } from "@thegraid/common-lib";
 import { AliasLoader, CenterText, CircleShape, NamedContainer, RectShape, TextInRect, UtilButton, type Paintable } from "@thegraid/easeljs-lib";
 import type { DisplayObject } from "@thegraid/easeljs-module";
-import { HexMap, LegalMark, newPlanner, NumCounter, Player as PlayerLib, PlayerPanel, TP, type IHex2, type MapCont, type Tile } from "@thegraid/hexlib";
+import { HexMap, LegalMark, newPlanner, NumCounter, Player as PlayerLib, PlayerPanel, TP, type IHex2, type MapCont } from "@thegraid/hexlib";
 import { CardShape } from "./card-shape";
 import { ChaosHex2 as Hex2 } from "./chaos-hex";
 import { type ChaosTable, type ChaosTable as Table } from "./chaos-table";
-import { baseProdTokenIds, BaseTile, ChaosTile, LeaderTile, MoveInPlay, type BONUS, type FactionOnTile, type HARVEST, type HexPair } from "./chaos-tile";
+import { BaseTile, ChaosTile, LeaderTile, MoveInPlay, type BONUS, type FactionOnTile, type HARVEST, type HexPair } from "./chaos-tile";
 import { Faction, factionColors, type FactionId, type FactionName } from "./factions";
 import { BgFound, Foundation } from "./foundation";
 import { type Battle, type GamePlay } from "./game-play";
 import { type PlayerId } from "./game-state";
-import { ChaosBuilding, ChaosUnit, Factory, Leader, Outpost, PriceToken, ProdToken, PTokenShape, Rhyzu, Stronghold, type ChaosUnitType, type PriceId } from "./meeples";
+import { baseProdTokenIds, ChaosBuilding, ChaosUnit, Factory, Leader, Outpost, PriceToken, ProdToken, PTokenShape, Rhyzu, Stronghold, type ChaosUnitType, type PriceId } from "./meeples";
 import { ResearchCell, ResearchLevel, ResGrid } from "./research-cell";
 import { bonusIcon, CO, pricePhases, type CB } from "./table-params";
 import { CardBack, CardHex, CardPanel, TacticsCard } from "./tactics-card";
@@ -152,38 +152,42 @@ export class Player extends PlayerLib {
     }
   }
 
-  /** IHex2[] where player has presence */
-  get hexPresence() {
-    return this.presence.map(fot => fot.tile.hex as Hex2)
-  }
-
   /** Array of FoT with every extant FoT for this Player */
   get fotPresence() {
     const rv: FactionOnTile[] = [];
     this.gamePlay.hexMap.forEachHex(hex => {
-      const fot = hex.ctile?.hasFot(this.facId);
+      const fot = hex.ctile?.hasFoT(this.facId);
       if (!!fot) rv.push(fot);
     })
     return rv;
   }
-  /** Array of FoT for this Player with fighters, leaders or buildings */
-  get presence() {
-    const rv: FactionOnTile[] = [];
-    this.gamePlay.hexMap.forEachHex(hex => {
-      if (!hex.ctile) return;
-      // force call to ctile.getFoT() to update visibilty
-      if (this.isPresent(hex.ctile)) rv.push(hex.ctile.getFoT(this.facId));
-    })
-    return rv;
-  }
-  /** return true if player.facId has FoT with fighters, leaders or buildings */
-  isPresent(ctile: ChaosTile) {
-    const fot = ctile.hasFot(this.facId);
-    return fot && (fot.fighters > 0 || fot.leaders.length > 0 || fot.buildings.length > 0)
+
+  setAllFighterVis() {
+    return this.fotPresence.filter(fot => this.isInFot(fot) && fot.setFighterVis())
   }
 
+  /** Array of FoT for this Player with fighters, leaders or buildings; setFighterVis() */
+  get presence() {
+    return this.fotPresence.filter(fot => this.isInFot(fot))
+  }
+
+  /** return true if fot has Fighters, Leaders or Buildings. */
+  isInFot(fot?: FactionOnTile) {
+    return fot && (fot.fighters > 0 || fot.leaders.length > 0 || fot.buildings.length > 0)
+  }
+  /** return true if player.facId has FoT with fighters, leaders or buildings */
+  isOnTile(ctile?: ChaosTile, fot = ctile?.hasFoT(this.facId)) {
+    return this.isInFot(fot);
+  }
+
+  /** true if Player has presence on Hex */
+  isOnHex(hex: Hex2) {
+    return this.isOnTile(hex.ctile)
+  }
+
+
   /** Tiles containing Units or Buildings of this Player */
-  get inRegions() { return this.presence.map(pres => pres.inRegion) }
+  get inRegions() { return this.presence.map(pres => pres.tile) }
   /** Tiles constaining Units or Buildings of this Player */
   get regionSet() { return [...new Set(this.inRegions)] }
 
@@ -318,6 +322,9 @@ export class Panel extends PlayerPanel {
   avail: NamedContainer;
   vault: NamedContainer;
 
+  /** common wh for relics & foundations & buildings & PriceToken */
+  wh = TP.meepleRad;
+
   constructor(table: Table, player: Player, high: number, wide: number, row: number, col: number, dir?: number) {
     const hexMap = table.hexMap;
     super(table, player, high, wide, row, col, dir); // make a PlayerPanel
@@ -337,10 +344,6 @@ export class Panel extends PlayerPanel {
     const cStrings = ['', ltext, rtext]
     this.areYouSure(qtext, lf, rf, () => {}, cStrings);
   }
-
-  /** common wh for relics & foundations & buildings & PriceToken */
-  wh = TP.meepleRad;
-
 
   /** special Panel with Pricing & ResearchCell matrix */
   layoutNeutralPanel(table: ChaosTable) {
@@ -620,7 +623,7 @@ export class Panel extends PlayerPanel {
       const homeAry = new Array<Foundation>(nbldgs); // each Factory instance shares the same homeAry
       const [BC, bText, bid] = [
         [Factory, 'E2', 'F'],    // Foundry
-        [Outpost, 'C', 'P'],    // outPost
+        [Outpost, 'C', 'P'],     // outPost
         [Stronghold, 'G1', 'S'], // Stronghold
       ][btype] as [typeof Factory|typeof Outpost|typeof Stronghold, BONUS, string]
       const F0_btext = 'E2  /    \n/\n    /  G1';
@@ -632,7 +635,7 @@ export class Panel extends PlayerPanel {
         // TODO: use TextTweaks to convert E*, C, G* to glyphs?
         // 1 or 0 indicates a gemLock (or none); 2 or 3 is only on F0: E2/G or E3
         const bonus = [bText, bText, F0_btext, 'E3'][bldg] as BONUS;
-        const Aname = `${bid}${this.player.facId}.${ndx}`;
+        const Aname = `${bid}${this.player.facId}.${ndx}`;  // F, P, S identifies type of Building!
         const bgf = homeAry[ndx] = new BgFound(Aname, bonus, fs); // background Foundation on Panel
         if (bldg == 1) bgf.addGemLock(-.25, .65);
         this.addChild(bgf); bgf.x = x; bgf.y = y;
@@ -648,29 +651,13 @@ export class Panel extends PlayerPanel {
     })
   }
 
-  /** turned out we do not re-use this...
-   * @param fxy Panel location of bg & fg
-   * @param produce { bg: Foundation, fg: Tile }
-   * @returns
-   */
-  makePair(fxy: XY, maker: (fs: number) => { bg: Foundation, fg: Tile & { homeXY?: XY} }) {
-    const fs = this.wh * .2
-    const { bg, fg } = maker(fs);
-    bg.x = fxy.x;
-    bg.y = fxy.y;
-    fg.homeXY = fxy;
-    fg.sendHome();
-    this.addChild(bg, fg);
-    return { bg, fg }
-  }
-
   /** the 5 Foundations:  */
-  foundations: Partial<Record<FoundationId, Foundation>> = {};
+  foundations!: Record<FoundationId, Foundation>;
 
   /** the 5 left-side bonus Foundations; also put Faction Image on this Panel */
   addFoundations(spec: Faction, table: Table) {
     const gl = spec.fg, r = [ 1, 2, 3, 2, 3 ], c = [ 1, 1, 1, 0, 0 ];
-    const fn: Record<FoundationId, string> = {
+    const bgText: Record<FoundationId, string> = {
       research: 'Gem\n---->\nResearch',
       harvest: 'All\n\nHarvest',
       adjacent: 'All\n\nadjacent',
@@ -678,22 +665,27 @@ export class Panel extends PlayerPanel {
       handlimit: '+E2\n\n5 Cards'
     }
     const wh = this.wh, x0 = wh * .55, y0 = wh * .55, s1 = wh * 1.1;
+    const fs = wh * .2;
+    const foundations: Partial<Record<FoundationId, Foundation>> = {}
     foundationIds.forEach((fid, ndx) => {
-      const bText = fn[fid];
+      const bText = bgText[fid];
       const x = x0 + s1 * c[ndx];
       const y = y0 + s1 * r[ndx];
-      const maker = (fs: number) => {
-        const bg = new BgFound(fid, bText as BONUS, fs);; // could have be the 'hexShape' of a newHex() ?
-        const fg = new Foundation(fid, '-', fs);  // the dragable Foundation.
-        fg.player = this.player;
-        this.foundations[fid] = fg;               // retain for future reference.
-        if (ndx == 0 || ndx == gl) {
-          fg.addGemLock(.35, 0);
-        }
-        return { bg, fg };
+      const bg = new BgFound(fid, bText as BONUS, fs);; // could have been the 'hexShape' of a newHex() ?
+      const fg = new Foundation(fid, '-', fs);  // the dragable Foundation.
+      fg.player = this.player;
+      foundations[fid] = fg;               // retain for future reference.
+      if (ndx == 0 || ndx == gl) {
+        fg.addGemLock(.35, 0);
       }
-      this.makePair({ x, y }, maker);
+      bg.x = x;
+      bg.y = y;
+      fg.homeXY = { x, y };
+      fg.sendHome();
+      this.addChild(bg);
     })
+    this.foundations = foundations as Record<FoundationId, Foundation>;
+    this.addChild(...Object.values(foundations));
     this.addImage(x0 + s1 * 2, y0 + s1 * 3)
   }
 
@@ -899,6 +891,7 @@ export class Panel extends PlayerPanel {
     this.stage.update();
   }
 
+  /** PriceToken[] for this player/faction */
   priceTokens = [] as PriceToken[];
   /**
    * A row of 6 PricingToken with a home on this Panel.avail

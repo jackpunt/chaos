@@ -128,6 +128,7 @@ export class ResearchCell extends NamedContainer {
   // TODO: confirm ability to pay before activating?
   activateForAction(faction: Faction, pcb?: CB, acb?: CB) {
     const panel = faction.player.gamePlay.table.neutralPanel; // faction.player.panel;
+    console.log(stime(this, `.activateForAction(${this.pName}):`), !!pcb, !!acb, faction.name);
     if (pcb) {
       this.pButton.on(S.click, () => {
         this.pButton.activate(false);
@@ -201,7 +202,7 @@ export class ResearchCell extends NamedContainer {
     }
     // % B E H R M
     let match: RegExpMatchArray | null, pv0 = 0, pv = 0, hv = 0;
-    const matchv = (p: '%'|'B'|'H'|'R'|'M', ps = this.ps) => {
+    const matchv = (p: '%'|'B'|'E'|'R'|'M', ps = this.ps) => {
       match = ps.match(`${p}(\\d)?(_H(\\d))?`); // (p)_H(hv)
       if (!match) return;
       const np = ps.split(' ').length;
@@ -225,6 +226,9 @@ export class ResearchCell extends NamedContainer {
       pvcb();
     } else if (matchv('B')) {
       faction.offerBuildAction(pv, cb); // pv actions; TODO; check Foundation placement
+    } else if (matchv('E')) {
+      player.coins += pv;               // Energy income
+      faction.offerHarvestActions(hv, cb);
     } else {
 
     }
