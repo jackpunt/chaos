@@ -795,11 +795,8 @@ export class Panel extends PlayerPanel {
     const bColor = faction.facId == 0 ? this.pColor : CO.btColor;
     const color = C.nameToRgbaString(bColor, .8), wh = this.wh;
     baseTile.paint(bColor);
-    // Hack so baseHex does not overlap panel.doneButton!
-    const SmallHex2 = class SmallHex2 extends Hex2 {
-      override get radius(): number { return TP.hexRad/2; }
-    }
-    const hex = this.baseHex = this.table.newHex2(0, 0, `${this.faction.name}Base`, SmallHex2);
+    const hex = this.baseHex = this.table.newHex2(0, 0, `${this.faction.name}Base`, Hex2);
+    hex.cont.visible = false; // So baseHex does not overlap panel.doneButton!
     // move hex to center-center of this Panel:
     this.localToLocal(6.5 * wh, 5.7 * wh, hex.cont.parent, hex.cont)
     hex.legalMark.setOnHex(hex);
