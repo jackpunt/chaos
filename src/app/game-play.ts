@@ -149,34 +149,38 @@ export class GamePlay extends GamePlayLib {
   // General: TacticsCard.onScreenRadius: use static makeShape()
   // General: MoveIcon mis-clicks?
   // General: AI moving to swamp through Mtn!
-  // Setup: Ciradian Base
+  // General: Ctl-click to show upgrade (Leaer & Attribute)
+  // General: doImmediate ('L') ('U') Recruit:, Move:
+  // General: show Circadian Ship: +2F, +1D;
+  // Setup: Circadian Base [~done]
   // Setup: place Relics on Foundations; player choice? [8/17]
   // Setup: layout FactionOnTile (v & ^) [8/20]
   // Setup: Rhyzu.setPlayer() & popup-card [8/28] (8/29)
   // Setup: Leader as: Icon_on_FoT, Card-on-Panel, Card-popup [9/1]
-  // Setup: choose Leaders & starting Leader
+  // Setup: choose Leaders & starting Leader 'DeployLeaders' [10/1]
+  // Setup: place Leader on Map (on base Foundation Regions) -- manual [10/1]
+  // Setup: place Fighters on Map (on base Foundation Regions) [10/1]
   // Setup: place Leader & Fighters in Base (Fighters as Counter, leader w/clicktext [8/26])
-  // Setup: place Leader on Map (on base Foundation Regions) -- manual
-  // Setup: place Fighters on Map (on base Foundation Regions)
   // Setup/phase: show FlareGun indication on faction Panel [8/26]
   // SetPrices: Move --> FlareGun (gunPlayer) [8/26]
   // SetPrices: Recurit, Build, MoveLast --> Energy & Gem & Card [8/26]
   // SetPrices: JRayek: mark & recruit Rhyzu
   // Each Phase: start with Pricer (or Neutral --> gunPlayer) [8/26]
   // Each Phase: player to pay or pass; pay for auxillary [~9/23]
-  // Setup: display Production Tokens
-  // Discover: advancement bonus; give E,G,C; Move(3) R2;
-  // Discover: present Production Tokens, allow selection & placement for Harvest(2); Build(1,3) Foundation
+  // Setup: display Production Tokens [10/1]
+  // Discover: advancement bonus; give E,G,C; Move(3) R2; doImmediate: [10/1]
+  // Discover: present Production Tokens, allow selection & placement for Harvest(2); Build(1,3) Foundation [10/1]
   // Discover: click to select Primary & Auxillary Research. (inc ResearchLevel)
   // Build: D&D a Foundation; D&D a Building; w/gemLocks
-  // Harvest: click-to-Harvest (enable eligble Regions) E, G, C, R, %, etc (ProdToken)
-  // Recruit: click-to-Recruit (Oxataya: option to move Fighters to Strongholds)
-  // Recruit: Aux: select/deploy (& pay gem) Leader
+  // Harvest: click-to-Harvest (enable eligble Regions) E, G, C, R, %, etc (ProdToken) [~9/29]
+  // Harvest: highlight harvestable ProdTokens
+  // Recruit: click-to-Recruit [done] (Oxataya: option to move Fighters to Strongholds)
+  // Recruit: Aux: select/deploy (& pay gem) Leader: doImmediate('L')
   // Move: select & show 'bridge' between src->dest Region. [9/16]
   // Move: select Fighters & Leaders, Drag to next Region. Fighters[9/16]
-  // Move: delete moveInPlay when incr --> 0 (conservation of MovePoints)
-  // Move: hack so swamps are adjacent for Leyrein
-  // Move: Aux: select Leader card to upgrade (& pay gem).
+  // Move: delete moveInPlay when incr --> 0 (conservation of MovePoints) [~done]
+  // Move: hack so swamps are adjacent for Leyrein: TeleGraphic [9/21]
+  // Move: Aux: select Leader card to upgrade (& pay gem). doImmediate('U')
   // Combat: choose opponent; choose wheel, card; commit --> reveal, (Ochara!)
   // Combat: auto resolve, remove casualties/buildings, assign Fame (AI, Zcharo, JReyak, Oxataya)
   // Combat: GUI for Retreat/Redeploy
