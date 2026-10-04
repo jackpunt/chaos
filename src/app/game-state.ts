@@ -257,7 +257,7 @@ export class GameState extends GameStateLib {
 
     /** in table order, place Leader & rest of fighters; movePoints = 2? OR set 2 movesInPlay or click? */
     DeployLeaders: {
-      start: (pndx = 0) => {
+      start: (pndx = this.gunPlayer.index) => {
         this.setCurPlayerNdx(pndx);
         const plyr = this.curPlayer, baseTile = plyr.panel.baseTile;
         baseTile.moveCounter.value = 0;

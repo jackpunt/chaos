@@ -270,5 +270,6 @@ export class GamePlay extends GamePlayLib {
       const scale = TP.cacheTiles
       table.reCacheTiles()}
     )
+    KeyBinder.keyBinder.setKey('R', () => this.curPlayer.faction.offerRecruit(2, ()=>{}))
   }
 }
