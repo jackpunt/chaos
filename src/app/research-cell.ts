@@ -194,10 +194,15 @@ export class ResearchCell extends NamedContainer {
   primary(faction: Faction, cb: CB = () => {}) {
     this.pButton.activate(false); // redundant? see above: activateForAction
     const player = faction.player;
+    const gamePlay = player.gamePlay;
     const pt = this.getPriceToken(faction);
+    console.log(stime(this, `.primary(${faction.name}) ${this.pName}: ${this.ps}`));
     // pt.facId gets the primary action for free:
     if (pt.facId !== faction.facId) {
-      if (pt.vid > player.coins) return; // unable to pay
+      if (pt.vid > player.coins) {
+        console.log(stime(this, `.primary: (${pt.vid} > ${player.coins})`))
+        return; // unable to pay
+      }
       this.payAction(pt, player)
     }
     // % B E H R M
@@ -212,10 +217,8 @@ export class ResearchCell extends NamedContainer {
       if (Number.isNaN(hv)) debugger;
       return pv;
     }
-
-    console.log(stime(this, `.primary(${this.ps})`));
     // parse ps; do it;
-    if (matchv('%')) {
+    if (matchv('%')) {         // Discovery
       const pvcb = () => {
         if (pv-- > 0) {
           faction.offerDiscoveryAction(1, pvcb); // TODO: set Panel Buttons (ex: use only 1 of 2 Discovery)
@@ -225,10 +228,12 @@ export class ResearchCell extends NamedContainer {
       }
       pvcb();
     } else if (matchv('B')) {
-      faction.offerBuildAction(pv, cb); // pv actions; TODO; check Foundation placement
+      faction.offerBuildAction(pv, cb); // Build: pv actions; TODO; check Foundation placement
     } else if (matchv('E')) {
-      player.coins += pv;               // Energy income
+      player.coins += pv;               // Harvest: pv Energy & hv actions
       faction.offerHarvestActions(hv, cb);
+    } else if (matchv('R')) {
+      faction.offerRecruit(pv, cb);     // Recruit: pv Recruits
     } else {
 
     }

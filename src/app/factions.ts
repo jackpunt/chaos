@@ -201,24 +201,13 @@ export class Faction {
     }
   }
 
-  // reset aux button after primary action:
-  resetAuxLevel(rc: ResearchCell) {
-    // in case rc.primary() does Discovery and advances rc.phaseRow -> rc.level + 1:
-    const { phaseRow, level } = this.researchLevelOfPhase[rc.pName];
-    if (level !== rc.level ) {
-      rc.aButton.activate(false);
-      const rc1 = phaseRow[level];
-      rc1.activateForAction(this, undefined, () => {})
-    }
-  }
-
   // for given Phase: offer primary and aux;
   offerPrimaryAndAux(pName: PricePhase, activate = true) {
     const { phaseRow, level } = this.researchLevelOfPhase[pName];
     if (level < phaseRow.length) {
       const rc = phaseRow[level];
       if (activate) {
-        rc.activateForAction(this, () => this.resetAuxLevel(rc), () => {} ); // primary(this, cb), auxillary(this, cb)
+        rc.activateForAction(this, () => {}, () => {} ); // primary(this, cb), auxillary(this, cb)
       } else {
         rc.activateForAction(this);
       }
@@ -230,11 +219,25 @@ export class Faction {
   offerDiscoveryAction(pv = 1, cb: CB = () => {}) {
     pricePhases.forEach(pName => {
       const { phaseRow, level } = this.researchLevelOfPhase[pName];
+      // in Discovery phase: augment activation of researching 'Discovery'
+      const mcb =  (this.player.gamePlay.gameState.isPhase('Discovery') && pName == 'Discovery')
+        ? () => {
+          const nlevel = this.researchLevelOfPhase[pName].level;
+          if (nlevel !== level) {
+            // Note: if Discovery advances, there is not a second Discovery action!
+            // If there IS a second Discovery action, Discovery cannot advance!
+            phaseRow[level].aButton.activate(false); // disable lower-level Discovery
+            phaseRow[nlevel].activateForAction(this, undefined, () => {}); // enable nlevel Aux-Discovery
+          }
+          this.deactivateDiscovery(cb);
+        }
+        : () => this.deactivateDiscovery(cb);
+
       if (level < phaseRow.length-1) {
         // TODO: stash & 'restore/recompute' status of enabled aButton
         // click -> rl.level = rc.level
         // TODO: do not activate if gemlock && player can't pay?
-        phaseRow[level+1].activateForDiscovery(this, true, () => this.deactivateDiscovery(cb));
+        phaseRow[level+1].activateForDiscovery(this, true, mcb);
       }
     })
   }
@@ -294,13 +297,14 @@ export class Faction {
   }
 
   offerHarvestActions(hv: number, cb: CB) {
-  // enable UtilButton on each Tile where faction has harvest-enabled ChaosBuilding
+    // enable UtilButton on each Tile where faction has harvest-enabled ChaosBuilding
     const allHarvest = !!this.player.panel.foundations['harvest'].hex?.isOnMap;
-    const hfot = this.player.fotPresence.filter(fot => allHarvest ? fot.buildings.length > 0 : fot.buildings.find(b => b.Aname.startsWith('F')))
+    const hfot = this.player.fotPresence.filter(fot => fot.tile.isBase || (allHarvest ? fot.buildings.length > 0 : fot.buildings.find(b => b.Aname.startsWith('F'))))
     let hdone = 0;
     hfot.forEach(fot => {
       const pToken = fot.tile.prodToken, btn = pToken.baseShape;
-      pToken.gamePlay.table.dragger.stopDragable(pToken);  // forever on its Tile; removeEventListeners
+      pToken.gamePlay.table.dragger.stopDragable(pToken);   // forever on its Tile; removeEventListeners
+      pToken.gamePlay.table.dragger.stopDragable(fot.tile);  // forever on its Hex; removeEventListeners
       const clickToHarvest = (evt: Object) => {
         btn.activate(false, true);
         this.doImmediateBonus(pToken.harvest, () => (++hdone < hv) || cb());
@@ -348,10 +352,47 @@ export class Faction {
       player.gems += iv;
       cb();
     } else if (matchv('R')) {
-      player.gamePlay.offerRecruit(player, iv, cb)
+      this.offerRecruit(iv, cb)
     } else {
       debugger;
     }
+  }
+
+  /** set nRecruit, activate Buttons for Reset & Done --> cb() */
+  offerRecruit(nRecruit: number, cb: CB) {
+    const player = this.player;
+    const panel = player.panel;
+    const reset = {
+      recruits: panel.recruits.map(rc => rc.value),
+      coins: player.coins,
+      gems: player.gems,
+      cards: player.cards,
+    }
+    // TODO: setResetButton() --> all the recruit counters, coins, cards/gems
+    panel.setDoneButton(`Done Recruit ${nRecruit}`, () => {
+      panel.deactivateButtons();
+      this.moveRecruitsToBase();
+      cb();
+    })
+    panel.setResetButton(`Reset`, () => {
+      const { recruits, coins, gems, cards } = reset;
+      panel.recruits.forEach((rc, n) => rc.value = recruits[n]);
+      player.coins = coins;
+      player.gems = gems;
+      panel.cardPanel.resetCards(cards);
+      this.offerRecruit(nRecruit, cb);
+    })
+    panel.recruitPoints = nRecruit;
+  }
+
+  moveRecruitsToBase(player = this.player) {
+    // move fighters from Panel to Base; TODO: (facId == 5) allow recruit to Stronghold
+    const panel = player.panel;
+    const nRecruit = panel.baseRecruitCounter.value;
+    panel.baseTile.getFoT(player).fighters += nRecruit;
+    panel.baseTile.getFoT(player).setFighterVis(); // QQQ: see if new count shows
+    panel.baseRecruitCounter.value = 0;
+    panel.recruitPoints = 0;  // unused RPs are lost.
   }
 
   /** override for phase specific checks; Faction attributes */

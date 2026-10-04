@@ -145,29 +145,6 @@ export class GamePlay extends GamePlayLib {
     })
   }
 
-  /** set nRecruit, activate Buttons for Reset & Done --> cb() */
-  offerRecruit(player: Player, nRecruit: number, cb: CB) {
-    this.recruitAction(player, nRecruit)
-    // doneRecruit(cb): { moveRecruitsToBase(); cb(); }
-    // for now, will table.doneButton suffice? no: M5 -> R2 Immediate Bonus (and card effects, ProdToken, etc)
-  }
-
-  recruitAction(player = this.curPlayer, nRecruit?: number) {
-    function nForLevel () {
-      const level = player.faction.researchLevelOfPhase['Recruit'].level;
-      return [2, 4, 5, 7, 9][level];
-    }
-    player.panel.recruitPoints = nRecruit ?? nForLevel();
-  }
-
-  moveRecruitsToBase(player = this.curPlayer) {
-    // move fighters from Panel to Base; TODO: (facId == 5) allow recruit to Stronghold
-    const nRecruit = player.panel.baseRecruitCounter.value;
-    player.panel.baseTile.getFoT(player).fighters += nRecruit;
-    player.panel.baseRecruitCounter.value = 0;
-    player.panel.recruitPoints = 0;  // unused RPs are lost.
-  }
-
   // TODO:
   // General: TacticsCard.onScreenRadius: use static makeShape()
   // General: MoveIcon mis-clicks?

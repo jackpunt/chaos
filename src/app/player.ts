@@ -180,9 +180,9 @@ export class Player extends PlayerLib {
     return this.isInFot(fot);
   }
 
-  /** true if Player has presence on Hex */
+  /** true if Player has presence on Hex, includes player's Base */
   isOnHex(hex: Hex2) {
-    return this.isOnTile(hex.ctile)
+    return this.isOnTile(hex.ctile) ||(hex.ctile?.isBase && hex.ctile.player == this)
   }
 
 
@@ -609,6 +609,7 @@ export class Panel extends PlayerPanel {
     this.addChild(stripe, circ);
   }
 
+  buildings: ChaosBuilding[] = [];
   // add Income & Buildings; set playerColor & Harvest icon on Base.
   // FacSpec.bg: number[][] building w/gemlock (index per type); // indicates number of slots for each type
   /** 10 Foundations and 9 Buildings */
@@ -628,24 +629,25 @@ export class Panel extends PlayerPanel {
       ][btype] as [typeof Factory|typeof Outpost|typeof Stronghold, BONUS, string]
       const F0_btext = 'E2  /    \n/\n    /  G1';
 
-      bldgs.toReversed().forEach((bldg, rndx) => {
+      bldgs.toReversed().forEach((ftype, rndx) => {
         const ndx = nbldgs - 1 - rndx; // actual ndx in homeAry
         const x = x00 + ndx * wh * 1.01; // place bgf from left-to-right
         const y = y0 + wh * row;
         // TODO: use TextTweaks to convert E*, C, G* to glyphs?
         // 1 or 0 indicates a gemLock (or none); 2 or 3 is only on F0: E2/G or E3
-        const bonus = [bText, bText, F0_btext, 'E3'][bldg] as BONUS;
+        const bonus = [bText, bText, F0_btext, 'E3'][ftype] as BONUS;
         const Aname = `${bid}${this.player.facId}.${ndx}`;  // F, P, S identifies type of Building!
         const bgf = homeAry[ndx] = new BgFound(Aname, bonus, fs); // background Foundation on Panel
-        if (bldg == 1) bgf.addGemLock(-.25, .65);
+        if (ftype == 1) bgf.addGemLock(-.25, .65);
         this.addChild(bgf); bgf.x = x; bgf.y = y;
-        if (bldg == 2 || bldg == 3) {
+        if (ftype == 2 || ftype == 3) {
           bgf.reCache(0);
           return; // no building in Factory slot 0
         }
-        const fg = new BC(Aname, this.player, bgf, homeAry); // new BuildingClass
-        fg.sendHome();
-        fg.paint(this.pColor);
+        const bldg = new BC(Aname, this.player, bgf, homeAry); // new BuildingClass
+        this.buildings.push(bldg);
+        bldg.sendHome();
+        bldg.paint(this.pColor);
       })
       x00 += (wh) * nbldgs + wh * .29;
     })
@@ -793,7 +795,11 @@ export class Panel extends PlayerPanel {
     const bColor = faction.facId == 0 ? this.pColor : CO.btColor;
     const color = C.nameToRgbaString(bColor, .8), wh = this.wh;
     baseTile.paint(bColor);
-    const hex = this.baseHex = this.table.newHex2(0, 0, `${this.faction.name}Base`);
+    // Hack so baseHex does not overlap panel.doneButton!
+    const SmallHex2 = class SmallHex2 extends Hex2 {
+      override get radius(): number { return TP.hexRad/2; }
+    }
+    const hex = this.baseHex = this.table.newHex2(0, 0, `${this.faction.name}Base`, SmallHex2);
     // move hex to center-center of this Panel:
     this.localToLocal(6.5 * wh, 5.7 * wh, hex.cont.parent, hex.cont)
     hex.legalMark.setOnHex(hex);

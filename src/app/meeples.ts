@@ -221,7 +221,8 @@ export class ProdToken extends ChaosMeeple {
   override isLegalTarget(toHex: Hex2, ctx?: DragContext): boolean {
     if (toHex.Aname.startsWith('ProdTokenPool')) return true;
     if (!toHex.ctile || toHex.ctile.isMtn) return false;
-    if (!this.gamePlay.curPlayer.isOnTile(toHex.ctile)) return false; // check for curPlayer presence
+    if (!this.gamePlay.curPlayer.isOnHex(toHex) ) return false;
+      // && this.player.gamePlay.curPlayer.panel.baseTile.hex != toHex) return false; // check for curPlayer presence
     return super.isLegalTarget(toHex, ctx);  // checks for hex.meep
   }
 
@@ -617,6 +618,8 @@ export class Leader extends ChaosUnit implements LeaderSpec {
     if (toHex == this.ctxCtile(ctx).hex) return true;
     if (!toHex.ctile || toHex.ctile.isMtn) return false;
     if (toHex.ctile.isLake && this.facId !== 5) return false;
+    if (ctx?.gameState.isPhase('DeployLeaders') &&
+      !this.player.panel.baseTile?.baseRegions!.includes(toHex)) return false; // Rhyzu/neutralPlayer no baseRegions
     return true
   }
 
@@ -871,7 +874,7 @@ export class ChaosBuilding extends ChaosPresence {
     const ndx = this.homeAry.findIndex(f => f.bldg == this); // Panel slot of this Building's current Foundation
     if (ndx < 0) {
       this.fromPanel = false;
-      this.scaleX = this.scaleY = 1;  // not coming from Panel, undo mapScale
+      this.placeBuilding(ctx.targetHex as Hex2, false)  // not coming from Panel, rm from tile
       return;        // OK to drag
     }
     // check that this is coming from the left-most slot of homeAry:
@@ -912,20 +915,21 @@ export class ChaosBuilding extends ChaosPresence {
     this.placeBuilding(targetHex);
   }
 
-  placeBuilding(targetHex?: Hex2) {
+  placeBuilding(targetHex?: Hex2, add = true) {
     if (!targetHex) {
       this.sendHome();
     } else {
       // ASSERT: there is a Foundation! from isLegalTarget()
       // on targetHex (on map), place on Foundation.
-      const f = this.findFoundation(targetHex)
-      f.bldg = this;   // mark Foundation occupied
-      this.scaleX = this.scaleY = Foundation.mapScale
-      this.x = f.x; this.y = f.y;
-      f.parent.addChild(this);
-      if (f.bonus) {
-        this.player.faction.doImmediateBonus(f.bonus, () => {});
+      const fnd = this.findFoundation(targetHex)
+      fnd.bldg = this;   // mark Foundation occupied
+      this.scaleX = this.scaleY = add ? Foundation.mapScale : 1;
+      this.x = fnd.x; this.y = fnd.y;
+      fnd.parent.addChild(this);
+      if (fnd.bonus) {
+        this.player.faction.doImmediateBonus(fnd.bonus, () => {});
       }
+      fnd.onTile?.addBuilding(this, add);
     }
     TP.whenBuildingPlaced(this, targetHex);  // build or un-build, depending on targetHex
   }

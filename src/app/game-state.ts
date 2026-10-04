@@ -5,7 +5,7 @@ import { factionNames, type FactionId } from "./factions";
 import type { Battle, GamePlay } from "./game-play";
 import { Relic, type PriceToken } from "./meeples";
 import type { Player } from "./player";
-import { pentagon, priceNames, pricePhases, type PhaseName, type PriceName, type PricePhase } from "./table-params";
+import { pentagon, priceNames, pricePhases, type CB, type PhaseName, type PriceName, type PricePhase } from "./table-params";
 
 declare module '@thegraid/hexlib' {
   interface Phase {
@@ -107,7 +107,7 @@ export class GameState extends GameStateLib {
   stateNdx(phase: string) { return Object.keys(this.states).indexOf(phase)}
 
   /** run auto placements until autoPhase */
-  autoPhase?: string = 'Harvest';    // undefined for normal --> 'PlaceRelic'
+  autoPhase?: string = undefined; //'Harvest';    // undefined for normal --> 'PlaceRelic'
   autoPhaseIsAfter(phase: string) {
     return this.autoPhase && this.stateNdx(phase) < this.stateNdx(this.autoPhase);
   }
@@ -145,20 +145,38 @@ export class GameState extends GameStateLib {
     this.phaseNdx = this.phaseLeader(prevPhase)
   }
 
+  playerSaysDone = false;
+  checkDone(nextPhase: PhaseName | string, ...args: any[]) {
+    const notDone = this.state.notDone?.();
+    if (notDone && !this.playerSaysDone) {
+      if (notDone.endsWith('!')) { // Action required:
+        // 'Confirm' and continue in phase
+        this.curPlayer.panel.areYouSure(notDone, () => {
+          console.log(stime(this, `${this.curPlayer.facName} not done with ${this.state.Aname}: ${notDone}`))
+          this.state.start(this.curPlayerNdx);
+        })
+      } else {
+        // Option to continue:
+        this.curPlayer.panel.areYouSure(notDone, () => {
+          this.playerSaysDone = true;
+          this.startOrPhase(nextPhase, ...args);  // continuation of startOrPhase()
+        }, () => {
+          // ignore player's press of DoneButton
+        })
+      }
+      return false;  // waiting for player to Confirm or proceed.
+    }
+    this.playerSaysDone = false;  // reset for future use
+    return true;   // is done
+  }
+
   /** start(nextNdx) or phase(nextPhase, args) */
   startOrPhase(nextPhase: PhaseName | string, ...args: any[]) {
     if (pricePhases.includes(this.pricePhase)) {
       // disable previous offer:
       this.curPlayer.faction.offerPrimaryAndAux(this.pricePhase, false);
     }
-    const notDone = this.state.notDone?.();
-    if (notDone) {
-      // TODO: make visible to player
-      console.log(stime(this, `${this.curPlayer.facName} not done with ${this.state.Aname}: ${notDone}`))
-      this.state.start(this.curPlayerNdx);
-      return;
-    }
-
+    if (!this.checkDone(nextPhase, ...args)) return;
     const next = this.nextNdx(this.curPlayerNdx);
     if (next !== this.phaseNdx) {
       this.state.start(next); // loop for each player
@@ -255,21 +273,23 @@ export class GameState extends GameStateLib {
           this.state.done!();
         }
       },
+      done: () => {
+        this.startOrPhase('BeginRound')
+      },
 
       notDone: () => {
-        const plyr = this.curPlayer, facId = plyr.facId;
-        if (!plyr.panel.baseTile.baseRegions?.find(hex => hex.ctile!.hasFoT(facId).leaders.length > 0)) {
-          return "must place a Leader";
+        const plyr = this.curPlayer, facId = plyr.facId, baseTile = plyr.panel.baseTile;;
+        if (!baseTile.baseRegions?.find(hex => hex.ctile!.hasFoT(facId).leaders.length > 0)) {
+          return "must place a Leader!";
+        } if (baseTile.getFoT(plyr).fighters > 0) {
+          return "must place fighters!"
         } else {
-          const plyr = this.curPlayer, baseTile = plyr.panel.baseTile;
+          // isDone:
           baseTile.moveCounter.value = 0;
           this.gamePlay.endMoveFaction(); //
         }
         return;
       },
-      done: () => {
-        this.startOrPhase('BeginRound')
-      }
     },
 
 
@@ -336,8 +356,20 @@ export class GameState extends GameStateLib {
         // for each Build point: D&D a Building or Foundation --> done()
         // maybe buy a aux Build | Card
         this.doneButton();
-        if (this.autoPhaseIsAfter(this.state.Aname!)) this.state.done!(); // nobody buys this Phase
-        // TODO: place some Factory so we can Harvest!
+        if (this.autoPhaseIsAfter(this.state.Aname!)) {
+          // TODO: place some Factory so we can Harvest!
+          const plyr = this.curPlayer, facId = plyr.facId;
+          // click on 'Build' button, to setup TP.whenBuildingPlacedCB --> bldg->FoT
+          const panel = plyr.gamePlay.table.neutralPanel;
+          const rc = panel.researchCells[1][0]; // first Build cell
+          const onClick = ((rc.pButton as any)._listeners['click'] as CB[])[0]; // first/only click listener
+          onClick(); // request/run rc.primary()
+          const bldg = plyr.panel.buildings.find(b => b.Aname.endsWith('1'))!; // Assert: no gemlock to pay for Factory${1}.
+          // choose a baseRegion w/o '%'
+          const hex = plyr.panel.baseTile.baseRegions?.find(hex => hex.ctile!.foundations[1]!.bonus !== '%');
+          bldg.placeBuilding(hex);  // dragStartAndDrop(bldg, hex) --> placeBuilding(hex)
+          this.state.done!();
+        }
       },
       done: () => this.startOrPhase('Harvest'),
     },
@@ -350,20 +382,22 @@ export class GameState extends GameStateLib {
         this.doneButton();
         if (this.autoPhaseIsAfter(this.state.Aname!)) this.state.done!(); // nobody buys this Phase
       },
-      done: () => this.startOrPhase('Recruit'),
+      done: () => {
+        this.startOrPhase('Recruit')
+      },
     },
     Recruit: {
       start: (ndx = this.phaseNdx) => {
         this.setCurPlayerNdx(ndx);
         this.curPlayer.faction.offerPrimaryAndAux(this.pricePhase); // 'Recruit'
-        // set Panel.recruit points; wait for done?
-        this.gamePlay.recruitAction()
-        // this.curPlayer.panel.recruitPoints = ;
         this.doneButton();
        },
       done: () => {
-        this.gamePlay.moveRecruitsToBase();  // optionally to SH for Oxataya
         this.startOrPhase('Move')
+      },
+      notDone: () => {
+        const mps = this.curPlayer.panel.recruitPoints;
+        return (mps > 0) ? `remaining move points: ${mps}` : undefined;
       },
     },
     Move: {
@@ -378,6 +412,10 @@ export class GameState extends GameStateLib {
       done: () => {
         this.gamePlay.endMoveFaction();
         this.startOrPhase('Combat', undefined, true); // first time: set lBI
+      },
+      notDone: () => {
+        const moves = this.curPlayer.panel.baseTile.moveCounter.value - this.curPlayer.movesInPlay.length;
+        return (moves > 0) ? `moves remaining: ${moves}` : undefined;
       },
     },
     Combat: {

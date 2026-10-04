@@ -490,6 +490,7 @@ export class CardPanel extends MapCont {
   get panel() { return (this.parent as Panel) }
   // readonly cardRack: CardHex[] = [];
   get cardRack() { return this.panel.cardRack }
+  get cards() { return this.cardRack.map(hex=> hex.card).filter(card => !!card) }
 
   /** make this CardPanel dragable. */
   makeDragable(table: HasDragger) {
@@ -530,6 +531,12 @@ export class CardPanel extends MapCont {
     this.panel.cButton.label_text = `${nCards} Card${nCards == 1 ? '' : 's'}`;
     // TODO: set 'Cards' label button to include number of cards
     // TODO: auxillary hex for new card (> hand limit) & choose
+  }
+
+  /** discard Cards not included in cards */
+  resetCards(cards: TacticsCard[]) {
+      this.cards.forEach(card => (cards.includes(card) || card.sendHome())); // discard extra cards
+
   }
 
   /** get all the phaseEffects */  // TODO: change the name or maybe remove
