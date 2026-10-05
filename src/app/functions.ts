@@ -6,24 +6,33 @@ import { Leader, type PriceBonus } from "./meeples";
 import { CO, TP, type PhaseName } from "./table-params";
 
 
-/** A PathShape: an up-pointing pentagon with a right-angle point */
-
-export function pentagon(xs: number, ys: number, fillc: string, tilt = 0, strokec = '') {
-  const y0 = xs;
+/**
+ * A PathShape: an up-pointing pentagon with a right-angle point
+ * @param xs [10] sides at +/- xs
+ * @param ys [xs] base extends down to ys
+ * @param fillc [white] interior fill color
+ * @param tilt [0] rotate from north pointing arrow
+ * @param strokec [''] color for outline stroke
+ * @param y0 [-xs] y-coord of peak point
+ * @returns PathShape
+ */
+export function pentagon(xs = 10, ys = xs, fillc = 'white', tilt = 0, strokec = '', y0 = -xs) {
   const points = [
+    [  0, y0],  // peak point
+    [-xs,  0],
     [-xs, ys],
-    [xs, ys],
-    [xs, -y0],
-    [0, -y0 - xs],
-    [-xs, -y0],
-    [-xs, ys],
+    [ xs, ys],
+    [ xs,  0],
+    [  0, y0],  // peak point
   ] as [x: number, y: number][];
 
   const pent = new PathShape({ points, fillc, strokec });
   pent.rotation = tilt;
   pent.mouseEnabled = false;
   return pent;
-}// TODO: maybe use TextTweaks to place the glyphs?
+}
+
+// TODO: maybe use TextTweaks to place the glyphs?
 /** Bonus Icon:
  * Foundation (Base pair & Relic), ProdToken (Harvest),
  * SetPrices bonus, PriceToken icons(^, >), RelicBonus row, gemlockIcon
@@ -120,10 +129,10 @@ export function upGemIcon(nGem = 1, fontSize = 16, top = -80, left = -55) {
   const x0 = -(left + fontSize * .7);
   const y0 = (2 * mlh + top);
   const xs = fontSize/2;
-  const ys = nGem * mlh + mlh/2;
+  const ys = nGem * mlh + mlh;
   const pent = pentagon(xs, ys, C.briteGold)
   pent.x = x0;
-  pent.y = y0;
+  pent.y = y0 - xs/2;
   icon.addChild(pent);
 
   const font = F.fontSpec(fontSize, undefined, 'bold');
@@ -135,7 +144,7 @@ export function upGemIcon(nGem = 1, fontSize = 16, top = -80, left = -55) {
   arrayN(nGem).forEach(n => {
     const gem = new CircleShape(CO.gColor, fontSize*.33, '');
     gem.x = x0;
-    gem.y = y0 + mlh * (n + 1);
+    gem.y = y0 + mlh * (n + 1.1);   // push down a bit (.1) for graphic balance
     icon.addChild(gem)
   })
   return icon;
