@@ -1,7 +1,7 @@
 import { C, Constructor, F, S, stime, type XY, type XYWH } from "@thegraid/common-lib";
 import { CenterText, CircleShape, EllipseShape, NamedContainer, PathShape, RectShape, TextInRect, UtilButton, type Paintable, type RectWithDispOptions, type TextInRectOptions } from "@thegraid/easeljs-lib";
 import { Container, Graphics, MouseEvent, Rectangle } from "@thegraid/easeljs-module";
-import { Meeple, MeepleShape, Table, Tile, type DragContext, type DragFuncs, type HasDragger, type Hex, type HexM, type IHex2 } from "@thegraid/hexlib";
+import { Meeple, MeepleShape, rightClickable, Table, Tile, type DragContext, type DragFuncs, type HasDragger, type Hex, type HexM, type IHex2 } from "@thegraid/hexlib";
 import { CardShape } from "./card-shape";
 import { TokenHex, type ChaosHex2 as Hex2, type HexMap2 } from "./chaos-hex";
 import { type BASE_PROD_TOKEN, type BONUS, type ChaosTile, type FactionOnTile, type HARVEST, type LeaderTile, type TERRAIN } from "./chaos-tile";
@@ -536,19 +536,6 @@ export class Leader extends ChaosUnit implements LeaderSpec {
     return homeTile;
   }
 
-  addText(card: Container, fontSize = 16, top = -80, left = -55) {
-    const tt = this.upgraded ? this.t2 : this.t1;
-    const t1 = new CenterText(tt || 'Leader text', fontSize * .5, C.WHITE);
-    t1.lineWidth = -left * 1.8;
-    t1.textAlign = 'left';
-    const { width, height } = t1.getBounds(), mlh = t1.getMeasuredLineHeight();
-    t1.x = left + .3 * fontSize;
-    t1.y = -top - Math.max(height, 3 * mlh);
-    card.addChild(t1);
-    const tpIcon = this.phaseIcon(card, this.tp);
-    tpIcon.y = t1.y - tpIcon.label.getMeasuredLineHeight() * 1.1;
-    card.addChild(tpIcon);
-  }
   /** Rhy-zu indicator on Card */
   rhyzuIcon(card: Container, ntext = 'Rhy-zu') {
     const font = F.fontSpec(this.radius * .3, undefined, 'bold');
@@ -593,13 +580,6 @@ export class Leader extends ChaosUnit implements LeaderSpec {
     return icon;
   }
 
-  addStats(card: Container, fontSize = this.radius * .3, y = 0 ) {
-    const [str, atk, shld] = this.stats;
-    const stats1 = new CenterText(`S     A     D`, fontSize*.7, C.WHITE);
-    const stats2 = new CenterText(`\n${str}   ${atk}   ${shld}`, fontSize, C.WHITE) ;
-    stats1.y = stats2.y = y;
-    card.addChild(stats1, stats2);
-  }
   // show with gold border:
   upgrade() {
     this.upgraded = true;
@@ -659,12 +639,12 @@ export namespace Leader {
     cardShape!: CardShape;
     rzIcon?: Paintable;
 
-    constructor(leader?: Leader, vis = false) {
+    constructor(leader?: Leader, vis = false, upgraded = false) {
       super('LeaderCard');  // minimal Container
-      this.cardShape = new CardShape(C.grey, C.WHITE); // unknown leader
-      this.addChild(this.cardShape); // empty constainer confuses get/setBounds()
+      this.cardShape = new CardShape(C.grey, upgraded ? C.briteGold : C.WHITE); // unknown leader
+      this.addChild(this.cardShape); // empty Container confuses get/setBounds()
       if (leader) {
-        this.setLeader(leader, vis); // add stuff if given a Leader; else wait for setLeader()
+        this.setLeader(leader, vis, upgraded); // add stuff if given a Leader; else wait for setLeader()
       }
     }
     /**
@@ -675,7 +655,7 @@ export namespace Leader {
      * @param leader
      * @param vis
      */
-    setLeader(leader: Leader, vis = false) {
+    setLeader(leader: Leader, vis = false, upgraded = false) {
       this.Aname = leader.Aname;
       this.leader = leader;
       const color = leader.isRhyzu ? CO.rhy_zu : leader.pColor;
@@ -687,14 +667,37 @@ export namespace Leader {
       cardShape.paint(color, true);
       this.addChild(cardShape);
       this.addChild(nText);
-      leader.addStats(this, fontSize, 2 * fontSize + top);
+      this.addStats(leader, fontSize, 2 * fontSize + top);
       if (leader.plGem) this.addChild(leader.plGemIcon(fontSize, top, left))
       if (leader.upGem) this.addChild(leader.upGemIcon(fontSize, top, left))
-      leader.addText(this, fontSize, top, left);
+      this.addText(leader, fontSize, top, left);
       this.scale = .45;
       this.visible = vis;
     }
     set scale(xy: number)  { this.scaleX = this.scaleY = xy; }
+
+    /** add Stats text to Shape/Back */
+    addStats(ldr: Leader, fontSize = ldr.radius * .3, y = 0 ) {
+      const [str, atk, shld] = ldr.stats;
+      const stats1 = new CenterText(`S     A     D`, fontSize*.7, C.WHITE);
+      const stats2 = new CenterText(`\n${str}   ${atk}   ${shld}`, fontSize, C.WHITE) ;
+      stats1.y = stats2.y = y;
+      this.addChild(stats1, stats2);
+    }
+
+    addText(ldr: Leader, fontSize = 16, top = -80, left = -55) {
+      const tt = ldr.upgraded ? ldr.t2 : ldr.t1;
+      const t1 = new CenterText(tt || 'Leader text', fontSize * .5, C.WHITE);
+      t1.lineWidth = -left * 1.8;
+      t1.textAlign = 'left';
+      const { width, height } = t1.getBounds(), mlh = t1.getMeasuredLineHeight();
+      t1.x = left + .3 * fontSize;
+      t1.y = -top - Math.max(height, 3 * mlh);
+      this.addChild(t1);
+      const tpIcon = ldr.phaseIcon(this, ldr.tp);
+      tpIcon.y = t1.y - tpIcon.label.getMeasuredLineHeight() * 1.1;
+      this.addChild(tpIcon);
+    }
   }
 }
 
