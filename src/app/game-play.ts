@@ -163,17 +163,18 @@ export class GamePlay extends GamePlayLib {
   // Setup: place Leader & Fighters in Base (Fighters as Counter, leader w/clicktext [8/26])
   // Setup/phase: show FlareGun indication on faction Panel [8/26]
   // SetPrices: Move --> FlareGun (gunPlayer) [8/26]
-  // SetPrices: Recurit, Build, MoveLast --> Energy & Gem & Card [8/26]
+  // SetPrices: Recruit, Build, MoveLast --> Energy & Gem & Card [8/26]
   // SetPrices: JRayek: mark & recruit Rhyzu
   // Each Phase: start with Pricer (or Neutral --> gunPlayer) [8/26]
   // Each Phase: player to pay or pass; pay for auxillary [~9/23]
   // Setup: display Production Tokens [10/1]
   // Discover: advancement bonus; give E,G,C; Move(3) R2; doImmediate: [10/1]
   // Discover: present Production Tokens, allow selection & placement for Harvest(2); Build(1,3) Foundation [10/1]
-  // Discover: click to select Primary & Auxillary Research. (inc ResearchLevel)
-  // Build: D&D a Foundation; D&D a Building; w/gemLocks
+  // Discover: click to select Primary & Auxillary Research. (inc ResearchLevel) [~9/28]
+  // Build: D&D a Foundation; D&D a Building; [~9/29] w/gemLocks
   // Harvest: click-to-Harvest (enable eligble Regions) E, G, C, R, %, etc (ProdToken) [~9/29]
-  // Harvest: highlight harvestable ProdTokens
+  // Harvest: highlight harvestable ProdTokens [10/4]
+  // Harvest: Circadians Harvest from Ship
   // Recruit: click-to-Recruit [done] (Oxataya: option to move Fighters to Strongholds)
   // Recruit: Aux: select/deploy (& pay gem) Leader: doImmediate('L')
   // Move: select & show 'bridge' between src->dest Region. [9/16]
@@ -275,5 +276,6 @@ export class GamePlay extends GamePlayLib {
       table.reCacheTiles()}
     )
     KeyBinder.keyBinder.setKey('R', () => this.curPlayer.faction.offerRecruit(2, ()=>{}))
+    KeyBinder.keyBinder.setKey('H', () => this.curPlayer.faction.offerHarvestActions(2, ()=>{}))
   }
 }

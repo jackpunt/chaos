@@ -167,6 +167,19 @@ export const baseProdTokenIds =    ['%',   'R3', 'G2',    'E4', 'E1_C', 'R1_C', 
 export const upgradeProdTokenIds = ['%E2', 'R4', 'G2_R1', 'E6', 'E3_C', 'R2_C', 'L/U', 'B_ul'] as const; // upgraded
 // B_ul = Build w/free gemlock
 
+/** ProdButton is the baseShape of a ProdToken */
+class ProdButton extends UtilButton {
+
+  override activate(active?: boolean, vis = true, update?: boolean): this {
+    this.scaleX = this.scaleY = (active ? 1.5 : 1.0);
+    super.activate(active, vis, true);
+    (this.parent as ProdToken)?.updateCache();
+    this.stage?.update();
+    return this
+  }
+}
+
+
 /** Basic Harvest icon or one of the eight placeable production tokens.
  *
  * baseShape is a UtilButton showing a bonusIcon.
@@ -183,7 +196,7 @@ export class ProdToken extends ChaosMeeple {
 
   harvest!: HARVEST;
   homeCont?: Container;
-  declare baseShape: UtilButton;
+  declare baseShape: ProdButton;
 
   constructor(harvest: HARVEST, homeCont?: Container) {
     super(`Prod_${harvest}`);
@@ -204,9 +217,10 @@ export class ProdToken extends ChaosMeeple {
     // this.stage.update();
   }
 
-  /** bonusIcon on a UtilButton */
+  /** bonusIcon on a ProdButton > UtilButton */
   bonusButton(harvest: HARVEST)  {
-    const ub = new UtilButton('.', { active: true, fontSize: .1 })   // small TextRect, to be obscured by clickable bonusIcon
+    const ub = new ProdButton('.', { fontSize: .1 })   // small TextRect, to be obscured by clickable bonusIcon
+    ub.activate(false, true);
     ub.addChild(bonusIcon(harvest)!)
     ub.setBounds(undefined, 0, 0, 0);
     ub.y = TP.hexRad * .41;

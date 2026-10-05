@@ -354,7 +354,7 @@ export class ResearchCell extends NamedContainer {
     // use UtilButton, but tweak the borders to get the desired size. (see also LeaderIcon: TextInBox)
     const { x, y, w, h } = xywh;
     const bgColor = 'rgba(255, 255, 255, 0.3)';
-    const button = new class extends UtilButton {
+    const button = new class RC_Button extends UtilButton {
       override activate(active?: boolean, vis?: boolean, update?: boolean): this {
         super.activate(active, vis, update);
         if (!active) this.removeAllEventListeners(S.click);

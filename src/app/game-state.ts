@@ -107,7 +107,7 @@ export class GameState extends GameStateLib {
   stateNdx(phase: string) { return Object.keys(this.states).indexOf(phase)}
 
   /** run auto placements until autoPhase */
-  autoPhase?: string = undefined; //'Harvest';    // undefined for normal --> 'PlaceRelic'
+  autoPhase?: string = 'Build';    // undefined for normal --> 'PlaceRelic'
   autoPhaseIsAfter(phase: string) {
     return this.autoPhase && this.stateNdx(phase) < this.stateNdx(this.autoPhase);
   }
@@ -269,7 +269,12 @@ export class GameState extends GameStateLib {
         if(this.autoPhaseIsAfter('DeployLeaders')) {
           const plyr = this.curPlayer, facId = plyr.facId;
           const ldr = plyr.faction.leaders[0];
-          const hex = plyr.panel.baseTile.baseRegions![0].ctile?.getFoT(facId).addLeader(ldr);
+          const baseFot = plyr.panel.baseTile.getFoT(facId);
+          const ctile = plyr.panel.baseTile.baseRegions![0].ctile!;
+          const toFoT = ctile.getFoT(facId);
+          toFoT.addLeader(ldr);
+          toFoT.fighters = baseFot.fighters;
+          baseFot.fighters = 0;
           this.state.done!();
         }
       },

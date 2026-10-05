@@ -1,11 +1,11 @@
 import { removeEltFromArray, S, stime } from "@thegraid/common-lib";
 import type { Phase } from "@thegraid/hexlib";
 import type { ChaosHex2 as Hex2 } from "./chaos-hex";
-import type { BONUS, FAME_BONUS, HARVEST } from "./chaos-tile";
+import type { BONUS, FactionOnTile, FAME_BONUS, HARVEST } from "./chaos-tile";
 import type { Foundation } from "./foundation";
-import type { ChaosBuilding, Leader, PriceToken } from "./meeples";
+import type { ChaosBuilding, Leader } from "./meeples";
 import type { Player } from "./player";
-import { type ResearchCell, type ResearchLevel } from "./research-cell";
+import { type ResearchLevel } from "./research-cell";
 import { pricePhases, TP, type CB, type PricePhase } from "./table-params";
 //
 function expandArray<T>(rec: Record<number, T>): (T | undefined)[] {
@@ -301,16 +301,34 @@ export class Faction {
     const allHarvest = !!this.player.panel.foundations['harvest'].hex?.isOnMap;
     const hfot = this.player.fotPresence.filter(fot => fot.tile.isBase || (allHarvest ? fot.buildings.length > 0 : fot.buildings.find(b => b.Aname.startsWith('F'))))
     let hdone = 0;
-    hfot.forEach(fot => {
-      const pToken = fot.tile.prodToken, btn = pToken.baseShape;
+    const enableHarvest = (fot: FactionOnTile) => {
+      const pToken = fot.tile.prodToken, ptb = pToken.baseShape;
       pToken.gamePlay.table.dragger.stopDragable(pToken);   // forever on its Tile; removeEventListeners
       pToken.gamePlay.table.dragger.stopDragable(fot.tile);  // forever on its Hex; removeEventListeners
       const clickToHarvest = (evt: Object) => {
-        btn.activate(false, true);
-        this.doImmediateBonus(pToken.harvest, () => (++hdone < hv) || cb());
+        ptb.activate(false);
+        this.doImmediateBonus(pToken.harvest, checkHarvestDone);
       }
-      btn.on(S.click, clickToHarvest, true);
-      btn.activate(true);
+      ptb.on(S.click, clickToHarvest, true);
+      ptb.activate(true);
+    }
+    const checkHarvestDone = () => {
+      if (++hdone < hv) return;
+      disableAllHarvest();
+      cb();
+      return;
+    }
+
+    const disableAllHarvest = () => {
+      hfot.forEach(fot => {
+        const pToken = fot.tile.prodToken, ptb = pToken.baseShape;
+        ptb.activate(false)
+      })
+    }
+
+    // enableAllHarvest:
+    hfot.forEach(fot => {
+      enableHarvest(fot)
     })
   }
 
