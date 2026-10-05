@@ -247,7 +247,7 @@ export class MoveInPlay extends NamedContainer {
     if (pair[0].linkHexes.includes(pair[1])) {
       // AdjGraphic: container(pent, counter)
       const color = C.nameToRgbaString(this.player.color, .5);
-      const pent = pentagon(TP.hexRad*.32, TP.hexRad*.2, color, 0, '');
+      const pent = pentagon(TP.hexRad*.16, TP.hexRad*.1, color, 0, '');
       this.addChildAt(pent, 0);                       // under this.counter
       this.y -= TP.hexRad * .01;
       this.counter.y += TP.hexRad * -.05;

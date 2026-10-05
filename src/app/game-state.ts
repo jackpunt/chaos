@@ -26,7 +26,7 @@ export class GameState extends GameStateLib {
 
   nPlayers: number = 2;
 
-  gunIcon = pentagon(TP.hexRad * .4, TP.hexRad * .4, C.coinGold, 180, C.BLACK);
+  gunIcon = pentagon(TP.hexRad * .2, TP.hexRad * .2, C.coinGold, 180, C.BLACK);
   _gunPlayer!: Player;
   /** Player currently with the FlareGun. */
   get gunPlayer() { return this._gunPlayer }

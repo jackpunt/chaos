@@ -311,7 +311,7 @@ export class Leader extends ChaosUnit implements LeaderSpec {
 
   static leaderSpecs: LeaderSpec[] = [
     // Circadian: 0
-    { facId: 0, name: 'Sable', stats0: [2, 0, 1], stats2: [4, 2, 1],
+    { facId: 0, name: 'Sable', stats0: [2, 0, 1], stats2: [4, 2, 1], plGem: 1,
       t1: "OPPONENTS MUST REVEAL THEIR COMBAT WHEEL AND TACTICS CARD FIRST", },
     { facId: 0, name: 'Akira', stats0: [2, 0, 2], stats2: [4, 0, 4], upGem: 1, P: 'Recruit',
       t1: "MAY SPEND 1 ENERGY TO GAIN 1 GEM",
@@ -606,7 +606,7 @@ export namespace Leader {
     cardShape!: CardShape;
     rzIcon?: Paintable;
 
-    constructor(leader?: Leader, vis = false, upgraded = true) {
+    constructor(leader?: Leader, vis = false, upgraded = false) {
       super('LeaderCard');  // minimal Container
       this.cardShape = new CardShape(C.grey, upgraded ? C.briteGold : C.WHITE); // unknown leader
       this.addChild(this.cardShape); // empty Container confuses get/setBounds()
