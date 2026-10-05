@@ -3,9 +3,10 @@ import { CenterText, NamedContainer, RectShape, UtilButton, type DragInfo, type 
 import type { DisplayObject } from "@thegraid/easeljs-module";
 import type { HasDragger } from "@thegraid/hexlib";
 import { type Faction } from "./factions";
+import { gemlockIcon } from "./functions";
 import { type PriceToken } from "./meeples";
 import type { Player } from "./player";
-import { CO, gemlockIcon, TP, type CB, type PricePhase } from "./table-params";
+import { CO, TP, type CB, type PricePhase } from "./table-params";
 
 
 // %, Energy, Gem, Card, Build, Recruit, Leader, Harvest, Move,

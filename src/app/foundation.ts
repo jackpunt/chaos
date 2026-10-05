@@ -4,9 +4,10 @@ import type { DisplayObject } from "@thegraid/easeljs-module";
 import { Tile, type DragContext, type HasDragger } from "@thegraid/hexlib";
 import { ChaosHex2 as Hex2 } from "./chaos-hex";
 import { type BONUS, type ChaosTile } from "./chaos-tile";
+import { bonusIcon, gemlockIcon } from "./functions";
 import type { ChaosBuilding } from "./meeples";
 import type { Player } from "./player";
-import { bonusIcon, gemlockIcon, TP } from "./table-params";
+import { TP } from "./table-params";
 
 
 // the Relic Foundations & extra non-Relic Foundations

@@ -164,7 +164,8 @@ export class GamePlay extends GamePlayLib {
   // Setup/phase: show FlareGun indication on faction Panel [8/26]
   // SetPrices: Move --> FlareGun (gunPlayer) [8/26]
   // SetPrices: Recruit, Build, MoveLast --> Energy & Gem & Card [8/26]
-  // SetPrices: JRayek: mark & recruit Rhyzu
+  // SetPrices: JRayek: mark & recruit Rhyzu; assign Player & place on map
+  // SetPrices: logic to place & show Rhyzu.Token when Rhyzu is recruited/onMap/assigned to Player
   // Each Phase: start with Pricer (or Neutral --> gunPlayer) [8/26]
   // Each Phase: player to pay or pass; pay for auxillary [~9/23]
   // Setup: display Production Tokens [10/1]

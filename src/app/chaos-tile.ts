@@ -7,12 +7,13 @@ import { type ChaosTable } from "./chaos-table";
 import { NumCounterHex } from "./counters";
 import { Faction, type FactionId } from "./factions";
 import { Foundation } from "./foundation";
+import { pentagon } from "./functions";
 import type { GamePlay } from "./game-play";
 import { type AI_Trap, type baseProdTokenIds, type ChaosBuilding, ChaosToken, type Factory, Leader, type Morale, type Outpost, ProdToken, type Relic, type Stronghold, type upgradeProdTokenIds } from "./meeples";
 import { superMethod } from "./mixins";
 import type { Player } from "./player";
 import type { FactionOnTileState } from "./scenario-parser";
-import { CO, pentagon } from "./table-params";
+import { CO } from "./table-params";
 
 declare module '@thegraid/easeljs-module' {
   interface Graphics {

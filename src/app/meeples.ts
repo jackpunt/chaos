@@ -1,16 +1,17 @@
 import { C, Constructor, F, S, stime, type XY, type XYWH } from "@thegraid/common-lib";
-import { CenterText, CircleShape, EllipseShape, NamedContainer, PathShape, RectShape, TextInRect, UtilButton, type Paintable, type RectWithDispOptions, type TextInRectOptions } from "@thegraid/easeljs-lib";
+import { CenterText, NamedContainer, PathShape, RectShape, TextInRect, UtilButton, type Paintable, type RectWithDispOptions, type TextInRectOptions } from "@thegraid/easeljs-lib";
 import { Container, Graphics, MouseEvent, Rectangle } from "@thegraid/easeljs-module";
-import { Meeple, MeepleShape, rightClickable, Table, Tile, type DragContext, type DragFuncs, type HasDragger, type Hex, type HexM, type IHex2 } from "@thegraid/hexlib";
+import { Meeple, MeepleShape, Table, Tile, type DragContext, type DragFuncs, type HasDragger, type Hex, type HexM, type IHex2 } from "@thegraid/hexlib";
 import { CardShape } from "./card-shape";
 import { TokenHex, type ChaosHex2 as Hex2, type HexMap2 } from "./chaos-hex";
 import { type BASE_PROD_TOKEN, type BONUS, type ChaosTile, type FactionOnTile, type HARVEST, type LeaderTile, type TERRAIN } from "./chaos-tile";
 import { factionNeutral, type FactionId } from "./factions";
 import { BgFound, Foundation } from "./foundation";
+import { bonusIcon, phaseIcon, plGemIcon, upGemIcon } from "./functions";
 import type { GamePlay } from "./game-play";
 import type { GameState } from "./game-state";
 import type { Player } from "./player";
-import { bonusIcon, CO, priceNames, TP, type PhaseName, type PriceName } from "./table-params";
+import { CO, priceNames, TP, type PhaseName, type PriceName } from "./table-params";
 
 
 type BackSide = ChaosUnit['baseShape']['backSide'];
@@ -543,42 +544,6 @@ export class Leader extends ChaosUnit implements LeaderSpec {
     const border = [0, 0, .1, -.0] as [number, number, number, number];
     return new Leader.TextInBox(ntext, font, wide, { bgColor: C.grey128, border, textColors: [C.WHITE] });
   }
-  /** Phase indicator on Card */
-  phaseIcon(card: Container, ntext: PhaseName, ) {
-    const font = F.fontSpec(this.radius * .3, 'sans-serif', '500');
-    const wide = card.children[0].getBounds().width * .8; // extract the baseShape
-    const border = [0, 0, .15, -.05] as [number, number, number, number];
-    return new Leader.TextInBox(ntext, font, wide, { bgColor: C.transparent, border, textColors: [CO.orange] });  // could be simple CenterText
-  }
-
-  plGemIcon(fontSize = 16, top = -80, left = -55) {
-    const icon = new NamedContainer('plGem');
-    const gem = new CircleShape(CO.gColor, fontSize*.33, '');
-    gem.y = (2 * fontSize + top); gem.x = left + fontSize * .7;
-    const circ = new EllipseShape('grey', fontSize * .35, fontSize * .12 ,'white')
-    const arr1 = new CenterText('v', fontSize * .55, 'white');
-    const arr2 = new CenterText('V', fontSize * 1.0, 'white');
-    circ.y = gem.y + fontSize * 1.3;
-    arr1.y = gem.y + fontSize * .55;
-    arr2.y = gem.y + fontSize;
-    circ.x = arr1.x = arr2.x = gem.x;
-    icon.addChild(gem, circ, arr1, arr2);
-    return icon;
-  }
-
-  upGemIcon(fontSize = 16, top = -80, left = -55) {
-    const icon = new NamedContainer('plGem');
-    const gem = new CircleShape(CO.gColor, fontSize*.33, '');
-    gem.y = (3 * fontSize + top); gem.x = -(left + fontSize * .7);
-    const arr2 = new CenterText('V', fontSize * 1.0, 'white');
-    arr2.scaleY = -1;  // to get inverted V
-    gem.y + fontSize * 1.3;
-    gem.y + fontSize * .55;
-    arr2.y = gem.y - fontSize;// arr2.scaleY = -1;
-    arr2.x = gem.x;
-    icon.addChild(gem, arr2);
-    return icon;
-  }
 
   // show with gold border:
   upgrade() {
@@ -590,7 +555,7 @@ export class Leader extends ChaosUnit implements LeaderSpec {
   // Note: common pattern in PriceToken (below)
   /** a CardShape targetMark for Leader  */
   static targetMark = new class LeaderMark extends CardShape {
-    constructor(rad = TP.hexRad * 1.1) {
+    constructor(rad = .7) {
       super('rgba(130, 130, 130, 0.4)', '', rad);
       this.visible = false;
     }
@@ -612,6 +577,8 @@ export class Leader extends ChaosUnit implements LeaderSpec {
     if (toHex == this.ctxCtile(ctx).hex) return true;
     if (!toHex.ctile || toHex.ctile.isMtn) return false;
     if (toHex.ctile.isLake && this.facId !== 5) return false;
+    if (toHex == this.homeHex) return true;
+    if (toHex.ctile.baseShape instanceof Leader.LeaderCard) return false; // is not *our* homeHex
     if (ctx?.gameState.isPhase('DeployLeaders') &&
       !this.player.panel.baseTile?.baseRegions!.includes(toHex)) return false; // Rhyzu/neutralPlayer no baseRegions
     return true
@@ -639,7 +606,7 @@ export namespace Leader {
     cardShape!: CardShape;
     rzIcon?: Paintable;
 
-    constructor(leader?: Leader, vis = false, upgraded = false) {
+    constructor(leader?: Leader, vis = false, upgraded = true) {
       super('LeaderCard');  // minimal Container
       this.cardShape = new CardShape(C.grey, upgraded ? C.briteGold : C.WHITE); // unknown leader
       this.addChild(this.cardShape); // empty Container confuses get/setBounds()
@@ -667,9 +634,10 @@ export namespace Leader {
       cardShape.paint(color, true);
       this.addChild(cardShape);
       this.addChild(nText);
-      this.addStats(leader, fontSize, 2 * fontSize + top);
-      if (leader.plGem) this.addChild(leader.plGemIcon(fontSize, top, left))
-      if (leader.upGem) this.addChild(leader.upGemIcon(fontSize, top, left))
+      this.addStats(leader, fontSize, 2 * fontSize + top, upgraded);
+      const plGem = upgraded ? leader.upPlace : leader.plGem;
+      if (plGem) this.addChild(plGemIcon(plGem, fontSize, top, left))
+      if (upgraded ? false : leader.upGem) this.addChild(upGemIcon(leader.upGem, fontSize, top, left))
       this.addText(leader, fontSize, top, left);
       this.scale = .45;
       this.visible = vis;
@@ -677,16 +645,16 @@ export namespace Leader {
     set scale(xy: number)  { this.scaleX = this.scaleY = xy; }
 
     /** add Stats text to Shape/Back */
-    addStats(ldr: Leader, fontSize = ldr.radius * .3, y = 0 ) {
-      const [str, atk, shld] = ldr.stats;
+    addStats(ldr: Leader, fontSize = ldr.radius * .3, y = 0, upgraded = false ) {
+      const [str, atk, shld] = upgraded ? ldr.stats2 : ldr.stats0;
       const stats1 = new CenterText(`S     A     D`, fontSize*.7, C.WHITE);
       const stats2 = new CenterText(`\n${str}   ${atk}   ${shld}`, fontSize, C.WHITE) ;
       stats1.y = stats2.y = y;
       this.addChild(stats1, stats2);
     }
 
-    addText(ldr: Leader, fontSize = 16, top = -80, left = -55) {
-      const tt = ldr.upgraded ? ldr.t2 : ldr.t1;
+    addText(ldr: Leader, fontSize = 16, top = -80, left = -55, upgraded = false) {
+      const tt = upgraded ? ldr.t2 : ldr.t1;
       const t1 = new CenterText(tt || 'Leader text', fontSize * .5, C.WHITE);
       t1.lineWidth = -left * 1.8;
       t1.textAlign = 'left';
@@ -694,10 +662,11 @@ export namespace Leader {
       t1.x = left + .3 * fontSize;
       t1.y = -top - Math.max(height, 3 * mlh);
       this.addChild(t1);
-      const tpIcon = ldr.phaseIcon(this, ldr.tp);
+      const tpIcon = phaseIcon(ldr.tp, ldr.radius * .3);
       tpIcon.y = t1.y - tpIcon.label.getMeasuredLineHeight() * 1.1;
       this.addChild(tpIcon);
     }
+
   }
 }
 
@@ -712,7 +681,7 @@ export class Rhyzu extends Leader {
   // Drop the Rhy-zu Leader on a Faction's Base|Panel and game can handle the token.
   // move it to JReyek Panel in correct orientation (faceUp)
   static Token = class Token extends ChaosToken {
-    static radius = TP.meepleRad * .8;
+    static size = TP.meepleRad * .8; // Size of Rhyzu.Token
     cost: NamedContainer;
     inc: NamedContainer;
     constructor(public leader: Rhyzu ) {
@@ -727,7 +696,7 @@ export class Rhyzu extends Leader {
       this.paint(); // set cost/inc not visible
     }
     override makeShape(size?: number): Paintable {
-      const ts = TP.meepleRad * .8;
+      const ts = Token.size;
       return new RectShape({ x: -ts/2, y: -ts/2, w: ts, h: ts }, C.grey128, C.BLACK)
     }
     /** show cost/income (& controller?) */

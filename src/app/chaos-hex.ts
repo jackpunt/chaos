@@ -2,8 +2,7 @@ import { C, Random, removeEltFromArray, stime, type Constructor, type XY } from 
 import { CircleShape, RectShape, type NamedObject, type Paintable } from "@thegraid/easeljs-lib";
 import { H, Hex1 as Hex1Lib, Hex2Mixin, HexMap, HexMark, HexShape, LegalMark, TP, type HexDir, type HexM, type IdHex, type IHex2 } from "@thegraid/hexlib";
 import { type ChaosTile, type HARVEST, type TERRAIN } from "./chaos-tile";
-import { pentagon } from "./table-params";
-import type { TacticsCard } from "./tactics-card";
+import { pentagon } from "./functions";
 
 /**
  * General interecpt for ray from center to secant of 2 points on circle

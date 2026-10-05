@@ -8,11 +8,12 @@ import { type ChaosTable, type ChaosTable as Table } from "./chaos-table";
 import { BaseTile, ChaosTile, LeaderTile, MoveInPlay, type BONUS, type FactionOnTile, type HARVEST, type HexPair } from "./chaos-tile";
 import { Faction, factionColors, type FactionId, type FactionName } from "./factions";
 import { BgFound, Foundation } from "./foundation";
+import { bonusIcon } from "./functions";
 import { type Battle, type GamePlay } from "./game-play";
 import { type PlayerId } from "./game-state";
 import { baseProdTokenIds, ChaosBuilding, ChaosUnit, Factory, Leader, Outpost, PriceToken, ProdToken, PTokenShape, Rhyzu, Stronghold, type ChaosUnitType, type PriceId } from "./meeples";
 import { ResearchCell, ResearchLevel, ResGrid } from "./research-cell";
-import { bonusIcon, CO, pricePhases, type CB } from "./table-params";
+import { CO, pricePhases, type CB } from "./table-params";
 import { CardBack, CardHex, CardPanel, TacticsCard } from "./tactics-card";
 
 /** Canonical Faction colors, aligned with gameSetup.factionNames.
@@ -812,7 +813,7 @@ export class Panel extends PlayerPanel {
     const wh = this.wh, x0 = wh * .55, y0 = wh * .55;
     const facId = player.facId;
     const leaders = Leader.leaderSpecs.filter(lspec => lspec.facId == facId);
-    const leaderRad = TP.hexRad * .8; // width of leader.card
+    const leaderRad = TP.meepleRad * 1.0; // width of leader.card
 
     /** a Hex to hold a LeaderTile */
     const LeaderHex = class LeaderHex extends Hex2 {

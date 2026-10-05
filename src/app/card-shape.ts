@@ -1,11 +1,11 @@
 import { C } from "@thegraid/common-lib";
 import { RectShape } from "@thegraid/easeljs-lib";
-import { H, TP } from "@thegraid/hexlib";
+import { TP } from "@thegraid/hexlib";
 
 
 export class CardShape extends RectShape {
   /** recompute if TP.hexRad has been changed */
-  static get onScreenRadius() { return TP.hexRad * H.sqrt3 };
+  static get onScreenRadius() { return TP.meepleRad * 2.16 }; // was hexRad * H.sqrt3; now: meepleRad * H.sqrt3/.8
 
   /**
    * Modified RectShape: place border stroke inside the WH perimeter.

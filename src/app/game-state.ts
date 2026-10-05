@@ -2,10 +2,11 @@ import { arrayN, C, stime } from "@thegraid/common-lib";
 import { GameState as GameStateLib, TP, type Phase } from "@thegraid/hexlib";
 import type { ChaosTable as Table } from "./chaos-table";
 import { factionNames, type FactionId } from "./factions";
+import { pentagon } from "./functions";
 import type { Battle, GamePlay } from "./game-play";
 import { Relic, type PriceToken } from "./meeples";
 import type { Player } from "./player";
-import { pentagon, priceNames, pricePhases, type CB, type PhaseName, type PriceName, type PricePhase } from "./table-params";
+import { priceNames, pricePhases, type CB, type PhaseName, type PriceName, type PricePhase } from "./table-params";
 
 declare module '@thegraid/hexlib' {
   interface Phase {
