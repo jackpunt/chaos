@@ -100,15 +100,21 @@ export function phaseIcon(ntext: PhaseName, fontSize = TP.meepleRad * .3) {
 /** left-side icon for placement cost */
 export function plGemIcon(nGem = 1, fontSize = 16, top = -80, left = -55) {
   const icon = new NamedContainer('plGem');
+  const mlh = fontSize;  //arr2.getMeasuredHeight();
   const x0 = left + fontSize * .7;
-  const y0 = (2 * fontSize + top), dydg = fontSize * .9;
+  const y0 = (2 * mlh + top);
+  const xs = fontSize/2, ys = nGem * mlh + mlh;
+  const dnGrey = pentagon(xs, ys, C.grey32, 180); // TODO: gradient Gold-->Grey
+  dnGrey.x = x0;
+  dnGrey.y = y0 + ys - mlh/2;
+  icon.addChild(dnGrey);
   arrayN(nGem).forEach(n =>{
     const gem = new CircleShape(CO.gColor, fontSize*.33, '');
     gem.x = x0;
-    gem.y = y0 + n * dydg;
+    gem.y = y0 + n * mlh;
     icon.addChild(gem);
   })
-  const gemy = y0 + (nGem - 1) * dydg;
+  const gemy = y0 + (nGem - 1) * mlh;
   const circ = new EllipseShape('grey', fontSize * .35, fontSize * .12 ,'white')
   const arr1 = new CenterText('v', fontSize * .55, 'white');
   const arr2 = new CenterText('V', fontSize * 1.0, 'white');
@@ -122,7 +128,6 @@ export function plGemIcon(nGem = 1, fontSize = 16, top = -80, left = -55) {
 
 /** right-side icon for upgrade cost */
 export function upGemIcon(nGem = 1, fontSize = 16, top = -80, left = -55) {
-  fontSize = Math.round(fontSize);
   const icon = new NamedContainer('plGem');
   const mlh = fontSize;  //arr2.getMeasuredHeight();
 
@@ -130,10 +135,10 @@ export function upGemIcon(nGem = 1, fontSize = 16, top = -80, left = -55) {
   const y0 = (2 * mlh + top);
   const xs = fontSize/2;
   const ys = nGem * mlh + mlh;
-  const pent = pentagon(xs, ys, C.briteGold)
-  pent.x = x0;
-  pent.y = y0 - xs/2;
-  icon.addChild(pent);
+  const upGold = pentagon(xs, ys, C.briteGold)
+  upGold.x = x0;
+  upGold.y = y0 - xs/2;
+  icon.addChild(upGold);
 
   const font = F.fontSpec(fontSize, undefined, 'bold');
   const arr2 = new CenterText('V', font, C.white);
