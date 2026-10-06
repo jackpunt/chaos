@@ -9,7 +9,7 @@ import { Faction, type FactionId } from "./factions";
 import { Foundation } from "./foundation";
 import { pentagon } from "./functions";
 import type { GamePlay } from "./game-play";
-import { type AI_Trap, type baseProdTokenIds, type ChaosBuilding, ChaosToken, type Factory, Leader, type Morale, type Outpost, ProdToken, type Relic, type Stronghold, type upgradeProdTokenIds } from "./meeples";
+import { type AI_Trap, type baseProdTokenIds, type ChaosBuilding, ChaosToken, type Factory, Leader, LeaderCard, type Morale, type Outpost, ProdToken, type Relic, type Stronghold, type upgradeProdTokenIds } from "./meeples";
 import { superMethod } from "./mixins";
 import type { Player } from "./player";
 import type { FactionOnTileState } from "./scenario-parser";
@@ -949,7 +949,7 @@ export class BaseTile extends ChaosTile {
 }
 
 export class LeaderTile extends ChaosTile {
-  declare baseShape: Leader.LeaderCard;
+  declare baseShape: LeaderCard;
   constructor(ldr: Leader, player: Player, pColor = player.color) {
     const Aname = `${ldr.Aname.substring(0,2)}_tile`
     // (name, terrain, harvest, player)
@@ -966,7 +966,7 @@ export class LeaderTile extends ChaosTile {
 
   // LeaderCard for this Leader:
   override makeShape(): Paintable {
-    return new Leader.LeaderCard();
+    return new LeaderCard();
   }
   // not a drop target for Foundations
   override ndxForFoundation(): number | undefined { return undefined }

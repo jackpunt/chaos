@@ -303,9 +303,6 @@ export interface ILeader extends LeaderSpec {
 /** maybe someday itemize them */
 export type LeaderName = string;
 
-// canonize and publish for typing field & return type
-type LeaderCard = InstanceType<typeof Leader.LeaderCard>;
-
 //  ' F ' --> Fist (strength), * --> Attack, # --> Shield/Defense
 export class Leader extends ChaosUnit implements LeaderSpec {
 
@@ -519,8 +516,8 @@ export class Leader extends ChaosUnit implements LeaderSpec {
    * onBoard: obvious from location of baseShape (baseShape on Card OR Card [popup] on baseShape)
    */
   makeCard() {
-    const baseCard = new Leader.LeaderCard(this);
-    const otherSide = new Leader.LeaderCard(this, false, true);
+    const baseCard = new LeaderCard(this);
+    const otherSide = new LeaderCard(this, false, true);
     baseCard.otherSide = otherSide;
     otherSide.otherSide = baseCard;
     return baseCard;
@@ -585,7 +582,7 @@ export class Leader extends ChaosUnit implements LeaderSpec {
     if (!toHex.ctile || toHex.ctile.isMtn) return false;
     if (toHex.ctile.isLake && this.facId !== 5) return false;
     if (toHex == this.homeHex) return true;
-    if (toHex.ctile.baseShape instanceof Leader.LeaderCard) return false; // is not *our* homeHex
+    if (toHex.ctile.baseShape instanceof LeaderCard) return false; // is not *our* homeHex
     if (ctx?.gameState.isPhase('DeployLeaders') &&
       !this.player.panel.baseTile?.baseRegions!.includes(toHex)) return false; // Rhyzu/neutralPlayer no baseRegions
     return true
@@ -605,93 +602,89 @@ export class Leader extends ChaosUnit implements LeaderSpec {
   }
 }
 
-export namespace Leader {
+/** Used as baseShape for LeaderTile and as pop-up enlargement for LeaderIcon */
+export class LeaderCard extends PaintableCont {
+  leader!: Leader;
+  otherSide!: LeaderCard;
+  cardShape!: CardShape;
+  rzIcon?: Paintable;
+  set scale(xy: number)  { this.scaleX = this.scaleY = xy; }
 
-  /** Used as baseShape for LeaderTile and as pop-up enlargement for LeaderIcon */
-  export class LeaderCard extends PaintableCont {
-    leader!: Leader;
-    otherSide!: LeaderCard;
-    cardShape!: CardShape;
-    rzIcon?: Paintable;
-    set scale(xy: number)  { this.scaleX = this.scaleY = xy; }
-
-    constructor(leader?: Leader, vis = false, upgraded = false) {
-      super('LeaderCard');  // minimal Container
-      this.cardShape = new CardShape(C.grey, upgraded ? C.briteGold : C.WHITE); // unknown leader
-      this.addChild(this.cardShape); // empty Container confuses get/setBounds()
-      if (leader) {
-        this.setLeader(leader, vis, upgraded); // add stuff if given a Leader; else wait for setLeader()
-      }
+  constructor(leader?: Leader, vis = false, upgraded = false) {
+    super('LeaderCard');  // minimal Container
+    this.cardShape = new CardShape(C.grey, upgraded ? C.briteGold : C.WHITE); // unknown leader
+    this.addChild(this.cardShape); // empty Container confuses get/setBounds()
+    if (leader) {
+      this.setLeader(leader, vis, upgraded); // add stuff if given a Leader; else wait for setLeader()
     }
-    /**
-     * Default constructor returns an empty PaintableCont.
-     *
-     * This method fills the Container with CardShape and leader stats.
-     * @param Aname
-     * @param leader
-     * @param vis
-     */
-    setLeader(leader: Leader, vis = false, upgraded = false) {
-      this.Aname = leader.Aname;
-      this.leader = leader;
-      const color = leader.isRhyzu ? CO.rhy_zu : leader.pColor;
-      const cardShape = this.cardShape;
-      const fontSize = leader.radius * .3;
-      const top = -cardShape._rect.h/2, left = cardShape._rect.x, right = -left;
-      const nText = new CenterText(this.Aname, fontSize, C.WHITE);
-      nText.y = fontSize * .9 + top;
-      cardShape.paint(color, true);
-      this.addChild(cardShape);
-      this.addChild(nText);
-      this.addStats(leader, fontSize, 2 * fontSize + top, upgraded);
-      const plGem = upgraded ? leader.upPlace : leader.plGem;
-      if (plGem) this.addChild(plGemIcon(plGem, fontSize, top, left))
-      if (upgraded ? false : leader.upGem) this.addChild(upGemIcon(leader.upGem, fontSize, top, left))
-      this.addText(leader, fontSize, top, left, upgraded);
-      this.scale = .45;
-      this.visible = vis;
-      rightClickable(this, (evt: MouseEvent) => this.doRightClick(evt));
-    }
+  }
+  /**
+   * Default constructor returns an empty PaintableCont.
+   *
+   * This method fills the Container with CardShape and leader stats.
+   * @param Aname
+   * @param leader
+   * @param vis
+   */
+  setLeader(leader: Leader, vis = false, upgraded = false) {
+    this.Aname = leader.Aname;
+    this.leader = leader;
+    const color = leader.isRhyzu ? CO.rhy_zu : leader.pColor;
+    const cardShape = this.cardShape;
+    const fontSize = leader.radius * .3;
+    const top = -cardShape._rect.h/2, left = cardShape._rect.x, right = -left;
+    const nText = new CenterText(this.Aname, fontSize, C.WHITE);
+    nText.y = fontSize * .9 + top;
+    cardShape.paint(color, true);
+    this.addChild(cardShape);
+    this.addChild(nText);
+    this.addStats(leader, fontSize, 2 * fontSize + top, upgraded);
+    const plGem = upgraded ? leader.upPlace : leader.plGem;
+    if (plGem) this.addChild(plGemIcon(plGem, fontSize, top, left))
+    if (upgraded ? false : leader.upGem) this.addChild(upGemIcon(leader.upGem, fontSize, top, left))
+    this.addText(leader, fontSize, top, left, upgraded);
+    this.scale = .45;
+    this.visible = vis;
+    rightClickable(this, (evt: MouseEvent) => this.doRightClick(evt));
+  }
 
-    doRightClick(evt: MouseEvent) {
-      evt.stopImmediatePropagation();
-      this.switchSides();
-    }
+  doRightClick(evt: MouseEvent) {
+    evt.stopImmediatePropagation();
+    this.switchSides();
+  }
 
-    switchSides(setBase = false) {
-      const baseSide = this.leader.baseCard.visible ? this.leader.baseCard : this.leader.baseCard.otherSide;
-      const otherSide = baseSide.otherSide;
-      baseSide.visible = setBase ? true : false;
-      otherSide.visible = !baseSide.visible;
-      const card = baseSide.visible ? baseSide : otherSide;
-      card.on(S.click, () => { card.visible = false; card.stage.update()}, this, true)
-      rightClickable(card, (evt: MouseEvent) => this.doRightClick(evt));
-      card.stage.update();
-    }
+  switchSides(setBase = false) {
+    const baseSide = this.leader.baseCard.visible ? this.leader.baseCard : this.leader.baseCard.otherSide;
+    const otherSide = baseSide.otherSide;
+    baseSide.visible = setBase ? true : false;
+    otherSide.visible = !baseSide.visible;
+    const card = baseSide.visible ? baseSide : otherSide;
+    card.on(S.click, () => { card.visible = false; card.stage.update()}, this, true)
+    rightClickable(card, (evt: MouseEvent) => this.doRightClick(evt));
+    card.stage.update();
+  }
 
-    /** add Stats text to Shape/Back */
-    addStats(ldr: Leader, fontSize = ldr.radius * .3, y = 0, upgraded = false ) {
-      const [str, atk, shld] = upgraded ? ldr.stats2 : ldr.stats0;
-      const stats1 = new CenterText(`S     A     D`, fontSize*.7, C.WHITE);
-      const stats2 = new CenterText(`\n${str}   ${atk}   ${shld}`, fontSize, C.WHITE) ;
-      stats1.y = stats2.y = y;
-      this.addChild(stats1, stats2);
-    }
+  /** add Stats text to Shape/Back */
+  addStats(ldr: Leader, fontSize = ldr.radius * .3, y = 0, upgraded = false ) {
+    const [str, atk, shld] = upgraded ? ldr.stats2 : ldr.stats0;
+    const stats1 = new CenterText(`S     A     D`, fontSize*.7, C.WHITE);
+    const stats2 = new CenterText(`\n${str}   ${atk}   ${shld}`, fontSize, C.WHITE) ;
+    stats1.y = stats2.y = y;
+    this.addChild(stats1, stats2);
+  }
 
-    addText(ldr: Leader, fontSize = 16, top = -80, left = -55, upgraded = false) {
-      const tt = upgraded ? ldr.t2 : ldr.t1;
-      const t1 = new CenterText(tt || 'Leader text', fontSize * .5, C.WHITE);
-      t1.lineWidth = -left * 1.8;
-      t1.textAlign = 'left';
-      const { width, height } = t1.getBounds(), mlh = t1.getMeasuredLineHeight();
-      t1.x = left + .3 * fontSize;
-      t1.y = -top - Math.max(height, 3 * mlh);
-      this.addChild(t1);
-      const tpIcon = phaseIcon(ldr.tp, ldr.radius * .3);
-      tpIcon.y = t1.y - tpIcon.label.getMeasuredLineHeight() * 1.1;
-      this.addChild(tpIcon);
-    }
-
+  addText(ldr: Leader, fontSize = 16, top = -80, left = -55, upgraded = false) {
+    const tt = upgraded ? ldr.t2 : ldr.t1;
+    const t1 = new CenterText(tt || 'Leader text', fontSize * .5, C.WHITE);
+    t1.lineWidth = -left * 1.8;
+    t1.textAlign = 'left';
+    const { width, height } = t1.getBounds(), mlh = t1.getMeasuredLineHeight();
+    t1.x = left + .3 * fontSize;
+    t1.y = -top - Math.max(height, 3 * mlh);
+    this.addChild(t1);
+    const tpIcon = phaseIcon(ldr.tp, ldr.radius * .3);
+    tpIcon.y = t1.y - tpIcon.label.getMeasuredLineHeight() * 1.1;
+    this.addChild(tpIcon);
   }
 }
 
