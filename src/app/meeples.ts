@@ -1,7 +1,7 @@
 import { C, Constructor, F, S, stime, type XY, type XYWH } from "@thegraid/common-lib";
 import { CenterText, NamedContainer, PathShape, RectShape, TextInRect, UtilButton, type Paintable, type RectWithDispOptions, type TextInRectOptions } from "@thegraid/easeljs-lib";
 import { Container, Graphics, MouseEvent, Rectangle } from "@thegraid/easeljs-module";
-import { Meeple, MeepleShape, Table, Tile, type DragContext, type DragFuncs, type HasDragger, type Hex, type HexM, type IHex2 } from "@thegraid/hexlib";
+import { Meeple, MeepleShape, rightClickable, Table, Tile, type DragContext, type DragFuncs, type HasDragger, type Hex, type HexM, type IHex2 } from "@thegraid/hexlib";
 import { CardShape } from "./card-shape";
 import { TokenHex, type ChaosHex2 as Hex2, type HexMap2 } from "./chaos-hex";
 import { type BASE_PROD_TOKEN, type BONUS, type ChaosTile, type FactionOnTile, type HARVEST, type LeaderTile, type TERRAIN } from "./chaos-tile";
@@ -422,7 +422,8 @@ export class Leader extends ChaosUnit implements LeaderSpec {
     return this.isRhyzu > 0;   // versus instanceof
   }
 
-  card: LeaderCard;       // InstanceType<typeof Leader.LeaderCard>;
+  baseCard!: LeaderCard;
+  get card() { return this.upgraded ? this.baseCard.otherSide : this.baseCard; }
 
   constructor(Aname: string, player: Player) {
     super(`${Aname}`, player); // Note: Tile/Meeple (Container) caches itself. so it all drags & drops
@@ -441,7 +442,7 @@ export class Leader extends ChaosUnit implements LeaderSpec {
     this.plGem = plGem ?? 0;
     this.upGem = upGem ?? 0;
     this.upPlace = (name == 'Injura' ? 2 : name == 'Demo' ? 0 : isRhyzu ? 0 : 1);
-    this.card = this.makeCard();
+    this.baseCard = this.makeCard();
     this.rightClickable()
   }
 
@@ -454,13 +455,15 @@ export class Leader extends ChaosUnit implements LeaderSpec {
     evt.stopImmediatePropagation();
     const tile = this.factOnTile!.tile;
     const card = this.card, parCont = tile.hex!.map.mapCont.overCont;
-    this.baseShape.parent.localToLocal(this.baseShape.x, this.baseShape.y, parCont, card);
-    parCont.addChild(card);  // baseTile.FoT or overCont
+    const otherSide = card.otherSide;
     card.scale = 1.6;        //
+    this.baseShape.parent.localToLocal(this.baseShape.x, this.baseShape.y, parCont, card);
+    otherSide.x = card.x; otherSide.y = card.y; otherSide.scale = card.scaleX;
+    parCont.addChild(card, otherSide);  // baseTile.FoT or overCont
     card.visible = true;
-    card.reCache(0);
-    card.stage.update();
+    card.reCache(0); card.otherSide.reCache(0); // Why?
     card.on(S.click, () => { card.visible = false; card.stage.update()}, this, true)
+    card.stage.update();
   }
 
   /**
@@ -516,7 +519,11 @@ export class Leader extends ChaosUnit implements LeaderSpec {
    * onBoard: obvious from location of baseShape (baseShape on Card OR Card [popup] on baseShape)
    */
   makeCard() {
-    return new Leader.LeaderCard(this);
+    const baseCard = new Leader.LeaderCard(this);
+    const otherSide = new Leader.LeaderCard(this, false, true);
+    baseCard.otherSide = otherSide;
+    otherSide.otherSide = baseCard;
+    return baseCard;
   }
 
   homeTile?: ReturnType<Leader['makeLeaderHomeTile']>;    // typically on Panel, start & return Tile on this.homeHex
@@ -603,8 +610,10 @@ export namespace Leader {
   /** Used as baseShape for LeaderTile and as pop-up enlargement for LeaderIcon */
   export class LeaderCard extends PaintableCont {
     leader!: Leader;
+    otherSide!: LeaderCard;
     cardShape!: CardShape;
     rzIcon?: Paintable;
+    set scale(xy: number)  { this.scaleX = this.scaleY = xy; }
 
     constructor(leader?: Leader, vis = false, upgraded = false) {
       super('LeaderCard');  // minimal Container
@@ -638,11 +647,27 @@ export namespace Leader {
       const plGem = upgraded ? leader.upPlace : leader.plGem;
       if (plGem) this.addChild(plGemIcon(plGem, fontSize, top, left))
       if (upgraded ? false : leader.upGem) this.addChild(upGemIcon(leader.upGem, fontSize, top, left))
-      this.addText(leader, fontSize, top, left);
+      this.addText(leader, fontSize, top, left, upgraded);
       this.scale = .45;
       this.visible = vis;
+      rightClickable(this, (evt: MouseEvent) => this.doRightClick(evt));
     }
-    set scale(xy: number)  { this.scaleX = this.scaleY = xy; }
+
+    doRightClick(evt: MouseEvent) {
+      evt.stopImmediatePropagation();
+      this.switchSides();
+    }
+
+    switchSides(setBase = false) {
+      const baseSide = this.leader.baseCard.visible ? this.leader.baseCard : this.leader.baseCard.otherSide;
+      const otherSide = baseSide.otherSide;
+      baseSide.visible = setBase ? true : false;
+      otherSide.visible = !baseSide.visible;
+      const card = baseSide.visible ? baseSide : otherSide;
+      card.on(S.click, () => { card.visible = false; card.stage.update()}, this, true)
+      rightClickable(card, (evt: MouseEvent) => this.doRightClick(evt));
+      card.stage.update();
+    }
 
     /** add Stats text to Shape/Back */
     addStats(ldr: Leader, fontSize = ldr.radius * .3, y = 0, upgraded = false ) {
