@@ -207,7 +207,7 @@ export class GamePlay extends GamePlayLib {
     baseTile.moveCounter.visible = true;
     // set visibity on fot.moveIcon & fot.fighterIcon; set pre-Move state
     faction.player.presence.forEach(fot => { fot.setFighterVis(); fot.setPreMove(); });
-    console.log(stime(this, `.moveFaction: preFighters=`), faction.player.presence.map(fot => fot.preFighters));
+    console.log(stime(this, `.moveFaction(n=${nMove}): preFighters=`), faction.player.presence.map(fot => fot.preFighters));
     baseTile.stage.update();
     // TODO: D&D stuff for MoveShape [8/12]
     // TODO: after 'done' find & clear all the MoveShape on all MapTile [8/12]

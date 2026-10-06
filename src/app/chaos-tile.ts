@@ -1,5 +1,5 @@
 import { C, permute, removeEltFromArray, S, stime, type XY } from "@thegraid/common-lib";
-import { AliasLoader, NamedContainer, type Paintable, PathShape, PolyShape, RectShape } from "@thegraid/easeljs-lib";
+import { AliasLoader, NamedContainer, type Paintable, PathShape, PolyShape, RectShape, type ValueEvent } from "@thegraid/easeljs-lib";
 import type { DisplayObject } from "@thegraid/easeljs-module";
 import { type DragContext, type DragFuncs, H, type HasDragger, type HexDir, HexShape, type IHex2, MapTile, NumCounter, Player as PlayerLib, rightClickable, type Table, Tile, TP } from "@thegraid/hexlib";
 import { type ChaosHex2, type ChaosHex2 as Hex2, type HexMap2 } from "./chaos-hex";
@@ -165,10 +165,10 @@ export class MoveIcon extends ChaosToken {
   }
   override dropFunc(targetHex: Hex2, ctx: DragContext) {
     if (this.player.hasMP) {
-    const toRegion = targetHex?.ctile, srcTile = this.srcTile;
-    if (toRegion && toRegion != srcTile) {
-      this.player.newMoveInPlay(srcTile, toRegion);
-    }
+      const toRegion = targetHex?.ctile, srcTile = this.srcTile;
+      if (toRegion && toRegion != srcTile) {
+        this.player.newMoveInPlay(srcTile, toRegion);
+      }
     }
     this.paint(this.color);
     this.sendHome();
@@ -242,12 +242,17 @@ export class MoveInPlay extends NamedContainer {
     this.toFot;  // set visible
   }
 
+  matches(from: ChaosTile, to: ChaosTile) {
+    return (from == this.from) && (to == this.to)
+  }
+
   addArrowGraphic() {
     const pair = [this.from.chex, this.to.chex] as HexPair;
     if (pair[0].linkHexes.includes(pair[1])) {
       // AdjGraphic: container(pent, counter)
       const color = C.nameToRgbaString(this.player.color, .5);
       const pent = pentagon(TP.hexRad*.16, TP.hexRad*.1, color, 0, '');
+      pent.y -= TP.hexRad*.2;
       this.addChildAt(pent, 0);                       // under this.counter
       this.y -= TP.hexRad * .01;
       this.counter.y += TP.hexRad * -.05;
@@ -412,8 +417,8 @@ export class FactionOnTile extends NamedContainer {
       if (!this.leaders.includes(ldr)) {
         // similar to Hex with tile/meep; we have array of slots for Leaders:
         this.leaders.push(ldr);
-        ldr.factOnTile = this;
       }
+      ldr.factOnTile = this;
     } else {
       removeEltFromArray(ldr, this.leaders);
       this.removeChild(ldr)
@@ -526,6 +531,7 @@ export class FactionOnTile extends NamedContainer {
   resetMove() {
     this.fighters = this.preFighters;
     this.leaders = this.preLeaders.slice();
+    this.leaders.forEach(ldr => this.addLeader(ldr))
   }
   /** maybe/beginning what we need to saveState of Map.
    *
@@ -595,6 +601,7 @@ export class ChaosTile extends MapTile {
   get isPlains() {return this.terrain == "Plains"}
   get isBase() {return this.terrain == "Base"}
   get isSwamp() {return this.terrain == "Swamp"}
+  get isOnMap() { return this.chex.isOnMap}
   // Leyrien Base is not Swamp, but can be connected,
   // as can Leyrien Strongholds
   // caller must verify that Leyrien is the Faction in question
@@ -760,6 +767,10 @@ export class BaseTile extends ChaosTile {
     counter.y = y0;
     this.addChild(counter);
     counter.clickToInc(true, 5);   // temp for testing
+    const incMP = ((ve: ValueEvent) => {
+      this.gamePlay.movePoints += Math.max(0, (ve.value as number)) // ignore decrements
+    }) as ((evt: Object) => void)
+    counter.on('incr', incMP)
   }
 
  override addHarvest(pToken: ProdToken) {

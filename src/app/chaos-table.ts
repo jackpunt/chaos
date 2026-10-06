@@ -1,7 +1,7 @@
-import { arrayN, C, F, type Constructor, type XY, type XYWH } from "@thegraid/common-lib";
+import { arrayN, C, F, stime, type Constructor, type XY, type XYWH } from "@thegraid/common-lib";
 import { AliasLoader, NamedContainer, ParamGUI, type NamedObject, type ParamItem, type RectShape } from "@thegraid/easeljs-lib";
 import { Stage, type Container, type DisplayObject } from "@thegraid/easeljs-module";
-import { Hex2, Table, Tile, TileSource, TP, type IHex2, type MapCont, type Player as PlayerLib } from "@thegraid/hexlib";
+import { Hex2, Table, Tile, TileSource, TP, type DragContext, type IHex2, type MapCont, type Player as PlayerLib } from "@thegraid/hexlib";
 import { TokenHex, type ChaosHex2, type HexMap2 } from "./chaos-hex";
 import { ChaosTile } from "./chaos-tile";
 import { factionColors, factionNeutral, type FactionId } from "./factions";
@@ -45,6 +45,11 @@ export class ChaosTable extends Table {
   override toggleText(vis = !this.isVisible): void {
     this.newHexes.forEach(hex => hex.showText(vis))
     super.toggleText(vis);
+  }
+
+  override explainReason(tile: Tile, ctx: DragContext, reason?: string | boolean): void {
+    console.log(stime(this, `.dragStart: ${reason}: ${tile},`)); // elide ctx=${ctx}
+    // this.logText(`${reason}: ${tile}`, 'Table.dragStart');
   }
 
   makeSourceAtRowCol<T extends Tile>(ms: (hex: Hex2) => TileSource<T>,

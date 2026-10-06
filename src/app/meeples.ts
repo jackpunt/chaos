@@ -572,8 +572,22 @@ export class Leader extends ChaosUnit implements LeaderSpec {
     map?.mapCont.overCont?.addChild(mark); // move to overCont
   }
 
+  get isOnMap() {
+    return this.factOnTile?.tile.isOnMap
+  }
+
+  override cantBeMovedBy(player: Player, ctx: DragContext): string | boolean | undefined {
+    // if moving from panel, must pay gemlock:
+    const plGem = this.upgraded ? this.upPlace : this.plGem;
+    if (!this.isOnMap && plGem) {
+      if (plGem > player.gems) return `${plGem} Gem${plGem > 1 ? 's' : ''} to recruit`;
+    }
+    return super.cantBeMovedBy(player, ctx);
+  }
+
   /** the ChaosTile the was holding Leader before dragStart. */
   ctxCtile(ctx?: DragContext) {
+    // I expect: this.factOnTile.tile is always the source of a Leader. (Leader is always on a Tile)
     return this.factOnTile?.tile ?? (ctx?.info.srcCont as FactionOnTile).tile;
   }
 
@@ -585,7 +599,15 @@ export class Leader extends ChaosUnit implements LeaderSpec {
     if (toHex.ctile.baseShape instanceof LeaderCard) return false; // is not *our* homeHex
     if (ctx?.gameState.isPhase('DeployLeaders') &&
       !this.player.panel.baseTile?.baseRegions!.includes(toHex)) return false; // Rhyzu/neutralPlayer no baseRegions
-    return true
+    // recruit:
+    if (!this.isOnMap) return this.isaRhyzu() ? true : (toHex.ctile == this.player.panel.baseTile);
+    // move:
+    if (ctx?.gameState.isPhase('Move')) {
+      if (ctx.lastShift) return true;
+      const to = toHex.ctile, from = this.factOnTile?.tile!;
+      return !!this.player.movesInPlay.find(mip => mip.matches(from, to))
+    }
+    return false;
   }
 
   override dragStart(ctx: DragContext): void {

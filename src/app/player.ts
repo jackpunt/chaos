@@ -153,6 +153,23 @@ export class Player extends PlayerLib {
     }
   }
 
+  canPayGemlock() {
+    const agem = (this.gems >= 1);
+    const unlock = !!this.panel.foundations['unlock']!.hex?.isOnMap && (this.coins >= 2);
+    return [agem || unlock, agem, unlock] as [boolean, boolean, boolean];
+  }
+
+  payGemlock() {
+    const [canpay, agem , unlock] = this.canPayGemlock()
+    if (!canpay) return false;
+    // setup choice for 'Gem' or 'E2'
+    const gf = () => this.payGems(1), ef = () => this.payEnergy(2);
+    if (agem && unlock) {
+      this.gamePlay.neutralPlayer.panel.popupChoice('Gem', 'E2', gf, ef);
+    } else if (agem) { gf() } else { ef() }
+    return true;
+  }
+
   /** Array of FoT with every extant FoT for this Player */
   get fotPresence() {
     const rv: FactionOnTile[] = [];

@@ -242,15 +242,9 @@ export class ResearchCell extends NamedContainer {
 
   /** advance ResearchLevel, apply Bonus; pay gemLock */
   immediate(faction: Faction, cb: CB = () => {}) {
-    const player = faction.player;
     if (this.gemlock) {
-      const unlock = !!player.panel.foundations['unlock']!.hex?.isOnMap && (player.coins >= 2);
-      const agem = (player.gems >= 1)
-      if (!(agem || unlock)) return;
-      const gf = () => player.payGems(1), ef = () => player.payEnergy(2);
-      if (agem && unlock) {
-        player.gamePlay.neutralPlayer.panel.popupChoice('gem', 'E2', gf, ef);
-      } else if (agem) { gf() } else { ef() }
+      if (!faction.player.payGemlock()) return;
+      // Assert: player will eventually choose coins or Gem.
     }
     faction.researchLevelOfPhase[this.pName].level = this.level;  // RL is moved!
     this.iButton.activate(false);
