@@ -493,7 +493,7 @@ export class Leader extends ChaosUnit implements LeaderSpec {
   /** the small, D&D/on-map shape; it can expand to the larger leaderCard */
   static LeaderIcon = class LeaderIcon2 extends PaintableCont {
     constructor(inst: Leader, opts?: RectWithDispOptions) {
-      const { strokec, ss } = { strokec: '', ss: 1, ...opts };
+      const { strokec, ss } = { strokec: 'white', ss: 1, ...opts };
       const ntext = `${inst.Aname.substring(0,2)}`, wide = inst.radius * .35, fontSize = inst.radius * .25;
       const bgColor = inst.player.color;
       super(`${inst.Aname}_icon`);
@@ -597,13 +597,14 @@ export class Leader extends ChaosUnit implements LeaderSpec {
     if (toHex.ctile.isLake && this.facId !== 5) return false;
     if (toHex == this.homeHex) return true;
     if (toHex.ctile.baseShape instanceof LeaderCard) return false; // is not *our* homeHex
-    if (ctx?.gameState.isPhase('DeployLeaders') &&
+    const gameState = ctx?.gameState as GameState;
+    if (gameState.isPhase('DeployLeaders') &&
       !this.player.panel.baseTile?.baseRegions!.includes(toHex)) return false; // Rhyzu/neutralPlayer no baseRegions
     // recruit:
     if (!this.isOnMap) return this.isaRhyzu() ? true : (toHex.ctile == this.player.panel.baseTile);
     // move:
-    if (ctx?.gameState.isPhase('Move')) {
-      if (ctx.lastShift) return true;
+    if (gameState.gamePlay.movePlayer == this.player) {
+      if (ctx!.lastShift) return true;
       const to = toHex.ctile, from = this.factOnTile?.tile!;
       return !!this.player.movesInPlay.find(mip => mip.matches(from, to))
     }

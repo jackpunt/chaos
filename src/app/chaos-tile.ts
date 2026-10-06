@@ -117,9 +117,9 @@ export type FAME_BONUS = 'E1' | 'E2' | 'C' | 'G1' | '%' | 'R1' | 'R2' | 'M1' | '
 
 const colorOfTerrain: Record<TERRAIN, string> = {
   Mtn: C.grey64,
-  Hills: C.nameToRgbaString(C.dimYellow, .5),
-  Swamp: C.nameToRgbaString(C.lightgreen, .5),
-  Plains: C.nameToRgbaString(C.BROWN, .5),
+  Hills: C.nameToRgbaString('rgb(190, 152, 0)', .35),
+  Swamp: C.nameToRgbaString('rgb(20, 100, 0)', .35),
+  Plains: C.nameToRgbaString('rgb(130, 61, 0)', .35),
   Lake: C.lightblue,
   Base: C.WHITE,  // color of temp Tiles placed on hexes reserved for 'Base' Tiles
   Ldr: C.WHITE,

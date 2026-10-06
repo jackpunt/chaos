@@ -108,10 +108,11 @@ export class ChaosHex2 extends ChaosHex2Lib {
 
   // smaller radius of circle
   override makeLegalMark(): LegalMark {
-    return new class extends LegalMark {
+    return new class ChaosLegalMark extends LegalMark {
       override doGraphics(): void {
+        const color = 'rgba(220, 220, 250, 0.9)';
         this.removeAllChildren();
-        this.addChild(new CircleShape(C.legalGreen, this.hex2.radius * .3, '')); // @(0, 0)
+        this.addChild(new CircleShape(color, this.hex2.radius * .3, '')); // @(0, 0)
       }
     }
   }

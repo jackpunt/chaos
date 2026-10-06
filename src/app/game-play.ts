@@ -242,6 +242,7 @@ export class GamePlay extends GamePlayLib {
     }
     faction.player.setAllFighterVis(); // touch all FoT, setting visibility
     this.removeTargets(); // remove all MoveInPlay
+    this.table.stage.update();
   }
 
   /** undo, stop and re-start moveFaction() */
@@ -249,10 +250,8 @@ export class GamePlay extends GamePlayLib {
     if (!this.movePlayer) return;
     const faction = this.movePlayer.faction
     this.movePlayer.fotPresence.forEach(fot => fot.resetMove());
-    this.endMoveFaction();
-    this.moveFaction(faction, this.movePoints);
-    // this.movePlayer = faction.player;
-    this.table.stage.update();
+    this.endMoveFaction();                       // this.movePlayer = undefined
+    this.moveFaction(faction, this.movePoints);  // this.movePlayer = faction.player;
   }
 
   findBattles(pid: PlayerId) {
@@ -280,5 +279,7 @@ export class GamePlay extends GamePlayLib {
     )
     KeyBinder.keyBinder.setKey('R', () => this.curPlayer.faction.offerRecruit(2, ()=>{}))
     KeyBinder.keyBinder.setKey('H', () => this.curPlayer.faction.offerHarvestActions(2, ()=>{}))
+    KeyBinder.keyBinder.setKey('M', () => this.moveFaction(this.curPlayer.faction)); // use mpForFaction()
+    KeyBinder.keyBinder.setKey('C-M', () => this.endMoveFaction()); // use mpForFaction()
   }
 }

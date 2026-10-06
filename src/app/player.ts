@@ -181,7 +181,7 @@ export class Player extends PlayerLib {
   }
 
   setAllFighterVis() {
-    return this.fotPresence.filter(fot => this.isInFot(fot) && fot.setFighterVis())
+    return this.fotPresence.filter(fot => fot.setFighterVis())
   }
 
   /** Array of FoT for this Player with fighters, leaders or buildings; setFighterVis() */
