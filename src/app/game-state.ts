@@ -410,6 +410,7 @@ export class GameState extends GameStateLib {
       // TODO: discriminate MoveFirst/MoveLast; phaseNdx currently gunplayer!
       start: (ndx = this.phaseNdx) => {
         this.setCurPlayerNdx(ndx);
+        this.curPlayer.faction.offerPrimaryAndAux(this.pricePhase); // 'Move'
         this.doneButton();
         // for each MovePoint: click to drop 'move actions' on hex border from src to dest region
         // adjust nFighters, annotate with Leaders that also Move

@@ -178,11 +178,13 @@ export class GamePlay extends GamePlayLib {
   // Harvest: Circadians Harvest from Ship
   // Recruit: click-to-Recruit [done] (Oxataya: option to move Fighters to Strongholds)
   // Recruit: Aux: select/deploy (& pay gem) Leader: doImmediate('L')
+  // Move: offerPrimaryAndAux() [10/6]
   // Move: select & show 'bridge' between src->dest Region. [9/16]
   // Move: select Fighters & Leaders, Drag to next Region. Fighters[9/16]
   // Move: delete moveInPlay when incr --> 0 (conservation of MovePoints) [~done]
   // Move: hack so swamps are adjacent for Leyrein: TeleGraphic [9/21]
-  // Move: Aux: select Leader card to upgrade (& pay gem). doImmediate('U')
+  // Move: Aux: select Leader card to upgrade (& pay gem). [10/6]
+  // Move: doImmediate('U')
   // Combat: choose opponent; choose wheel, card; commit --> reveal, (Ochara!)
   // Combat: auto resolve, remove casualties/buildings, assign Fame (AI, Zcharo, JReyak, Oxataya)
   // Combat: GUI for Retreat/Redeploy

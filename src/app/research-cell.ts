@@ -201,7 +201,7 @@ export class ResearchCell extends NamedContainer {
     // pt.facId gets the primary action for free:
     if (pt.facId !== faction.facId) {
       if (pt.vid > player.coins) {
-        console.log(stime(this, `.primary: (${pt.vid} > ${player.coins})`))
+        console.log(stime(this, `.primary: unable to pay (${pt.vid} > ${player.coins})`))
         return; // unable to pay
       }
       this.payAction(pt, player)
@@ -235,6 +235,8 @@ export class ResearchCell extends NamedContainer {
       faction.offerHarvestActions(hv, cb);
     } else if (matchv('R')) {
       faction.offerRecruit(pv, cb);     // Recruit: pv Recruits
+    } else if (matchv('M')) {
+      gamePlay.moveFaction(faction, pv);// Move: pv movePoints;
     } else {
 
     }
