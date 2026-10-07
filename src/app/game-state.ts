@@ -268,11 +268,11 @@ export class GameState extends GameStateLib {
         });
         this.doneButton();
         if(this.autoPhaseIsAfter('DeployLeaders')) {
-          const plyr = this.curPlayer, facId = plyr.facId;
+          const plyr = this.curPlayer;
           const ldr = plyr.faction.leaders[0];
-          const baseFot = plyr.panel.baseTile.getFoT(facId);
+          const baseFot = plyr.panel.baseTile.getFoT(plyr);
           const ctile = plyr.panel.baseTile.baseRegions![0].ctile!;
-          const toFoT = ctile.getFoT(facId);
+          const toFoT = ctile.getFoT(plyr);
           toFoT.addLeader(ldr);
           toFoT.fighters = baseFot.fighters;
           baseFot.fighters = 0;
@@ -473,7 +473,7 @@ export class GameState extends GameStateLib {
         // auto mostly? choice of E/G, G/%
         // Region Bonus: (C + E), redeploy, select Attribute card(s) | Gems
         // Leyrien
-        // Circadians
+        // Circadian
       },
       done: () => this.startOrPhase('Relics'),
     },

@@ -175,7 +175,7 @@ export class GamePlay extends GamePlayLib {
   // Build: D&D a Foundation; D&D a Building; [~9/29] w/gemLocks
   // Harvest: click-to-Harvest (enable eligble Regions) E, G, C, R, %, etc (ProdToken) [~9/29]
   // Harvest: highlight harvestable ProdTokens [10/4]
-  // Harvest: Circadians Harvest from Ship
+  // Harvest: Circadian Harvest from Ship
   // Recruit: click-to-Recruit [done] (Oxataya: option to move Fighters to Strongholds)
   // Recruit: Aux: select/deploy (& pay gem) Leader: doImmediate('L')
   // Move: offerPrimaryAndAux() [10/6]

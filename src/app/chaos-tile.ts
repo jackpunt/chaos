@@ -722,10 +722,9 @@ export class ChaosTile extends MapTile {
   }
   // TODO: specialize LeaderTile.getFoT() to provide FoT at Center
   /** get FoT(player) creating it if mecessary. visible = isMoving || (fot.fighters > 0) */
-  getFoT(arg: Player | FactionId) {
-    const facId = typeof arg == 'number' ? arg : arg.facId;
-    const player = typeof arg == 'number' ? Faction.factionById.get(arg)!.player : arg;
-    const fot = this.factions[facId] ?? (this.factions[facId] = new FactionOnTile(player, this));
+  getFoT(plyr: Player) {
+    const facId = plyr.facId;
+    const fot = this.factions[facId] ?? (this.factions[facId] = new FactionOnTile(plyr, this));
     fot.setFighterVis();
     return fot;
   }
@@ -911,7 +910,7 @@ export class BaseTile extends ChaosTile {
       const hex0 = this.hex as Hex2, map = hex0.map as HexMap2;
       hex0.forEachLinkHex(hex1 => !!hex1.ctile?.isLake && map.placeMtn(hex0, hex1))
     }
-    // block Circadians from all adjacent: (cosmetic, Circadians 'Base' is not accessible)
+    // block Circadian from all adjacent: (cosmetic, Circadian 'Base' is not accessible)
     // Circadian DropShip is a PairTarget; Base has TeleGraphic tunnels to each DropShip adjacent Tile ?
     if (this.player?.facId == 0) {
       const hex0 = this.hex as Hex2, map = hex0.map as HexMap2;

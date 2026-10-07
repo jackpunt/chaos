@@ -42,7 +42,7 @@ export function pentagon(xs = 10, ys = xs, fillc = 'white', tilt = 0, strokec = 
  *
  * harv:
  * - 'F' Fame (for RelicBonus)
- * - 'Up' Upgrade Attribute (Circadians)
+ * - 'Up' Upgrade Attribute (Circadian)
  * - 'M0' Leyrien's Morale in Base (may need 'Atk' graphic when it flips: M2)
  * fs: fontSize
  * tc: textColor

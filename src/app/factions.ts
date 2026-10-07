@@ -1,7 +1,7 @@
-import { removeEltFromArray, S, stime } from "@thegraid/common-lib";
+import { removeEltFromArray, S, stime, type Constructor } from "@thegraid/common-lib";
 import type { Phase } from "@thegraid/hexlib";
 import type { ChaosHex2 as Hex2 } from "./chaos-hex";
-import type { BONUS, FactionOnTile, FAME_BONUS, HARVEST } from "./chaos-tile";
+import type { BONUS, ChaosTile, FactionOnTile, FAME_BONUS, HARVEST } from "./chaos-tile";
 import type { Foundation } from "./foundation";
 import type { ChaosBuilding, Leader } from "./meeples";
 import type { Player } from "./player";
@@ -36,7 +36,7 @@ const attrNames = [
   'resourceful', 'subterranean', 'symbiotic', 'volatile', // Oxataya
   'aggressive', 'assertive', 'hostile', 'fortified',  // Jrayek
   'cunning', 'copious', 'destructive', 'ominous',     // AI
-  'covert', 'militarized', 'tactical', 'mobile', 'perceptive', // Circadians
+  'covert', 'militarized', 'tactical', 'mobile', 'perceptive', // Circadian
 ] as const;
 type AttrName = typeof attrNames[number];
 const factionAttrs = {
@@ -77,7 +77,23 @@ export class Faction {
   // Leyrien: Build: restrict, Combat: +strength, Income: +Fame
   // Jrayek: Combat: +str, +shield
   // Oxataya: Recruit: placement option
+  /** sparse Map of instantiated Factions */
   static factionById = new Map<FactionId, Faction>();
+
+  /** Faction Constructor for FactionId */
+  static facCbyId(facId: FactionId) {
+    return factionsCbyName[factionNames[facId] ?? 'Neutral'];
+  }
+
+  /** Array of all extant Faction instances */
+  static get allFactions() {
+    return Array.from(Faction.factionById).map(([facId, fac]) => fac);
+  }
+  /** Array of names of extant Factions */
+  static get allFactionNames() {
+    return Array.from(Faction.factionById).map(([facId, fac]) => fac.name);
+    // return Faction.allFactions.map(f => f.name)
+  }
 
   // Relic bonus = rb: G: Gem, F: Fame, E: Energy, M: Morale, Up: Upgrade Attribute(flip),
   // Bldg gemlock= bg: [[0, 1, 1], [0, 0, 1, 1], [0, 1]] <== Zcharo! always 9 there are
@@ -147,7 +163,7 @@ export class Faction {
   constructor(facId: FactionId, public player: Player) {
     this.facId = facId;
     const facSpec = Faction.facSpecs[facId] ?? { name: 'Neutral', bh: '-' };
-    Object.assign(this, facSpec);
+    Object.assign(this, facSpec);        // initialize all facSpec fields
     Faction.factionById.set(facId, this);
     this.fameTrack = Faction.fameTracks[facId]
   }
@@ -416,5 +432,39 @@ export class Faction {
   /** override for phase specific checks; Faction attributes */
   checkPhase(phase: Phase) {
   }
+
+  // while computing Strength, also build a text block to explain the source
+  /** sum of all  Strength components: Fighters, Leader(s), Rhyzu, Terrain/Faction effects */
+  strengthInRegion(region: ChaosTile) {
+
+  }
 }
+
+class Circadian extends Faction {
+
+}
+class AI extends Faction {
+
+}
+class Zcharo extends Faction {
+
+}
+class Leyrien extends Faction {
+
+}
+class Jrayek extends Faction {
+
+}
+class Oxataya extends Faction {
+
+}
+
+class Neutral extends Faction {}
+
+
+/** alist of each Faction Constructor */
+const factionsCbyName: Record<FactionName, Constructor<Faction>> = {
+  Circadian: Circadian, AI: AI, Zcharo: Zcharo, Leyrien: Leyrien, Jrayek: Jrayek, Oxataya: Oxataya,
+  Neutral: Neutral
+} as const;
 

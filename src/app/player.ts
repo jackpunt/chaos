@@ -41,7 +41,7 @@ export class Player extends PlayerLib {
       // start with 6 key factionColors:
       ... playerColors.reduce((pv, cv) => (pv[cv] = cv, pv), {} as typeof PlayerLib.colorScheme),
       // overwrite a few to get a better color
-      'gold': 'rgb(235, 186, 26)',    // Circadians
+      'gold': 'rgb(235, 186, 26)',    // Circadian
       'grey': 'rgb(168, 167, 167)',   // AI: between 128 & 224
       'blue': 'rgb(1, 161, 230)',     // Zcharo
       'orange': 'rgb(195, 34, 34)',   // Jrayek
@@ -69,12 +69,17 @@ export class Player extends PlayerLib {
     super(index, gamePlay); // <-- index is 'table ordinal'
     const facId = gamePlay.gameSetup.facIds[index];     // Aname and HTML color should be aligned with facId
     this.facId = facId;
-    // Or: make subclass for each Faction; map from facId --> Constructor<Faction>; new facClass()
-    this.faction = Faction.factionById.get(facId) ?? new Faction(facId, this);
+    // Make subclass for each Faction;
+    this.faction = Faction.factionById.get(facId) ?? this.newFaction(facId, this);
     this.facName = this.faction.name;
     const cname = playerColors[this.facId];
     ;(this as any).Aname = `P${index}:${cname}`
     this.color = (this.constructor as typeof Player).playerColor(cname); // canonical name --> html Color
+  }
+
+  newFaction(facId: FactionId, player = this) {
+    const FactionC = Faction.facCbyId(facId);  // map from facId --> Constructor<Faction>;
+    return new FactionC(facId, player);     // specialized Faction class
   }
 
   /**
@@ -284,9 +289,6 @@ export class Player extends PlayerLib {
     this.gamePlay.table.dragStartAndDrop(baseTile, targetHex);
     const pairTargets = permute(this.gamePlay.pairTargets);
     let pair: HexPair | undefined;
-    // if (this.facId == 5) {
-    //   pair = pairTargets.find(p => p.pair[0].ctile!.isLake)?.pair;
-    // }
     if (this.facId == 3) {
       pair = pairTargets.find(p => p.pair[0].ctile!.isSwamp || p.pair[1].ctile!.isSwamp)?.pair;
     }
@@ -796,7 +798,7 @@ export class Panel extends PlayerPanel {
   baseRecruitCounter!: NumCounter;
 
   // increase fighters in Base by n (presumably also decrement some recruit counter)
-  // override for Circadians, also for Oxataya: allow recruit to Stronghold
+  // override for Circadian, also for Oxataya: allow recruit to Stronghold
   // at end of Recruit phase/action
   recruitToBase(n = this.baseRecruitCounter.value) {
     this.baseTile.addFighter(this.player, n);
