@@ -11,7 +11,7 @@ import { BgFound, Foundation } from "./foundation";
 import { bonusIcon } from "./functions";
 import { type Battle, type GamePlay } from "./game-play";
 import { type PlayerId } from "./game-state";
-import { baseProdTokenIds, ChaosBuilding, ChaosUnit, Factory, Leader, Outpost, PriceToken, ProdToken, PTokenShape, Rhyzu, Stronghold, type ChaosUnitType, type PriceId } from "./meeples";
+import { baseProdTokenIds, buildingCbyName, ChaosBuilding, ChaosUnit, Factory, Leader, Outpost, PriceToken, ProdToken, PTokenShape, Rhyzu, type ChaosUnitType, type PriceId } from "./meeples";
 import { ResearchCell, ResearchLevel, ResGrid } from "./research-cell";
 import { CO, pricePhases, type CB } from "./table-params";
 import { CardBack, CardHex, CardPanel, TacticsCard } from "./tactics-card";
@@ -631,12 +631,13 @@ export class Panel extends PlayerPanel {
 
   buildings: ChaosBuilding[] = [];
   // add Income & Buildings; set playerColor & Harvest icon on Base.
-  // FacSpec.bg: number[][] building w/gemlock (index per type); // indicates number of slots for each type
+  // FacSpec.bg: number[][] building w/gemlock(0, 1) | (foundatation bonus) [index per type];
   /** 10 Foundations and 9 Buildings */
-  addBuildings(spec: Faction, row = 1.1, col = 2.4) {
+  addBuildings(faction: Faction, row = 1.1, col = 2.4) {
     const wh = this.wh, x0 = wh * .55, y0 = wh * .55, fs = wh * .2; // fs = foundation size
     this.addIncomeStripe(0, row, this.getBounds().width - this.wh);
-    const specBg = spec.bg;      // buildings with gemLocks (and F0-Ex)
+    const specBg = faction.bg;      // buildings with #gemLocks (and F0-Ex)
+    const StrongC = buildingCbyName[`${faction.name}Stronghold`]; // faction-specific Stronghold
     let x00 = x0 + wh * col;
     // bldgs: [0/1] building is gemLocked
     specBg.forEach((bldgs, btype) => {  // btype: 0: Factory, 1: Outpost, 2: Stronghold
@@ -644,9 +645,9 @@ export class Panel extends PlayerPanel {
       const homeAry = new Array<Foundation>(nbldgs); // each Factory instance shares the same homeAry
       const [BC, bText, bid] = [
         [Factory, 'E2', 'F'],    // Foundry
-        [Outpost, 'C', 'P'],     // outPost
-        [Stronghold, 'G1', 'S'], // Stronghold
-      ][btype] as [typeof Factory|typeof Outpost|typeof Stronghold, BONUS, string]
+        [Outpost,  'C', 'P'],    // outPost
+        [StrongC, 'G1', 'S'],    // Stronghold
+      ][btype] as [Constructor<ChaosBuilding>, BONUS, string]
       const F0_btext = 'E2  /    \n/\n    /  G1';
 
       bldgs.toReversed().forEach((ftype, rndx) => {

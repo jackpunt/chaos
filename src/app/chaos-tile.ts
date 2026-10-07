@@ -12,7 +12,7 @@ import type { GamePlay } from "./game-play";
 import { type AI_Trap, type baseProdTokenIds, type ChaosBuilding, ChaosToken, type Factory, Leader, LeaderCard, type Morale, type Outpost, ProdToken, type Relic, type Stronghold, type upgradeProdTokenIds } from "./meeples";
 import { superMethod } from "./mixins";
 import type { Player } from "./player";
-import type { FactionOnTileState } from "./scenario-parser";
+import type { FactionOnTileState, Special } from "./scenario-parser";
 import { CO } from "./table-params";
 
 declare module '@thegraid/easeljs-module' {
@@ -592,7 +592,7 @@ export class ChaosTile extends MapTile {
   /** set if there is a Relic on this Tile; */
   relic?: Relic;
 
-  special?: Morale| AI_Trap;
+  special?: Special; // Morale | AI_Trap;
 
   get isLdr() {return this.terrain == "Ldr"}
   get isMtn() {return this.terrain == "Mtn"}

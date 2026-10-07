@@ -11,6 +11,7 @@ import { bonusIcon, phaseIcon, plGemIcon, upGemIcon } from "./functions";
 import type { GamePlay } from "./game-play";
 import type { GameState } from "./game-state";
 import type { Player } from "./player";
+import type { Special } from "./scenario-parser";
 import { CO, priceNames, TP, type PhaseName, type PriceName } from "./table-params";
 
 
@@ -836,7 +837,7 @@ export class Rhyzu extends Leader {
 // Panel has FHex[9], FoundationTile has a FHex (when face up)
 //
 export class ChaosBuilding extends ChaosPresence {
-  addStrength = 0;    // maybe something more general with Effects or Advice
+  strength = 0;    // maybe something more general with Effects or Advice
   declare player: Player;
 
   override get radius() { return TP.meepleRad; }
@@ -987,7 +988,7 @@ export class Outpost extends ChaosBuilding {
   override makeShape0(size = TP.meepleRad): Paintable {
     return new OutpostShape(undefined, size)
   }
-  override addStrength = 2;
+  override strength = 2;
 }
 
 export class Stronghold extends ChaosBuilding {
@@ -996,6 +997,29 @@ export class Stronghold extends ChaosBuilding {
     return new StrongholdShape(undefined, size);
   }
 }
+
+// Each Faction has a specialized Stronghold
+class CircadianStronghold extends Stronghold {
+}
+class AIStronghold extends Stronghold {
+}
+class JrayekStronghold extends Stronghold {
+}
+class OxatayaStronghold extends Stronghold {
+}
+
+class LeyrienStronghold extends Stronghold {
+  override strength = 1;
+}
+
+/** Indirect reference by name, to avoid loader circularity */
+export const buildingCbyName = {
+  CircadianStronghold: CircadianStronghold,
+  AIStronghold: AIStronghold,
+  LeyrienStronghold: LeyrienStronghold,
+  JrayekStronghold: JrayekStronghold,
+  OxatayaStronghold: OxatayaStronghold,
+} as Record<string, Constructor<ChaosBuilding>>
 
 // Player moves only during initial game startup;
 // Auto moves during Relics phase
@@ -1114,13 +1138,15 @@ export class Relic extends ChaosMeeple {
 
 // Has a slot on ChaosHex
 // Auto-drop mostly; player selects Strength or Fame when there is a choice.
-export class Morale extends ChaosToken {
+export class Morale extends ChaosToken implements Special {
+  isA(t: string) { return t == 'Morale'}
   status = 'M1' as "M1" | "M2";  // M2 when it flips? (Atk+2)
 }
 
 // Drop Stronghold on hex/foundation and game can move the Trap.
 // resetTile() during Income phase
-export class AI_Trap extends ChaosToken {
+export class AI_Trap extends ChaosToken implements Special {
+  isA(t: string) { return t == 'AI_Trap'}
   status = 'T1' as "T1" | "T0";   // T0 when triggered
 }
 
