@@ -1,10 +1,38 @@
 import { arrayN, C, F } from "@thegraid/common-lib";
-import { CenterText, CircleShape, EllipseShape, NamedContainer, PathShape, RectShape } from "@thegraid/easeljs-lib";
+import { CenterText, CircleShape, EllipseShape, NamedContainer, PathShape, RectShape, TextInRect, type RectWithDispOptions, type TextInRectOptions } from "@thegraid/easeljs-lib";
 import { Container } from "@thegraid/easeljs-module";
 import type { HARVEST } from "./chaos-tile";
-import { Leader, type PriceBonus } from "./meeples";
+import { type PriceBonus } from "./meeples";
 import { CO, TP, type PhaseName } from "./table-params";
 
+
+
+/**
+ * A TextInRect: increase border [dx] to fill to wide
+ * @param ntext
+ * @param font
+ * @param wide desired width of rect
+ * @param opts; opts.border sets only [ , , dy1, dy2]
+ * - bgColor: [WHITE]
+ * - corner: [.1]
+ * - border: [5]
+ * - strokec: ['']
+ * - ss: [1]
+ * @returns
+ */
+export class TextInBox extends TextInRect {
+  constructor(ntext: string, font: string | number, wide: number, opts: TextInRectOptions & RectWithDispOptions = {}) {
+    const ctext = new CenterText(ntext, font, opts.textColor ?? C.WHITE), mw = ctext.getMeasuredWidth();
+    const fontSize = F.fontSize(ctext.font);  // extract from full fontSpec
+    const dx = Math.max((wide - mw) / 2, 1) / fontSize;
+    const ob = opts.border;
+    const border: [number, number, number, number] = (typeof ob == 'number')
+      ? [dx, dx, ob, ob]
+      : [dx, dx, ob?.[2] ?? .15, ob?.[3] ?? 0];
+      delete opts.border;
+    super(ctext, { fontSize, border, corner: .1, ...opts })
+  }
+}
 
 /**
  * A PathShape: an up-pointing pentagon with a right-angle point
@@ -94,7 +122,7 @@ export function phaseIcon(ntext: PhaseName, fontSize = TP.meepleRad * .3) {
   const font = F.fontSpec(fontSize, 'sans-serif', '500');
   const wide = TP.meepleRad * .8; // less wide that a LeaderCard
   const border = [0, 0, .15, -.05] as [number, number, number, number];
-  return new Leader.TextInBox(ntext, font, wide, { bgColor: C.transparent, border, textColors: [CO.orange] });  // could be simple CenterText
+  return new TextInBox(ntext, font, wide, { bgColor: C.transparent, border, textColors: [CO.orange] });  // could be simple CenterText
 }
 
 /** left-side icon for placement cost */

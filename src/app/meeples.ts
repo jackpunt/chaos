@@ -1,13 +1,13 @@
 import { C, Constructor, F, S, stime, type XY, type XYWH } from "@thegraid/common-lib";
-import { CenterText, NamedContainer, PathShape, RectShape, TextInRect, UtilButton, type Paintable, type RectWithDispOptions, type TextInRectOptions } from "@thegraid/easeljs-lib";
+import { CenterText, NamedContainer, PathShape, RectShape, TextInRect, UtilButton, type Paintable, type RectWithDispOptions } from "@thegraid/easeljs-lib";
 import { Container, Graphics, MouseEvent, Rectangle } from "@thegraid/easeljs-module";
 import { Meeple, MeepleShape, rightClickable, Table, Tile, type DragContext, type DragFuncs, type HasDragger, type Hex, type HexM, type IHex2 } from "@thegraid/hexlib";
 import { CardShape } from "./card-shape";
 import { TokenHex, type ChaosHex2 as Hex2, type HexMap2 } from "./chaos-hex";
 import { type BASE_PROD_TOKEN, type BONUS, type ChaosTile, type FactionOnTile, type HARVEST, type LeaderTile, type TERRAIN } from "./chaos-tile";
-import { factionNeutral, type FactionId } from "./factions";
+import { type FactionId, type FactionName, type Leyrien } from "./factions";
 import { BgFound, Foundation } from "./foundation";
-import { bonusIcon, phaseIcon, plGemIcon, upGemIcon } from "./functions";
+import { bonusIcon, phaseIcon, plGemIcon, TextInBox, upGemIcon } from "./functions";
 import type { GamePlay } from "./game-play";
 import type { GameState } from "./game-state";
 import type { Player } from "./player";
@@ -464,33 +464,6 @@ export class Leader extends ChaosUnit implements LeaderSpec {
     card.stage.update();
   }
 
-  /**
-   * A TextInRect: increase border [dx] to fill to wide
-   * @param ntext
-   * @param font
-   * @param wide desired width of rect
-   * @param opts; opts.border sets only [ , , dy1, dy2]
-   * - bgColor: [WHITE]
-   * - corner: [.1]
-   * - border: [5]
-   * - strokec: ['']
-   * - ss: [1]
-   * @returns
-   */
-  static TextInBox = class TextInBox extends TextInRect {
-    constructor(ntext: string, font: string | number, wide: number, opts: TextInRectOptions & RectWithDispOptions = {}) {
-      const ctext = new CenterText(ntext, font, opts.textColor ?? C.WHITE), mw = ctext.getMeasuredWidth();
-      const fontSize = F.fontSize(ctext.font);  // extract from full fontSpec
-      const dx = Math.max((wide - mw) / 2, 1) / fontSize;
-      const ob = opts.border;
-      const border: [number, number, number, number] = (typeof ob == 'number')
-        ? [dx, dx, ob, ob]
-        : [dx, dx, ob?.[2] ?? .15, ob?.[3] ?? 0];
-        delete opts.border;
-      super(ctext, { fontSize, border, corner: .1, ...opts })
-    }
-  }
-
   /** the small, D&D/on-map shape; it can expand to the larger leaderCard */
   static LeaderIcon = class LeaderIcon2 extends PaintableCont {
     constructor(inst: Leader, opts?: RectWithDispOptions) {
@@ -547,7 +520,7 @@ export class Leader extends ChaosUnit implements LeaderSpec {
     const font = F.fontSpec(this.radius * .3, undefined, 'bold');
     const wide = card.children[0].getBounds().width * .8; // extract the baseShape
     const border = [0, 0, .1, -.0] as [number, number, number, number];
-    return new Leader.TextInBox(ntext, font, wide, { bgColor: C.grey128, border, textColors: [C.WHITE] });
+    return new TextInBox(ntext, font, wide, { bgColor: C.grey128, border, textColors: [C.WHITE] });
   }
 
   // show with gold border:
@@ -1139,15 +1112,71 @@ export class Relic extends ChaosMeeple {
 // Has a slot on ChaosHex
 // Auto-drop mostly; player selects Strength or Fame when there is a choice.
 export class Morale extends ChaosToken implements Special {
-  isA(t: string) { return t == 'Morale'}
+  static pathPoints = (dx = TP.meepleRad * .4, dxb = .8 * dx, dy = dx * .55) =>
+    [[-dx, dy], [dx, dy], [dxb, -dy], [-dxb, -dy], [-dx, dy]] as [number, number][]
+
   status = 'M1' as "M1" | "M2";  // M2 when it flips? (Atk+2)
+  onPanel: 'str' | 'fame' | '' = 'str'; // set by dragStart/sendHome, so dropFunc returns to original spot.
+
+  constructor(Aname: string, player?: Player) {
+    super(Aname, player);
+    this.addChild(new CenterText(`${this.id}`, 5))
+  }
+  isA(t: string) { return t == 'Morale'}
+
+  // 'str' or 'fame'
+  override sendHome(auto = this.onPanel): void {
+    const faction = (this.player.faction as Leyrien);
+    faction.placeMoraleOnPanel(this);
+  }
+
+  /**
+   *
+   * @param size [TP.meepleRad * .4 from Morale.pathPoints]
+   * @returns
+   */
+  override makeShape(size?: number): Paintable {
+    const points = Morale.pathPoints(size);
+    const shape = new PathShape({ points, fillc: C.GREEN });  // default color until painted
+    // TODO: include upgrade Atk mark (using cgf?)
+    return shape;
+  }
+
+  override paint(colorn?: string, force?: boolean): void {
+    super.paint(this.player.color, force);  // it's always Leyrien green
+  }
+
+  removeFromPanel() {
+    const faction = (this.player.faction as Leyrien);
+    faction.removeFromStripe(this, faction.moraleStr);
+    faction.removeFromStripe(this, faction.moraleFame);
+  }
+
+  override cantBeMovedBy(player: Player, ctx: DragContext): string | boolean | undefined {
+    this.removeFromPanel();   // clear the space for dropFunc/sendHome
+    return super.cantBeMovedBy(player, ctx);
+  }
+
+  override dropFunc(targetHex: IHex2, ctx: DragContext): void {
+    if (targetHex) {
+      if (ctx.lastCtrl) {
+        this.sendHome((this.onPanel == 'str') ? 'fame' : 'str'); // toggle
+        return;
+      }
+      super.dropFunc(targetHex, ctx)
+      this.onPanel = '';
+    } else {
+      this.sendHome()
+    }
+  }
 }
 
 // Drop Stronghold on hex/foundation and game can move the Trap.
 // resetTile() during Income phase
 export class AI_Trap extends ChaosToken implements Special {
-  isA(t: string) { return t == 'AI_Trap'}
   status = 'T1' as "T1" | "T0";   // T0 when triggered
+
+  isA(t: string) { return t == 'AI_Trap'}
 }
 
 
@@ -1181,7 +1210,8 @@ export class PriceToken extends ChaosMeeple {
 
   declare baseShape: PTokenShape;
 
-  facId: FactionId;    // undefined for Neutral Tokens
+  facId: FactionId;      // 6 for Neutral Tokens
+  facName!: FactionName; // for console.log
 
   /** distribution of funds */
   readonly vdist: VDIST;
@@ -1213,11 +1243,12 @@ export class PriceToken extends ChaosMeeple {
    * @param player for super; (& to get facId)
    */
   constructor(public vid: PriceId, xy: XY = { x: 0, y: 0 }, player: Player) {
-    const facId = player.facId ?? -1;           // -1 was fallback for Neutral Player (vs facId = 6?)
+    const facId = player.facId;                 // 6 = Neutral Player
     super(`F${facId}:PT${vid}`, player);        // construct baseShape
     this.wh = this.gamePlay.hexMap.xywh().dxdc;
     this.homeXY = xy;
     this.facId = facId;
+    this.facName = player.facName;  // suitable for log writing
     const np = TP.numPlayers
     if (facId <= 5) {
       this.vdist = (np == 2 ? PriceToken.dist2 : PriceToken.dist35)[vid-1] as VDIST;
@@ -1379,8 +1410,7 @@ export class PriceToken extends ChaosMeeple {
     this.gamePlay.gameState.tokenOnPhase[priceName] = this;
     if (priceName.startsWith('Move')) this.advanceGun();
 
-    const facName = factionNeutral[this.facId];
-    console.log(stime(this, `.setTokenOnPhase: ${facName} w/${this.Aname} ->`), priceName )
+    console.log(stime(this, `.setTokenOnPhase: ${this.facName} w/${this.Aname} ->`), priceName )
   }
 
   advanceGun() {

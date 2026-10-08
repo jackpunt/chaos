@@ -1,10 +1,11 @@
-import { removeEltFromArray, S, stime, type Constructor } from "@thegraid/common-lib";
+import { arrayN, removeEltFromArray, S, stime, type Constructor } from "@thegraid/common-lib";
+import { CenterText, NamedContainer } from "@thegraid/easeljs-lib";
 import type { Phase } from "@thegraid/hexlib";
 import type { ChaosHex2 as Hex2 } from "./chaos-hex";
 import type { BONUS, ChaosTile, FactionOnTile, FAME_BONUS, HARVEST } from "./chaos-tile";
 import type { Foundation } from "./foundation";
-import type { ChaosBuilding, Leader } from "./meeples";
-import type { Player } from "./player";
+import { Morale, type ChaosBuilding, type Leader } from "./meeples";
+import type { Panel, Player } from "./player";
 import { type ResearchLevel } from "./research-cell";
 import { pricePhases, TP, type CB, type PricePhase } from "./table-params";
 //
@@ -82,7 +83,7 @@ export class Faction {
 
   /** Faction Constructor for FactionId */
   static facCbyId(facId: FactionId) {
-    return factionsCbyName[factionNames[facId] ?? 'Neutral'];
+    return factionsCbyName[factionNeutral[facId]];
   }
 
   /** Array of all extant Faction instances */
@@ -160,14 +161,6 @@ export class Faction {
   r3!: BONUS;
   attributes: Partial<Record<AttrName, Attribute>> = {};
 
-  constructor(facId: FactionId, public player: Player) {
-    this.facId = facId;
-    const facSpec = Faction.facSpecs[facId] ?? { name: 'Neutral', bh: '-' };
-    Object.assign(this, facSpec);        // initialize all facSpec fields
-    Faction.factionById.set(facId, this);
-    this.fameTrack = Faction.fameTracks[facId]
-  }
-
   /** ResearchLevel for each Phase */
   researchLevelOfPhase!: Record<PricePhase, ResearchLevel>;
 
@@ -183,10 +176,22 @@ export class Faction {
   facId!: FactionId;
   facName: FactionName = this.name;
 
+  constructor(facId: FactionId, public player: Player) {
+    this.facId = facId;
+    const facSpec = Faction.facSpecs[facId] ?? { name: 'Neutral', bh: '-' };
+    Object.assign(this, facSpec);        // initialize all facSpec fields
+    Faction.factionById.set(facId, this);
+    this.fameTrack = Faction.fameTracks[facId]
+  }
+
   _fame = 0;
   fameTrack: (FAME_BONUS | undefined)[];
 
   get fame() { return this._fame; } // readonly
+
+  factionPanel(panel: Panel) {
+    // override for specific adds during layoutPanel
+  }
 
   incFame() {
     this._fame += 1;
@@ -432,25 +437,124 @@ export class Faction {
   /** override for phase specific checks; Faction attributes */
   checkPhase(phase: Phase) {
   }
+  fighterStr (fot: FactionOnTile) {
+    return fot.fighters;
+  }
+  leaderStr(fot: FactionOnTile) {
+    return Math.sum(...fot.leaders.map(ldr => ldr.stats[0]));
+  }
+  buildingStr(fot: FactionOnTile) {
+    return Math.sum(...fot.buildings.map(b => b.strength));
+  }
 
   // while computing Strength, also build a text block to explain the source
   /** sum of all  Strength components: Fighters, Leader(s), Rhyzu, Terrain/Faction effects */
   strengthInRegion(region: ChaosTile) {
 
+    const plyr = this.player, fot = region.getFoT(plyr);
+    let txt = '';
+    const f = this.fighterStr(fot); txt = `${txt}\nFighters: ${f}`;
+    const l = this.leaderStr(fot);  txt = `${txt}\nLeaders: ${l}`;
+    const b = this.buildingStr(fot); txt = `${txt}\nBuilding: ${b}`;
+    const str = Math.sum(f, l, b)
+    return [str, txt] as [number, string];
   }
 }
 
 class Circadian extends Faction {
 
+  override fighterStr (fot: FactionOnTile) {
+    return fot.fighters * (this.attributes['militarized']?.upgraded ? 3 : 2);
+  }
 }
 class AI extends Faction {
 
 }
 class Zcharo extends Faction {
 
+  override strengthInRegion(region: ChaosTile) {
+    const [str, txt] = super.strengthInRegion(region)
+    const res = (region.isPlains) ? (this.attributes['resilient']?.upgraded ? 2 : 1) : 0;
+    const txr = (region.isPlains) ? `${txt}\non Plains: ${res}` : txt;
+    return [str+res, txr] as [number, string];
+  }
 }
-class Leyrien extends Faction {
+export class Leyrien extends Faction {
 
+  mcCont!: NamedContainer;
+  miCont!: NamedContainer;
+
+  override factionPanel(panel: Panel): void {
+    // row for Combat Morale, row for Income(Fame) Morale
+    const wh = panel.wh, col = 8, rowc = 6, rowi = rowc+1, w = 5 * wh * .9;
+    panel.addIconStripe(col, rowc, w, 'Combat');
+    panel.addIconStripe(col, rowi, w, 'Income');
+
+    const mcCont = this.mcCont = new NamedContainer('MoraleStr'); // Combat
+    const miCont = this.miCont = new NamedContainer('MoraleFame'); // Income
+    mcCont.y = (rowc+.55) * wh; miCont.y = (rowi+.55) * wh;
+    mcCont.x = (col +1.5) * wh; miCont.x = (col +1.5) * wh;
+    panel.addChild(this.mcCont, this.miCont);
+
+    const baseSize = TP.meepleRad * .45;
+    arrayN(8).forEach((c, i) => {
+      const moralToken = new Morale(`Morale`, this.player);
+      moralToken.sendHome(); // --> placeMoraleOnPanel
+      const mbs = new NamedContainer('moraleBase');  // new MoraleBase(moralToken)
+      mbs.addChild(moralToken.makeShape(baseSize));
+      mbs.addChild(new CenterText(`${moralToken.onPanel}+${i==1?2:1}`, baseSize*.45))
+      mbs.x = moralToken.x; moralToken.y = moralToken.y;
+      moralToken.parent.addChildAt(mbs, 0);  // slide mb underneath all the moraleToken.
+    });
+  }
+
+  // need array of [4] for each; D&D to place on Tile; keep balanced.
+  moraleStr:  Morale[] = [];     // push 4 Morale
+  moraleFame: Morale[] = [];     // push 4 Morale
+  get moraleIncome() { return [5, 3, 2, 1, 0][this.moraleFame.length] }
+  get moraleCombat() { return 4 - this.moraleStr.length }
+
+
+  /**
+   * Morale.sendHome()
+   * @param moraleToken
+   * @param auto 'str' | 'fame' | '' (choose)
+   */
+  placeMoraleOnPanel(moraleToken: Morale, auto = 'str' as 'str' | 'fame' | '') {
+    const ms = this.moraleStr, mf = this.moraleFame;
+    const place = (str: 'str' | 'fame' | '') => {
+      moraleToken.onPanel = str;
+      const ma = (str == 'str') ? ms : mf;
+      const cont = (str == 'str') ? this.mcCont : this.miCont;
+      ma.push(moraleToken); cont.addChild(moraleToken);
+      moraleToken.x = (4 - ma.length) * this.player.panel.wh;
+      moraleToken.y = 0;
+      cont.stage.update();
+    }
+
+    moraleToken.onPanel = '';
+    // include cb if necessary:
+    const lcs = () => { place('str') }, rif = () => { place('fame') };
+    (ms.length < mf.length) ? lcs() : (ms.length > mf.length) ? rif ()
+      : (auto == 'str') ? lcs() : (auto == 'fame') ? rif()
+      : this.player.panel.popupChoice('strength', 'fame', lcs, rif, 'Choose to Cover:')
+    return moraleToken.onPanel;
+  }
+
+  removeFromStripe(moraleToken: Morale, ma: Morale[]) {
+    const rm = removeEltFromArray(moraleToken, ma);
+    if (rm.length > 0) ma.forEach((moraleToken, len) => {
+      moraleToken.x = (3 - len) * this.player.panel.wh;
+    })
+  }
+
+  override strengthInRegion(region: ChaosTile): [number, string] {
+    const [str, txt] = super.strengthInRegion(region)
+    const hasMor = (region.special?.isA('Morale'));
+    const mor = hasMor ? this.moraleCombat : 0;
+    const txm = hasMor ? `${txt}\nMorale: ${mor}` : txt;
+    return [str + mor, txm] as [number, string];
+  }
 }
 class Jrayek extends Faction {
 

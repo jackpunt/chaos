@@ -13,7 +13,7 @@ import { type Battle, type GamePlay } from "./game-play";
 import { type PlayerId } from "./game-state";
 import { baseProdTokenIds, buildingCbyName, ChaosBuilding, ChaosUnit, Factory, Leader, Outpost, PriceToken, ProdToken, PTokenShape, Rhyzu, type ChaosUnitType, type PriceId } from "./meeples";
 import { ResearchCell, ResearchLevel, ResGrid } from "./research-cell";
-import { CO, pricePhases, type CB } from "./table-params";
+import { CO, pricePhases, type CB, type PhaseName } from "./table-params";
 import { CardBack, CardHex, CardPanel, TacticsCard } from "./tactics-card";
 
 /** Canonical Faction colors, aligned with gameSetup.factionNames.
@@ -534,6 +534,7 @@ export class Panel extends PlayerPanel {
     this.makeLeaders();
     if (this.factionId == 4) this.addRhyzu();
     this.addButtons(this.player.color);
+    faction.factionPanel(this);
     return this.children;
   }
   override bg0 = 'rgb(82, 81, 81)';
@@ -588,7 +589,7 @@ export class Panel extends PlayerPanel {
    */
   addRhyzu(row = 7, col = 8) {
     const wh = this.wh, x0 = wh * .55, y0 = wh * .55;
-    this.addIncomeStripe(col, row, 3.7 * this.wh);
+    this.addIconStripe(col, row, 3.7 * this.wh);
     Rhyzu.allRhyzu.forEach((rz, ndx) => {
       const rzToken = rz.token;
       rzToken.x = x0 + (col + 1 + ndx) * wh;
@@ -620,13 +621,20 @@ export class Panel extends PlayerPanel {
     return;
   }
 
-  addIncomeStripe(wx = 0, wy = 1.1, w = 6 * this.wh) {
+  /**
+   * place Icon and orange stripe.
+   * @param xcol (per this.wh)
+   * @param yrow (per this.wh)
+   * @param w total width
+   */
+  addIconStripe(xcol = 0, yrow = 1.1, w = 6 * this.wh, phase: PhaseName = 'Income') {
     const wh = this.wh, x0 = wh * .55, y0 = wh * .55;
-    const x = x0 + wh * wx, y = y0 + wh * wy, h = wh * .5;
+    const x = x0 + wh * xcol, y = y0 + wh * yrow, h = wh * .5;
     const stripe = new RectShape({ x, y: y-h/2, w, h }, CO.orange, '')
-    const circ = new CircleShape(CO.orange, h, '');
-    circ.x = x; circ.y = y;
-    this.addChild(stripe, circ);
+    const icon = (phase == 'Income') ? new CircleShape(CO.orange, h, '') :
+      new TextInRect(phase, { bgColor: CO.orange, fontSize: 10 });
+    icon.x = x; icon.y = y;
+    this.addChild(stripe, icon);
   }
 
   buildings: ChaosBuilding[] = [];
@@ -635,7 +643,7 @@ export class Panel extends PlayerPanel {
   /** 10 Foundations and 9 Buildings */
   addBuildings(faction: Faction, row = 1.1, col = 2.4) {
     const wh = this.wh, x0 = wh * .55, y0 = wh * .55, fs = wh * .2; // fs = foundation size
-    this.addIncomeStripe(0, row, this.getBounds().width - this.wh);
+    this.addIconStripe(0, row, this.getBounds().width - this.wh);
     const specBg = faction.bg;      // buildings with #gemLocks (and F0-Ex)
     const StrongC = buildingCbyName[`${faction.name}Stronghold`]; // faction-specific Stronghold
     let x00 = x0 + wh * col;
@@ -910,8 +918,9 @@ export class Panel extends PlayerPanel {
   cButton!: UtilButton;
   toggleCards(vis = !this.cardPanel.visible) {
     const cardPanel = this.cardPanel;
+    this.addChild(cardPanel);                // to top of display
     cardPanel.visible = vis;                 // toggle visibility
-    this.avail.visible = !cardPanel.visible; // cardPanel & avail mutually exclusive
+    // this.avail.visible = !cardPanel.visible; // cardPanel & avail mutually exclusive
     this.stage.update();
   }
 
