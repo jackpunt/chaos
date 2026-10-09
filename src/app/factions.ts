@@ -1,7 +1,7 @@
 import { arrayN, removeEltFromArray, S, stime, type Constructor } from "@thegraid/common-lib";
 import { CenterText, NamedContainer } from "@thegraid/easeljs-lib";
 import type { Phase } from "@thegraid/hexlib";
-import type { ChaosHex2 as Hex2 } from "./chaos-hex";
+import type { ChaosHex2 as Hex2, HexMap2 } from "./chaos-hex";
 import type { BONUS, ChaosTile, FactionOnTile, FAME_BONUS, HARVEST } from "./chaos-tile";
 import type { Foundation } from "./foundation";
 import { Leader, Morale, type ChaosBuilding } from "./meeples";
@@ -191,6 +191,10 @@ export class Faction {
 
   factionPanel(panel: Panel) {
     // override for specific adds during layoutPanel
+  }
+
+  afterPlaceBase(baseHex: Hex2) {
+
   }
 
   pins(fot: FactionOnTile) {
@@ -471,6 +475,13 @@ export class Faction {
 
 class Circadian extends Faction {
 
+  // block Circadian from all adjacent: (cosmetic; Circadian 'Base' is not accessible)
+  // Circadian DropShip is a PairTarget; Base has TeleGraphic tunnels to each DropShip adjacent Tile ?
+  override afterPlaceBase(baseHex: Hex2): void {
+    const map = baseHex.map as HexMap2;
+      baseHex.forEachLinkHex(hex => !hex.ctile?.isMtn && map.placeMtn(baseHex, hex))
+  }
+
   override fighterStr (fot: FactionOnTile) {
     return fot.fighters * (this.attributes['militarized']?.upgraded ? 3 : 2);
   }
@@ -574,6 +585,11 @@ class Jrayek extends Faction {
 }
 class Oxataya extends Faction {
 
+  // block Oxataya from any adjacent Lake:
+  override afterPlaceBase(baseHex: Hex2): void {
+    const map = baseHex.map as HexMap2;
+      baseHex.forEachLinkHex(hex => !!hex.ctile?.isLake && map.placeMtn(baseHex, hex))
+  }
 }
 
 class Neutral extends Faction {}

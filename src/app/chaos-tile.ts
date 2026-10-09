@@ -1,6 +1,6 @@
 import { C, permute, removeEltFromArray, S, stime, type XY } from "@thegraid/common-lib";
 import { AliasLoader, NamedContainer, type Paintable, PathShape, PolyShape, RectShape, TextInRect, type ValueEvent } from "@thegraid/easeljs-lib";
-import type { Container, DisplayObject } from "@thegraid/easeljs-module";
+import type { DisplayObject } from "@thegraid/easeljs-module";
 import { type DragContext, type DragFuncs, H, type HasDragger, type HexDir, HexShape, type IHex2, MapTile, NumCounter, Player as PlayerLib, rightClickable, type Table, Tile, TP } from "@thegraid/hexlib";
 import { type ChaosHex2, type ChaosHex2 as Hex2, type HexMap2 } from "./chaos-hex";
 import { type ChaosTable } from "./chaos-table";
@@ -923,17 +923,7 @@ export class BaseTile extends ChaosTile {
     });
     baseFot.setFighterVis();
     baseFot.update();
-    // block Oxataya from any adjacent Lake:
-    if (this.player?.facId == 5) {
-      const hex0 = this.hex as Hex2, map = hex0.map as HexMap2;
-      hex0.forEachLinkHex(hex1 => !!hex1.ctile?.isLake && map.placeMtn(hex0, hex1))
-    }
-    // block Circadian from all adjacent: (cosmetic, Circadian 'Base' is not accessible)
-    // Circadian DropShip is a PairTarget; Base has TeleGraphic tunnels to each DropShip adjacent Tile ?
-    if (this.player?.facId == 0) {
-      const hex0 = this.hex as Hex2, map = hex0.map as HexMap2;
-      hex0.forEachLinkHex(hex1 => !hex1.ctile?.isMtn && map.placeMtn(hex0, hex1))
-    }
+    faction.afterPlaceBase(this.hex as Hex2);
     this.hex?.map.update();
   }
 
