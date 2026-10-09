@@ -46,7 +46,7 @@ export class Player extends PlayerLib {
       'blue': 'rgb(1, 161, 230)',     // Zcharo
       'orange': 'rgb(195, 34, 34)',   // Jrayek
       'violet': 'rgb(123, 91, 153)', // Oxataya
-      'brown' : 'brown',                // Neutral
+      'brown' : 'rgb(90, 26, 0)',     // Neutral
   } as typeof PlayerLib.colorScheme;
 
   // QQQ: Player.color -> PlayerPanel, or PlayerPanel.color -> Player

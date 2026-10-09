@@ -274,8 +274,11 @@ export class GameState extends GameStateLib {
           const ctile = plyr.panel.baseTile.baseRegions![0].ctile!;
           const toFoT = ctile.getFoT(plyr);
           toFoT.addLeader(ldr);
-          toFoT.fighters = baseFot.fighters;
-          baseFot.fighters = 0;
+          const fighters = baseFot.fighters;
+          toFoT.fighterIcon.incValue(fighters);
+          baseFot.fighterIcon.incValue(-fighters);
+          toFoT.update();
+          baseFot.update();
           this.state.done!();
         }
       },

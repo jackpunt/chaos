@@ -4,7 +4,7 @@ import type { Phase } from "@thegraid/hexlib";
 import type { ChaosHex2 as Hex2 } from "./chaos-hex";
 import type { BONUS, ChaosTile, FactionOnTile, FAME_BONUS, HARVEST } from "./chaos-tile";
 import type { Foundation } from "./foundation";
-import { Morale, type ChaosBuilding, type Leader } from "./meeples";
+import { Leader, Morale, type ChaosBuilding } from "./meeples";
 import type { Panel, Player } from "./player";
 import { type ResearchLevel } from "./research-cell";
 import { pricePhases, TP, type CB, type PricePhase } from "./table-params";
@@ -191,6 +191,10 @@ export class Faction {
 
   factionPanel(panel: Panel) {
     // override for specific adds during layoutPanel
+  }
+
+  pins(fot: FactionOnTile) {
+    return fot.fighters + fot.leaders.length; // each unit pins 1
   }
 
   incFame() {
@@ -449,15 +453,19 @@ export class Faction {
 
   // while computing Strength, also build a text block to explain the source
   /** sum of all  Strength components: Fighters, Leader(s), Rhyzu, Terrain/Faction effects */
-  strengthInRegion(region: ChaosTile) {
-
-    const plyr = this.player, fot = region.getFoT(plyr);
-    let txt = '';
-    const f = this.fighterStr(fot); txt = `${txt}\nFighters: ${f}`;
-    const l = this.leaderStr(fot);  txt = `${txt}\nLeaders: ${l}`;
-    const b = this.buildingStr(fot); txt = `${txt}\nBuilding: ${b}`;
-    const str = Math.sum(f, l, b)
-    return [str, txt] as [number, string];
+  strengthInRegion(region: ChaosTile): [number, string] {
+    const fot = region.hasFoT(this.facId);
+    let str = 0, txt = '';
+    if (fot) {
+      const addStrength = (ds: number, src: string) => {
+        str = str + ds;
+        txt = `${txt}\n${src} ${ds}`;
+      }
+      addStrength(this.fighterStr (fot), 'Fighters: ');
+      addStrength(this.leaderStr  (fot), 'Leaders:  ');
+      addStrength(this.buildingStr(fot), 'Buildings:');
+    }
+    return [str, txt];
   }
 }
 
@@ -558,6 +566,11 @@ export class Leyrien extends Faction {
 }
 class Jrayek extends Faction {
 
+  override pins(fot: FactionOnTile) {
+    const renzo = Leader.allLeadersByName.get('Renzo')!, rup = renzo && renzo.upgraded;
+    const rpins = (!fot.leaders.includes(renzo) ? 0 : rup ? 4 : 2); // +1 implicitly include
+    return super.pins(fot) + rpins;
+  }
 }
 class Oxataya extends Faction {
 

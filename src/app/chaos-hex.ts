@@ -142,7 +142,7 @@ class Mountain extends RectShape {
       throw(`new Mountain: hexes ${hex0} & ${hex1} are not adjacent`);
     }
 
-    const dx = TP.hexRad * .9, dy = dx/11;
+    const dx = TP.hexRad * .9, dy = dx * .06;
     super({x: -dx/2, y: -dy/2, w: dx, h: dy}, C.PURPLE, ''); // or dmauve?
 
     map.mountains.push(this);

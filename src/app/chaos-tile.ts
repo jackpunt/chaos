@@ -1,6 +1,6 @@
 import { C, permute, removeEltFromArray, S, stime, type XY } from "@thegraid/common-lib";
-import { AliasLoader, NamedContainer, type Paintable, PathShape, PolyShape, RectShape, type ValueEvent } from "@thegraid/easeljs-lib";
-import type { DisplayObject } from "@thegraid/easeljs-module";
+import { AliasLoader, NamedContainer, type Paintable, PathShape, PolyShape, RectShape, TextInRect, type ValueEvent } from "@thegraid/easeljs-lib";
+import type { Container, DisplayObject } from "@thegraid/easeljs-module";
 import { type DragContext, type DragFuncs, H, type HasDragger, type HexDir, HexShape, type IHex2, MapTile, NumCounter, Player as PlayerLib, rightClickable, type Table, Tile, TP } from "@thegraid/hexlib";
 import { type ChaosHex2, type ChaosHex2 as Hex2, type HexMap2 } from "./chaos-hex";
 import { type ChaosTable } from "./chaos-table";
@@ -9,7 +9,7 @@ import { Faction, type FactionId } from "./factions";
 import { Foundation } from "./foundation";
 import { pentagon } from "./functions";
 import type { GamePlay } from "./game-play";
-import { type AI_Trap, type baseProdTokenIds, type ChaosBuilding, ChaosToken, type Factory, Leader, LeaderCard, type Morale, type Outpost, ProdToken, type Relic, type Stronghold, type upgradeProdTokenIds } from "./meeples";
+import { type baseProdTokenIds, type ChaosBuilding, ChaosToken, type Factory, Leader, LeaderCard, type Outpost, ProdToken, type Relic, type Stronghold, type upgradeProdTokenIds } from "./meeples";
 import { superMethod } from "./mixins";
 import type { Player } from "./player";
 import type { FactionOnTileState, Special } from "./scenario-parser";
@@ -161,6 +161,7 @@ export class MoveIcon extends ChaosToken {
     if (this.player.movesInPlay.find(mip => mip.from == toHex.ctile && mip.to == this.srcTile)) return false;
     if (this.player.facId !== 5 && toHex.ctile?.isLake) return false; // vs: !faction.canEnterLake
     if (this.player.facId === 3 && toHex.ctile?.isSwampCnx && this.isFromSwamp) return true; // Leyrein connects Swamps
+    if (this.player.facId === 0 && this.srcTile.isBase) return true; // TODO: && isAdj(dropShip)
     return this.fromHex.linkHexes.includes(toHex);
   }
   override dropFunc(targetHex: Hex2, ctx: DragContext) {
@@ -198,6 +199,8 @@ export class FighterCounter extends NumCounterHex {
     mip.fromFot.fighterIcon.incValue(-incv);
     mip.toFot.fighterIcon.incValue(incv);
     super.incValue(incv);
+    mip.toFot.update();
+    mip.fromFot.update();
     mip.toFot;    // set visible
     mip.fromFot;  // set visible
   }
@@ -363,7 +366,7 @@ export class FighterIcon extends NumCounterHex {
  */
 export class FactionOnTile extends NamedContainer {
 
-  buildings: ChaosBuilding[] = [];      // if this Faction has buildings on tile
+  buildings: ChaosBuilding[] = [];      // if this Faction has buildings on tile [on South edge]
   /**  number of fighters on tile */
   get fighters() { return this.fighterIcon.value };
   set fighters(n: number) { this.fighterIcon.value = Math.max(n, 0) }
@@ -379,6 +382,7 @@ export class FactionOnTile extends NamedContainer {
   tile: ChaosTile;
   fighterIcon: FighterIcon;
   moveIcon: MoveIcon;
+  strIcon: TextInRect;
 
   constructor(player: Player, tile: ChaosTile) {
     super(`FoT_${player.facId}-${tile.Aname}`);
@@ -390,6 +394,10 @@ export class FactionOnTile extends NamedContainer {
     this.tile.addChild(this);
     this.moveIcon = new MoveIcon(player, tile);
     this.addChild(this.fighterIcon, this.moveIcon);  // update after BaseTile moves...
+    const border = [.1, .1, .09, -.15] as [number, number, number, number];
+    this.strIcon = new TextInRect(`0`, { fontSize: TP.meepleRad * .2, border })
+    this.strIcon.visible = false;
+    this.addChild(this.strIcon);
   }
 
   /** if (FoT.isBase) addChild(dObj) so dObj moves with Base Tile. */
@@ -446,11 +454,12 @@ export class FactionOnTile extends NamedContainer {
     } else {
       removeEltFromArray(bldg, this.buildings);
     }
+    this.update();
   }
   /*  Sector layout:
   //  L1 L2 L3 .. LN
-  //    ------
-  //      FC
+  //     <FC>
+  //      TS
 
 
   //  2 -- 4 Players:
@@ -496,7 +505,7 @@ export class FactionOnTile extends NamedContainer {
     const index = this.index;     // table order determines FoT placement
     // sx, sy: sector placement;
     const sx = (this.isBase ?  0 : this.offset); // -1: left side; offset[][] = 0
-    const sy = (this.isBase ? -1 : [0, 1].includes(index) ? -1 : [3, 4].includes(index) ? 1 : TP.numPlayers == 5 ? -1 : 1);
+    const sy = (this.isBase ? -1 : [0, 1].includes(index) ? -1 : [3, 4].includes(index) ? 1 : (TP.numPlayers == 5) ? -1 : 1);
     this.x = sx * rad / 2;
     this.y = sy * rad * H.sqrt3_2/2;
   }
@@ -507,16 +516,21 @@ export class FactionOnTile extends NamedContainer {
     // invert: 1 --> leaders on top;  -1 --> leaders on bottom;
     const yh = (this.isBase ? -1 : this.invert) * rad * H.sqrt3_2;
     this.fighterIcon.y = yh * 0;
-    if (this.leaders.length > 0) {
+    const yl = yh * .33; // assuming 2 of 5 orientation == Base!
+    const ll = this.leaders.length;
+    if (ll > 0) {
       // location of leader line:
-      const yl = yh * .33; // assuming 2 of 5 orientation == Base!
-      const lineWidth = rad * (this.leaders.length * .29); // Leader.box_width = (.2 * 1.4) * hex.radius
-      const gap = lineWidth/this.leaders.length;
+      const lineWidth = rad * (ll * .29); // Leader.box_width = (.2 * 1.4) * hex.radius
+      const gap = lineWidth/ll;
       const xl = gap/2 - lineWidth/2;
       this.leaders.forEach((ldr, n) => {
         this.addChildOver(ldr, xl + n * gap, yl); // to overCont or this depending on this.isBase
       })
     }
+    const [str, txt] = this.player.faction.strengthInRegion(this.tile);
+    this.strIcon.label_text = `${str}`;
+    this.strIcon.y = -yl * .81;
+    this.strIcon.visible = (str > 0);
     this.stage.update();
   }
 
@@ -897,14 +911,18 @@ export class BaseTile extends ChaosTile {
     this.baseRegions = adjRegions;
     const faction = this.player.faction;
     const founds = permute(faction.bf).map((bonus, i) => new Foundation(`${faction.name}_bf${i}`, bonus))
+    const baseFot = this.getFoT(this.player);
     adjRegions.forEach((hex, n) => {
-      const adjTile = hex.ctile!
+      const adjTile = hex.ctile!, adjFot = adjTile.getFoT(this.player);
       adjTile.addFoundation(founds[n]);
       // Require 1 Fighter in each baseRegion:
-      this.getFoT(this.player).fighterIcon.incValue(-1);
-      adjTile.getFoT(this.player).fighterIcon.incValue(1); // ...fighters += 1; ???
-      adjTile.getFoT(this.player);  // update visibility of new value
+      baseFot.fighterIcon.incValue(-1);
+      adjFot.fighterIcon.incValue(1);     //
+      adjFot.setFighterVis();
+      adjFot.update();
     });
+    baseFot.setFighterVis();
+    baseFot.update();
     // block Oxataya from any adjacent Lake:
     if (this.player?.facId == 5) {
       const hex0 = this.hex as Hex2, map = hex0.map as HexMap2;
@@ -939,6 +957,7 @@ export class BaseTile extends ChaosTile {
       fot.fighters = 0;
       fot.leaders.forEach(ldr => ldr.sendHome()); // return to LeaderCard
       fot.leaders.length = 0;
+      fot.update();
     })
     this.player.movesInPlay.length = 0;    // clear move-counter (re-enable Moves)
     this.player.setAllFighterVis();               // vis on 0-sized fighters

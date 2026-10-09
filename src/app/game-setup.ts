@@ -1,15 +1,15 @@
 import { selectN, stime, uniq, type Constructor } from '@thegraid/common-lib';
 import { AliasLoader, TileExporter } from '@thegraid/easeljs-lib';
 import type { Container } from '@thegraid/easeljs-module';
-import { GameSetup as GameSetupLib, H, HexMap, MapCont, PlayerPanel, Tile, TP, type Hex, type SetupElt, type StartElt as StartEltLib } from '@thegraid/hexlib';
+import { GameSetup as GameSetupLib, H, HexMap, MapCont, Tile, TP, type Hex, type SetupElt, type StartElt as StartEltLib } from '@thegraid/hexlib';
 import { ChaosHex2, HexMap2 } from './chaos-hex';
 import { ChaosTable as Table } from './chaos-table';
+import { ChaosTile } from './chaos-tile';
 import { FactionId, FactionName, factionNames } from './factions';
 import { GamePlay } from './game-play';
 import { mixins } from './mixins';
 import { Panel, Player } from './player';
 import { TacticsCard } from './tactics-card';
-import { ChaosTile } from './chaos-tile';
 
 // TODO: you can run a tool like dpdm or madge from your terminal window
 // (npx madge --circular --extensions ts .) to map the dependency graph layout
@@ -222,7 +222,7 @@ class NullGameSetup extends GameSetupLib {
     this.facNames[nid] = 'Neutral';
     const plyr = gamePlay.neutralPlayer = new Player(np, gamePlay); // plyr.index = numPlayers
     ;(plyr as any).Aname = 'P:Neutral';
-    plyr.color = 'brown';
+    plyr.color = Player.colorScheme['brown']
     delete this.facIds[nid];
     TP.numPlayers = np;
   }
