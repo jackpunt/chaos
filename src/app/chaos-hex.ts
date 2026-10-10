@@ -1,4 +1,4 @@
-import { C, Random, removeEltFromArray, stime, type Constructor, type XY } from "@thegraid/common-lib";
+import { C, Random, removeEltFromArray, stime, type Constructor, type RC, type XY } from "@thegraid/common-lib";
 import { CircleShape, RectShape, type NamedObject, type Paintable } from "@thegraid/easeljs-lib";
 import { H, Hex1 as Hex1Lib, Hex2Mixin, HexMap, HexMark, HexShape, LegalMark, TP, type HexDir, type HexM, type IdHex, type IHex2 } from "@thegraid/hexlib";
 import { type ChaosTile, type HARVEST, type TERRAIN } from "./chaos-tile";
@@ -214,6 +214,15 @@ export class HexMap2 extends HexMap<ChaosHex2> {
     if (!mtn) return;
     this.mapCont.tileCont.removeChild(mtn);
     removeEltFromArray(mtn, this.mountains);
+  }
+
+  /** hex0 is adjacent to hex1, replace the links */
+  relink(hex0: Hex2, hex1: Hex2) {
+    const map = hex0.map;
+    const isHex1 = (hex: RC) => (hex.row == hex1.row && hex.col == hex1.col)
+    const dir = map.topo.linkDirs.find(dir => isHex1(map.nextRowCol(hex0, dir)))!
+    hex0.links[dir] = hex1;
+    hex1.links[H.dirRev[dir]] = hex0;
   }
 
   /* place a purple mountain between two Hexes */

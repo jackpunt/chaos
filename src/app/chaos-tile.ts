@@ -49,7 +49,7 @@ export class PairTarget extends NamedContainer {
   static targets: PairTarget[] = [];
 
   /** create PairTarget with dObj; add to PairTarget.targets; show on overCont. */
-  constructor(public pair: HexPair, public dObj: DisplayObject) {
+  constructor(public pair: HexPair, public dObj: DisplayObject, isTarget = true) {
     const [fHex, tHex] = pair;
     const dir01 = fHex.findLinkHex(hex => (hex == tHex));
     if (!dir01) {
@@ -57,7 +57,7 @@ export class PairTarget extends NamedContainer {
     }
     super(`PairTarget#${PairTarget.targets.length}`);
     this.addChild(dObj);
-    PairTarget.targets.push(this);
+    if (isTarget) PairTarget.targets.push(this);
 
     this.rotation = (H.dirRot[dir01]);
     fHex.edgePoint(dir01, 1, this);      // set RectShape on edge of Hex

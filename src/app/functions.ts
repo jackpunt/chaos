@@ -51,7 +51,6 @@ export function pentagon(xs = 10, ys = xs, fillc = 'white', tilt = 0, strokec = 
     [-xs, ys],
     [ xs, ys],
     [ xs,  0],
-    [  0, y0],  // peak point
   ] as [x: number, y: number][];
 
   const pent = new PathShape({ points, fillc, strokec });

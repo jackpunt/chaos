@@ -1,10 +1,10 @@
 import { arrayN, removeEltFromArray, S, stime, type Constructor } from "@thegraid/common-lib";
-import { CenterText, EllipseShape, NamedContainer, type Paintable } from "@thegraid/easeljs-lib";
-import { H, type Phase } from "@thegraid/hexlib";
+import { CenterText, CircleShape, EllipseShape, NamedContainer, type Paintable } from "@thegraid/easeljs-lib";
+import { type DragContext, type Phase } from "@thegraid/hexlib";
 import type { ChaosHex2 as Hex2 } from "./chaos-hex";
 import { BONUS, ChaosTile, FactionOnTile, FAME_BONUS, HARVEST, HexPair, PairTarget } from "./chaos-tile";
 import type { Foundation } from "./foundation";
-import { ChaosMeeple, Leader, Morale, type ChaosBuilding } from "./meeples";
+import { ChaosMeeple, Leader, Morale, PaintableCont, type ChaosBuilding } from "./meeples";
 import type { Panel, Player } from "./player";
 import { type ResearchLevel } from "./research-cell";
 import { pricePhases, TP, type CB, type PricePhase } from "./table-params";
@@ -480,7 +480,16 @@ class Dropship extends ChaosMeeple {
   }
   override makeShape(size?: number): Paintable {
     const dsx = TP.meepleRad * .5;
-    return new EllipseShape('gold', dsx, dsx * .1, ''); // for now
+    const rv = new PaintableCont('Dropship')
+    rv.addChild(new EllipseShape('gold', dsx, dsx * .1, ''));
+    rv.addChild(new CircleShape('gold', dsx * .2, ''));
+    return rv;
+  }
+
+  // Note: if we create PairTargets (for cirLegalMark), gamePlay.removeTargets() removes them from their parent
+  override dragStart(ctx: DragContext): void {
+    // TODO: place LegalMarks on edges of adjacent Hexes
+    super.dragStart(ctx);
   }
 }
 
@@ -493,26 +502,24 @@ class Circadian extends Faction {
     this.dropship  = new Dropship(`DropShip`, this.player);
   }
 
-  // block Circadian from all adjacent: (cosmetic; Circadian 'Base' is not accessible)
-  // Circadian DropShip is a PairTarget; Base has TeleGraphic tunnels to each DropShip adjacent Tile ?
+  // block Circadian Base from all adjacent tiles: (cosmetic; Circadian 'Base' is not accessible)
+  // Circadian DropShip parks on an edge between Regions;
+  // Circadian Base has TeleGraphic tunnels to each adjacent Region of DropShip.
+  // During 'Move' phase, can load or unload dropship with MovePoint & MoveInPlay. (bi-directional ?!)
+  // At end of 'Move' phase, eject Leader/Fighters with MoveInPlay on each tunnel.
   override afterPlaceBase(baseHex: Hex2, adjRegions: HexPair): void {
     baseHex.forEachLinkHex(hex => !hex.ctile?.isMtn && baseHex.map.placeMtn(baseHex, hex))
     this.placeDropship(adjRegions);
   }
 
-  // Note: if we create PairTargets (for cirLegalMark), gamePlay.remove them from their parent
+  /** place Dropship on the given edge */
   placeDropship(edge: HexPair) {
     const map = edge[0].map;
     if (map.findMtn(...edge)) {
       map.removeMtn(...edge);
-      const dir = H.S;               // TODO: find correct dir!  TODO: place LegalMarks on edges
-      edge[0].links[dir] = edge[1];
-      edge[1].links[H.dirRev[dir]] = edge[0];
+      map.relink(...edge);    // replace links beneath Mtn on 2-player map (edge0->S->edge1)
     }
-    new PairTarget(edge, this.dropship);
-    PairTarget.targets.pop(); // dropship is not a target to be removed
-
-    map.mapCont.stage.update();
+    new PairTarget(edge, this.dropship, false); // dropship is not a target to be removed
     return;
   }
 

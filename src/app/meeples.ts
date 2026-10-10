@@ -1,6 +1,6 @@
 import { C, Constructor, F, S, stime, type XY, type XYWH } from "@thegraid/common-lib";
 import { CenterText, NamedContainer, PathShape, RectShape, TextInRect, UtilButton, type Paintable, type RectWithDispOptions } from "@thegraid/easeljs-lib";
-import { Container, Graphics, MouseEvent, Rectangle } from "@thegraid/easeljs-module";
+import { Container, Graphics, MouseEvent } from "@thegraid/easeljs-module";
 import { Meeple, MeepleShape, rightClickable, Table, Tile, type DragContext, type DragFuncs, type HasDragger, type Hex, type HexM, type IHex2 } from "@thegraid/hexlib";
 import { CardShape } from "./card-shape";
 import { TokenHex, type ChaosHex2 as Hex2, type HexMap2 } from "./chaos-hex";
@@ -53,12 +53,13 @@ export class PaintableCont extends NamedContainer implements Paintable {
    */
   setCacheID(scale = 1) {
     if (this.cacheID) return;  // also: if already cached, get/setBounds is useless
-    let b = this.getBounds() as Pick<Rectangle, 'x' | 'y' | 'width' | 'height'>
-    if (!b) {
+    const b = this.getBounds();
+    if (b) {
+      this.cache(b.x, b.y, b.width, b.height, scale);
+    } else {
       const { x, y, w, h } = this.calcBounds();
-      b = { x, y, width: w, height: h }
+      this.cache(x, y, w, h, scale);
     }
-    this.cache(b.x, b.y, b.width, b.height, scale);
   }
 }
 
