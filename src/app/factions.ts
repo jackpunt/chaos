@@ -1,10 +1,10 @@
 import { arrayN, removeEltFromArray, S, stime, type Constructor } from "@thegraid/common-lib";
-import { CenterText, NamedContainer } from "@thegraid/easeljs-lib";
-import type { Phase } from "@thegraid/hexlib";
-import type { ChaosHex2 as Hex2, HexMap2 } from "./chaos-hex";
-import type { BONUS, ChaosTile, FactionOnTile, FAME_BONUS, HARVEST } from "./chaos-tile";
+import { CenterText, EllipseShape, NamedContainer, type Paintable } from "@thegraid/easeljs-lib";
+import { H, type Phase } from "@thegraid/hexlib";
+import type { ChaosHex2 as Hex2 } from "./chaos-hex";
+import { BONUS, ChaosTile, FactionOnTile, FAME_BONUS, HARVEST, HexPair, PairTarget } from "./chaos-tile";
 import type { Foundation } from "./foundation";
-import { Leader, Morale, type ChaosBuilding } from "./meeples";
+import { ChaosMeeple, Leader, Morale, type ChaosBuilding } from "./meeples";
 import type { Panel, Player } from "./player";
 import { type ResearchLevel } from "./research-cell";
 import { pricePhases, TP, type CB, type PricePhase } from "./table-params";
@@ -22,7 +22,7 @@ function expandArray0<T>(rec: Record<number, T>): (T | undefined)[] {
 }
 
 /**                          Circadian   AI   Zcharo   Leyrien   JRayek   Oxataya   (& Neutral: brown) */
-export const factionColors = ['gold', 'grey', 'blue', 'green', 'orange', 'violet', ] as const;
+export const factionColors = ['gold', 'grey', 'blue', 'green', 'orange', 'violet', 'brown'] as const;
 type FactionColor = typeof factionColors[number];
 
 /** presentation name of each Faction */  // TODO: move these to Scenario & parser?
@@ -193,7 +193,7 @@ export class Faction {
     // override for specific adds during layoutPanel
   }
 
-  afterPlaceBase(baseHex: Hex2) {
+  afterPlaceBase(baseHex: Hex2, adjRegions: HexPair) {
 
   }
 
@@ -473,13 +473,47 @@ export class Faction {
   }
 }
 
+class Dropship extends ChaosMeeple {
+  constructor(Aname: string, player: Player) {
+    super(Aname, player)
+    this.paint(player.color);
+  }
+  override makeShape(size?: number): Paintable {
+    const dsx = TP.meepleRad * .5;
+    return new EllipseShape('gold', dsx, dsx * .1, ''); // for now
+  }
+}
+
 class Circadian extends Faction {
+
+  dropship: Dropship;
+
+  constructor(facId: FactionId, player: Player) {
+    super(facId, player); player.facName
+    this.dropship  = new Dropship(`DropShip`, this.player);
+  }
 
   // block Circadian from all adjacent: (cosmetic; Circadian 'Base' is not accessible)
   // Circadian DropShip is a PairTarget; Base has TeleGraphic tunnels to each DropShip adjacent Tile ?
-  override afterPlaceBase(baseHex: Hex2): void {
-    const map = baseHex.map as HexMap2;
-      baseHex.forEachLinkHex(hex => !hex.ctile?.isMtn && map.placeMtn(baseHex, hex))
+  override afterPlaceBase(baseHex: Hex2, adjRegions: HexPair): void {
+    baseHex.forEachLinkHex(hex => !hex.ctile?.isMtn && baseHex.map.placeMtn(baseHex, hex))
+    this.placeDropship(adjRegions);
+  }
+
+  // Note: if we create PairTargets (for cirLegalMark), gamePlay.remove them from their parent
+  placeDropship(edge: HexPair) {
+    const map = edge[0].map;
+    if (map.findMtn(...edge)) {
+      map.removeMtn(...edge);
+      const dir = H.S;               // TODO: find correct dir!  TODO: place LegalMarks on edges
+      edge[0].links[dir] = edge[1];
+      edge[1].links[H.dirRev[dir]] = edge[0];
+    }
+    new PairTarget(edge, this.dropship);
+    PairTarget.targets.pop(); // dropship is not a target to be removed
+
+    map.mapCont.stage.update();
+    return;
   }
 
   override fighterStr (fot: FactionOnTile) {
@@ -586,9 +620,8 @@ class Jrayek extends Faction {
 class Oxataya extends Faction {
 
   // block Oxataya from any adjacent Lake:
-  override afterPlaceBase(baseHex: Hex2): void {
-    const map = baseHex.map as HexMap2;
-      baseHex.forEachLinkHex(hex => !!hex.ctile?.isLake && map.placeMtn(baseHex, hex))
+  override afterPlaceBase(baseHex: Hex2, adjRegions: HexPair): void {
+    baseHex.forEachLinkHex(hex => !!hex.ctile?.isLake && baseHex.map.placeMtn(baseHex, hex))
   }
 }
 

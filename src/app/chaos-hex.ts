@@ -93,6 +93,7 @@ class ChaosHex2Lib extends Hex2Mixin(ChaosHex) {
 export class ChaosHex2 extends ChaosHex2Lib {
   // declare tile: ChaosTile | undefined; // must use get/set from Hex2Mixin(ChaosHex)
   // declare meep: ChaosCard | undefined;
+  declare map: HexMap2
 
   // type transmission from HexMixin
   override forEachLinkHex(func: (hex: this, dir: HexDir, hex0: this)=> unknown): void {
@@ -135,8 +136,8 @@ export class TokenHex extends ChaosHex2 {
 
 /** mauve Mountain that breaks adjacency between 2 ChaosHex2. */
 class Mountain extends RectShape {
-  constructor(public hex0: IHex2, public hex1: IHex2) {
-    const map = hex0.map as HexMap2;
+  constructor(public hex0: Hex2, public hex1: IHex2) {
+    const map = hex0.map;
     const dir01 = hex0.findLinkHex(hex => (hex == hex1));
     if (!dir01) {
       throw(`new Mountain: hexes ${hex0} & ${hex1} are not adjacent`);
@@ -216,7 +217,7 @@ export class HexMap2 extends HexMap<ChaosHex2> {
   }
 
   /* place a purple mountain between two Hexes */
-  placeMtn(hex0: IHex2, hex1: IHex2) {
+  placeMtn(hex0: Hex2, hex1: Hex2) {
     if (this.findMtn(hex0, hex1)) return;
     try {
       new Mountain(hex0, hex1);

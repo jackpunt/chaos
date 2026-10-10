@@ -102,7 +102,7 @@ export class ScenarioParser extends SPLib {
       this.gamePlay.gameState.parseState(gameState);
     }
     if (p6ary) {
-      (gamePlay.hexMap as HexMap2).setupMapTiles( ChaosTile ); // (p6ary,TP.numPlayers)
+      gamePlay.hexMap.setupMapTiles( ChaosTile ); // (p6ary,TP.numPlayers)
     }
     this.gamePlay.hexMap.update();
   }

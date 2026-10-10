@@ -132,7 +132,7 @@ export class GamePlay extends GamePlayLib {
     const map = this.hexMap;
     const relics = Relic.allRelics.filter(rel => !rel.foundation.onTile);
     const terr: TERRAIN[] = ['Hills', 'Swamp', 'Plains'];
-    const hexes = map.filterEachHex(hex => terr.includes(hex.ctile?.terrain ?? 'Mtn') && (!hex.ctile!.foundations[1]) )
+    const hexes = map.filterEachHex(hex => terr.includes(hex.ctile?.terrain ?? 'Base') && (!hex.ctile!.foundations[1]) )
     permute(hexes);
     const empty = permute(['E2', 'G1', 'C'] as BONUS[]).map(b => new BgFound(`noR_${b}`, b));
     hexes.forEach(hex => {

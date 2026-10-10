@@ -48,14 +48,13 @@ export type HexPair = [Hex2, Hex2];
 export class PairTarget extends NamedContainer {
   static targets: PairTarget[] = [];
 
-  /** create PairTarget and add to PairTarget.targets; and show on overCont. */
+  /** create PairTarget with dObj; add to PairTarget.targets; show on overCont. */
   constructor(public pair: HexPair, public dObj: DisplayObject) {
     const [fHex, tHex] = pair;
     const dir01 = fHex.findLinkHex(hex => (hex == tHex));
     if (!dir01) {
       throw(`new PairTarget: hexes ${pair} are not adjacent`);
     }
-    const dx = TP.hexRad * .3, dy = dx*2;
     super(`PairTarget#${PairTarget.targets.length}`);
     this.addChild(dObj);
     PairTarget.targets.push(this);
@@ -846,7 +845,7 @@ export class BaseTile extends ChaosTile {
    */
   addBaseFoundationsAndLink(hex: Hex2, ctx: DragContext) {
     // link base hex to adjacent non-Mtn Hexes
-    const map = this.hex!.map as HexMap2;
+    const map = this.chex!.map;
     map.link(hex);      // link to all adjacent hexes
     map.unlink(hex, (nHex) => !!nHex.ctile?.isMtn); // rm links to Mtn tiles
     const pairs = this.getAdjacentPairs(hex);  // find each pair of adjacent regions
@@ -861,7 +860,7 @@ export class BaseTile extends ChaosTile {
 
   getAdjacentPairs(hex: Hex2) {
     // cycle through hex.linkDirs[i], [i+1 % 6]
-    const mapDirs = (hex.map as HexMap2).linkDirs;  // assume length == 6; [N, EN, ES, S, WS, WN ]
+    const mapDirs = hex.map.linkDirs;  // assume length == 6; [N, EN, ES, S, WS, WN ]
     const pairs: HexPair[] = [];  // push [hex1, hex2]
     const isRegion = (hex?: Hex2) => { return hex?.ctile && hex.ctile.terrain != 'Mtn' && hex.ctile.terrain != 'Lake'};
     const links = hex.links as Partial<Record<HexDir, Hex2>>; // avoid & Partial<Record<HexDir, any>>
@@ -897,7 +896,7 @@ export class BaseTile extends ChaosTile {
   chooseGivenPair(pair: [ChaosHex2, ChaosHex2]) {
     // const pair = pairTarget.pair;
     const hex = this.chex!;   // assert: BaseTile has dropped on map
-    const map = hex.map as HexMap2;
+    const map = hex.map;
     this.gamePlay.removeTargets();  // all PairTargets
     const hexes = this.getAdjacentPairs(this.chex).flat();
     hexes.forEach(hex2 => pair.includes(hex2) || map.placeMtn(hex, hex2));
@@ -923,7 +922,7 @@ export class BaseTile extends ChaosTile {
     });
     baseFot.setFighterVis();
     baseFot.update();
-    faction.afterPlaceBase(this.hex as Hex2);
+    faction.afterPlaceBase(this.hex as Hex2, adjRegions);
     this.hex?.map.update();
   }
 
@@ -932,7 +931,7 @@ export class BaseTile extends ChaosTile {
     this.gamePlay.removeTargets(); // adjPairTargets or movesInPlay from stage
     const hex = this.fromHex;
     if (!hex?.isOnMap) return;
-    const map = hex.map as HexMap2;
+    const map = hex.map;
     // remove any Mtn between hex and nHex; link thru Mtn is already removed...
     map.adjacentToRowCol(hex).forEach(({ hex: nHex, dir }) => map.removeMtn(hex, nHex))
 

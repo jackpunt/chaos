@@ -973,22 +973,32 @@ export class Stronghold extends ChaosBuilding {
 
 // Each Faction has a specialized Stronghold
 class CircadianStronghold extends Stronghold {
+  // max 1 Cliffs, 1 Swamp, 1 Plains
+  // may count as Region for Income phase
 }
 class AIStronghold extends Stronghold {
+  // set AI_Trap
 }
-class JrayekStronghold extends Stronghold {
-}
-class OxatayaStronghold extends Stronghold {
-}
-
-class LeyrienStronghold extends Stronghold {
+class ZcharoStronghold extends Stronghold {
   override strength = 1;
 }
+class LeyrienStronghold extends Stronghold {
+  // Boost Morale, cant be build in Swamp
+}
+class JrayekStronghold extends Stronghold {
+  // Atk = 2
+  // Shields = 1
+}
+class OxatayaStronghold extends Stronghold {
+  // offerRecruitToStronghold
+}
+
 
 /** Indirect reference by name, to avoid loader circularity */
 export const buildingCbyName = {
   CircadianStronghold: CircadianStronghold,
   AIStronghold: AIStronghold,
+  ZcharoStronghold: ZcharoStronghold,
   LeyrienStronghold: LeyrienStronghold,
   JrayekStronghold: JrayekStronghold,
   OxatayaStronghold: OxatayaStronghold,

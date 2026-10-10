@@ -6,7 +6,7 @@ import { CardShape } from "./card-shape";
 import { ChaosHex2 as Hex2 } from "./chaos-hex";
 import { type ChaosTable, type ChaosTable as Table } from "./chaos-table";
 import { BaseTile, ChaosTile, LeaderTile, MoveInPlay, type BONUS, type FactionOnTile, type HARVEST, type HexPair } from "./chaos-tile";
-import { Faction, factionColors, type FactionId, type FactionName } from "./factions";
+import { Faction, factionColors, factionNeutral, type FactionId, type FactionName } from "./factions";
 import { BgFound, Foundation } from "./foundation";
 import { bonusIcon } from "./functions";
 import { type Battle, type GamePlay } from "./game-play";
@@ -38,9 +38,7 @@ export class Player extends PlayerLib {
   // {gold: 'gold', lightblue: 'lightblue', violet: 'Violet', blue: 'blue', orange: 'orange' };
   /** Record<FactionColors: HTML_Color\> */
   static override colorScheme = {
-      // start with 6 key factionColors:
-      ... playerColors.reduce((pv, cv) => (pv[cv] = cv, pv), {} as typeof PlayerLib.colorScheme),
-      // overwrite a few to get a better color
+      // colors for 6 Factions & Neutral
       'gold': 'rgb(235, 186, 26)',    // Circadian
       'grey': 'rgb(168, 167, 167)',   // AI: between 128 & 224
       'blue': 'rgb(1, 161, 230)',     // Zcharo
@@ -69,12 +67,12 @@ export class Player extends PlayerLib {
     super(index, gamePlay); // <-- index is 'table ordinal'
     const facId = gamePlay.gameSetup.facIds[index];     // Aname and HTML color should be aligned with facId
     this.facId = facId;
+    const cname = playerColors[facId];
+    ;(this as any).Aname = `P${index}:${cname}`
+    this.color = (this.constructor as typeof Player).colorScheme[cname];
+    this.facName = factionNeutral[facId];
     // Make subclass for each Faction;
     this.faction = Faction.factionById.get(facId) ?? this.newFaction(facId, this);
-    this.facName = this.faction.name;
-    const cname = playerColors[this.facId];
-    ;(this as any).Aname = `P${index}:${cname}`
-    this.color = (this.constructor as typeof Player).playerColor(cname); // canonical name --> html Color
   }
 
   newFaction(facId: FactionId, player = this) {
@@ -286,13 +284,13 @@ export class Player extends PlayerLib {
     }
     const targetHex = pref ?? emptyHexes[0];
     const baseTile = this.panel.baseTile;
-    this.gamePlay.table.dragStartAndDrop(baseTile, targetHex);
+    this.gamePlay.table.dragStartAndDrop(baseTile, targetHex); // --> placeBaseAndFoundations()
     const pairTargets = permute(this.gamePlay.pairTargets);
     let pair: HexPair | undefined;
     if (this.facId == 3) {
       pair = pairTargets.find(p => p.pair[0].ctile!.isSwamp || p.pair[1].ctile!.isSwamp)?.pair;
     }
-    if (pairTargets.length > 0) {
+    if (pairTargets.length > 1) {
       baseTile.chooseGivenPair(pair ?? pairTargets[0].pair);
     }
     doneFunc();
