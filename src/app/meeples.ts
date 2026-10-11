@@ -102,12 +102,12 @@ export class PathShapeMeeple extends PathShape {
 }
 class FactoryShape extends PathShapeMeeple {
   /** flatish pentagon */
-  static override pointAry = [[-1,0], [-1, -1], [0, -1.25], [1,-1], [1, 0]] as XYp[];
+  static override pointAry = [[-1, 1], [-1, 0], [0, -.25], [1, 0], [1, 1]] as XYp[];
 }
 class OutpostShape extends PathShapeMeeple {
   static makePointAry() {
     // enforce symmetry:
-    const leftPts = [[-1, 0], [-1, -1.4], [-.8, -1.4], [-.8, -1], [0, -1.5]] as XYp[];
+    const leftPts = [[-1, 1], [-1, -.4], [-.8, -.4], [-.8, 0], [0, -.5]] as XYp[];
     const rightPts = leftPts.map(([x, y]) => [-x, y]).slice(0, -1).reverse() as XYp[];
     return leftPts.concat(rightPts);
   }
@@ -116,7 +116,7 @@ class OutpostShape extends PathShapeMeeple {
 }
 class StrongholdShape extends PathShapeMeeple {
   /** larget, w/tower */
-  static override pointAry = [[-1, 0], [-1, -2], [-.8, -2], [-.8, -1.5], [0, -2], [1, -1.5], [1, 0]] as XYp[];
+  static override pointAry = [[-1, 1], [-1, -1], [-.8, -1], [-.8, -.5], [0, -1], [1, -.5], [1, 1]] as XYp[];
 }
 
 
