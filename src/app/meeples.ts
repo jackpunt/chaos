@@ -67,27 +67,37 @@ export class PaintableCont extends NamedContainer implements Paintable {
  *
  * subclass can override static pointAry, static get points, or mscgf(...)
  */
-class PathShapeMeeple extends MeepleShape {
-  /** points returned by static get points() */
-  static pointAry: XYp[] = [[-1,0], [1,0], [1,1], [-1,1]];
+export class PathShapeMeeple extends PathShape {
+  /** points returned by static get points(); override here! */
+  static pointAry = [[-1,0], [1,0], [1,1], [-1,1]];
 
   /** return this.pointAry [static] */
-  static get points(): XYp[] { return  this.pointAry};
+  static get points(): XYp[] { return  this.pointAry as XYp[] };
 
-  morph(points: XYp[], radius = TP.meepleRad/4) {
-    return points.map(([x,y]) => [x * radius, (y + 1) * radius] as XYp)
+  /** static helper function: */
+  static symmetricPoints(...pts: XYp[]) {
+    const pts2 = pts.map(([x, y]) => [-x, y]).slice(0, -1).reverse() as XYp[];
+    return pts.concat(pts2);
   }
 
-  /** subclass override mscgf(...) for non-PathShape */
-  override mscgf(fillc = this.pColor, ss?: number, rs?: number): Graphics {
-    const points0 = (this.constructor as typeof PathShapeMeeple).points;
-    const points = this.morph(points0, this.radius)
-    return new PathShape({ points, fillc}, this.graphics).graphics;
+  constructor(ptfs:
+    { points?: [number, number][], tilt?: number, fillc?: string, strokec?: string, scaleXY?: number }, g0?: Graphics) {
+    const ptfs2 = { points: PathShapeMeeple.pointAry as XYp[], ... ptfs }
+    super(ptfs2, (g0 ?? new Graphics()).ss(1, undefined, undefined, undefined, true))
+    this.scaleX = this.scaleY = ptfs.scaleXY ?? 1;
+    this.points = this.makePoints();
   }
 
-  // TODO: makeOverlay for backside Shape
-  override makeOverlay(y0?: number) {
-    return super.makeOverlay(y0); // make an overlay shape for the backside of baseShape.
+  /** instance method to morph the static point array */
+  makePoints(points = (this.constructor as typeof PathShapeMeeple).points) {
+    return points;
+  }
+  override pscgf(fillc = this.colorn, g = this.g0) {
+    ((this.colorn = fillc) ? g.f(fillc) : g.ef());
+    (this.strokec ? g.s(this.strokec) : g.es());
+    // g.ss(1, undefined, undefined, undefined, true);
+    g.pg(this.points, true); // close the loop
+    return g;
   }
 }
 class FactoryShape extends PathShapeMeeple {
@@ -845,6 +855,7 @@ export class ChaosBuilding extends ChaosPresence {
   }
 
   makeShape0(size = 20): Paintable {
+    // default Building; subclass & override:
     return new RectShape({ x: -size/2, y: -size/2, w: size, h: size, }, 'rgba(0, 0, 0, 0.3)', 'black')
   }
 
@@ -928,7 +939,7 @@ export class ChaosBuilding extends ChaosPresence {
       this.scaleX = this.scaleY = add ? Foundation.mapScale : 1;
       this.x = fnd.x; this.y = fnd.y;
       fnd.parent.addChild(this);
-      if (fnd.bonus) {
+      if (fnd.bonus !== '-') {
         this.player.faction.doImmediateBonus(fnd.bonus, () => {});
       }
       fnd.onTile?.addBuilding(this, add);
@@ -952,15 +963,14 @@ export class ChaosBuilding extends ChaosPresence {
 export class Factory extends ChaosBuilding {
   override bText = 'E2' as BONUS;
   override makeShape0(size = TP.meepleRad): Paintable {
-    const bs = new FactoryShape(undefined, size)
-    return bs;
+    return new FactoryShape({ scaleXY: size })
   }
 }
 
 export class Outpost extends ChaosBuilding {
   override bText = 'C' as BONUS;
   override makeShape0(size = TP.meepleRad): Paintable {
-    return new OutpostShape(undefined, size)
+    return new OutpostShape({ scaleXY: size })
   }
   override strength = 2;
 }
@@ -968,7 +978,7 @@ export class Outpost extends ChaosBuilding {
 export class Stronghold extends ChaosBuilding {
   override bText = 'G1' as BONUS;
   override makeShape0(size = TP.meepleRad): Paintable {
-    return new StrongholdShape(undefined, size);
+    return new StrongholdShape({ scaleXY: size });
   }
 }
 

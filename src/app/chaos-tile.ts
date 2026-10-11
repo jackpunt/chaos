@@ -5,7 +5,7 @@ import { type DragContext, type DragFuncs, H, type HasDragger, type HexDir, HexS
 import { type ChaosHex2, type ChaosHex2 as Hex2, type HexMap2 } from "./chaos-hex";
 import { type ChaosTable } from "./chaos-table";
 import { NumCounterHex } from "./counters";
-import { Faction, type FactionId } from "./factions";
+import { type Faction, type FactionId } from "./factions";
 import { Foundation } from "./foundation";
 import { pentagon } from "./functions";
 import type { GamePlay } from "./game-play";

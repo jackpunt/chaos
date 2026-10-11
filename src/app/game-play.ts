@@ -277,6 +277,7 @@ export class GamePlay extends GamePlayLib {
       const scale = TP.cacheTiles
       table.reCacheTiles()}
     )
+    KeyBinder.keyBinder.setKey('B', () => this.curPlayer.faction.offerBuildAction(2, ()=>{}))
     KeyBinder.keyBinder.setKey('R', () => this.curPlayer.faction.offerRecruit(2, ()=>{}))
     KeyBinder.keyBinder.setKey('H', () => this.curPlayer.faction.offerHarvestActions(2, ()=>{}))
     KeyBinder.keyBinder.setKey('M', () => this.moveFaction(this.curPlayer.faction)); // use mpForFaction()

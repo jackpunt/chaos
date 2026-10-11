@@ -42,6 +42,7 @@ export class Player extends PlayerLib {
       'gold': 'rgb(235, 186, 26)',    // Circadian
       'grey': 'rgb(168, 167, 167)',   // AI: between 128 & 224
       'blue': 'rgb(1, 161, 230)',     // Zcharo
+      'green': 'green',                 // Leyrien
       'orange': 'rgb(195, 34, 34)',   // Jrayek
       'violet': 'rgb(123, 91, 153)', // Oxataya
       'brown' : 'rgb(90, 26, 0)',     // Neutral

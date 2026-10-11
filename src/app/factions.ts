@@ -1,10 +1,11 @@
 import { arrayN, removeEltFromArray, S, stime, type Constructor } from "@thegraid/common-lib";
-import { CenterText, CircleShape, EllipseShape, NamedContainer, type Paintable } from "@thegraid/easeljs-lib";
+import { CenterText, NamedContainer, type Paintable } from "@thegraid/easeljs-lib";
+import type { Graphics } from "@thegraid/easeljs-module";
 import { type DragContext, type Phase } from "@thegraid/hexlib";
 import type { ChaosHex2 as Hex2 } from "./chaos-hex";
 import { BONUS, ChaosTile, FactionOnTile, FAME_BONUS, HARVEST, HexPair, PairTarget } from "./chaos-tile";
 import type { Foundation } from "./foundation";
-import { ChaosMeeple, Leader, Morale, PaintableCont, type ChaosBuilding } from "./meeples";
+import { ChaosMeeple, Leader, Morale, PathShapeMeeple, type ChaosBuilding } from "./meeples";
 import type { Panel, Player } from "./player";
 import { type ResearchLevel } from "./research-cell";
 import { pricePhases, TP, type CB, type PricePhase } from "./table-params";
@@ -479,11 +480,23 @@ class Dropship extends ChaosMeeple {
     this.paint(player.color);
   }
   override makeShape(size?: number): Paintable {
-    const dsx = TP.meepleRad * .5;
-    const rv = new PaintableCont('Dropship')
-    rv.addChild(new EllipseShape('gold', dsx, dsx * .1, ''));
-    rv.addChild(new CircleShape('gold', dsx * .2, ''));
-    return rv;
+    return new class DropshipShape extends PathShapeMeeple {
+      override strokec = '';
+
+      constructor(pColor?: string, radius = TP.meepleRad * .5, g0?: Graphics) {
+        const fillc = factionColors[0];
+        super({ fillc, scaleXY: radius, tilt: 90 })
+      }
+      static override pointAry = this.symmetricPoints(
+        [0, -.77],
+        [.2, -.8],
+        [.1, -.65],
+        [.1, .1],
+        [.35, .2],
+        [.1, .5],
+        [0, .8],
+      )
+    }()
   }
 
   // Note: if we create PairTargets (for cirLegalMark), gamePlay.removeTargets() removes them from their parent
