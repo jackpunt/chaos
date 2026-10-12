@@ -573,7 +573,11 @@ class Dropship extends ChaosMeeple {
   }
 
   placeOnEdge(hex0: Hex2, hex1: Hex2, dObj: DisplayObject = this) {
-    const dir01 = hex0.findLinkHex(hex => (hex == hex1));
+    const mtnDir = () => {
+      const mtn = hex0.map.findMtn(hex0, hex1); // may return Mountain(hex1, hex0)
+      return mtn ? ((mtn.hex0 == hex0) ? mtn.dir : H.dirRev[mtn.dir]) : undefined;
+    }
+    const dir01 = hex0.findLinkHex(hex => (hex == hex1)) ?? mtnDir();
     if (!dir01) {
       throw(`placeOnEdge: hexes ${[hex0, hex1]} are not adjacent`);
     }
@@ -595,7 +599,10 @@ class Dropship extends ChaosMeeple {
   placeLegalMarks() {
     let ndx = 0;      // next mark from edgeMarkPool
     this.edge.forEach(hex0 => {
-      hex0.forEachLinkHex((hex1, dir) =>{
+      const map = hex0.map;
+      map.adjacentToRowCol(hex0).forEach(({ hex: hex1, dir }) => {
+        if (!hex1.ctile || hex1.ctile.isMtn || hex1.ctile.isBase) return;
+        if (map.findMtn(hex0, hex1)) {};
         if (hex1 == this.edge[0]) return;  // skip [edge[1], edge[0]]
         const mark = this.edgeMarkPool[ndx++];
         mark.setOnEdge([hex0, hex1], dir)

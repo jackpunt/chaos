@@ -136,6 +136,7 @@ export class TokenHex extends ChaosHex2 {
 
 /** mauve Mountain that breaks adjacency between 2 ChaosHex2. */
 class Mountain extends RectShape {
+  dir: HexDir;
   constructor(public hex0: Hex2, public hex1: IHex2) {
     const map = hex0.map;
     const dir01 = hex0.findLinkHex(hex => (hex == hex1));
@@ -145,6 +146,7 @@ class Mountain extends RectShape {
 
     const dx = TP.hexRad * .9, dy = dx * .06;
     super({x: -dx/2, y: -dy/2, w: dx, h: dy}, C.PURPLE, ''); // or dmauve?
+    this.dir = dir01;
 
     map.mountains.push(this);
     this.rotation = (H.dirRot[dir01]);
