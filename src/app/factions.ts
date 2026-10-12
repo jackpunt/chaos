@@ -1,9 +1,9 @@
 import { arrayN, removeEltFromArray, S, stime, type Constructor } from "@thegraid/common-lib";
-import { CenterText, NamedContainer, type Paintable } from "@thegraid/easeljs-lib";
-import type { Graphics } from "@thegraid/easeljs-module";
-import { type DragContext, type Phase } from "@thegraid/hexlib";
+import { CenterText, CircleShape, NamedContainer, type Paintable } from "@thegraid/easeljs-lib";
+import type { DisplayObject, Graphics } from "@thegraid/easeljs-module";
+import { H, type DragContext, type HexDir, type IHex2, type Phase, type Table } from "@thegraid/hexlib";
 import type { ChaosHex2 as Hex2 } from "./chaos-hex";
-import { BONUS, ChaosTile, FactionOnTile, FAME_BONUS, HARVEST, HexPair, PairTarget } from "./chaos-tile";
+import { BONUS, ChaosTile, FactionOnTile, FAME_BONUS, HARVEST, HexPair } from "./chaos-tile";
 import type { Foundation } from "./foundation";
 import { ChaosMeeple, Leader, Morale, PathShapeMeeple, type ChaosBuilding } from "./meeples";
 import type { Panel, Player } from "./player";
@@ -474,17 +474,76 @@ export class Faction {
   }
 }
 
+/** LegalMark for Dropship on Edge of Hex */
+class EdgeMark extends CircleShape {
+  static colora = 'rgba(193, 161, 55, 0.75)'
+  static colorb = 'rgba(193, 161, 55, 0.45)'
+
+  edge!: HexPair;
+  dirRot!: number;
+  dropship: Dropship;
+
+  constructor(dropship: Dropship) {
+    super(EdgeMark.colora, TP.hexRad * .4, '');
+    this.dropship = dropship;
+    this.visible = false;
+  }
+  override toString(): string {
+    return `${this.constructor.name}:${this.edge[0].Aname}-${this.edge[1].Aname}`
+  }
+
+  set highlight(value: boolean) {
+    this.paint(value ? EdgeMark.colora : EdgeMark.colorb);
+  }
+
+  // show EdgeMark (LegalMark) on edge:
+  setOnEdge(edge: HexPair, dir: HexDir) {
+    this.edge = edge;
+    this.dirRot = H.dirRot[dir];
+    this.dropship.placeOnEdge(...edge, this); // put on overCont (temporary)
+    edge[0].mapCont.markCont.addChild(this);  // move EdgeMark to markCont
+    this.visible = true;
+  }
+
+}
+
+/** Dropship for Circadian Faction */
 class Dropship extends ChaosMeeple {
+  /** current placement of Dropship */
+  edge!: HexPair;
+  /** EdgeMark on this.edge; set in placeLegalMarks */
+  fromMark: EdgeMark;
+  /** true when dropship is over an useable edge  */
+  isOverMark = false;
+  /** private slot, behind toMark */
+  _toMark!: EdgeMark
+  /** active EdgeMark, where dropship will drop */
+  get toMark() { return this._toMark }
+  set toMark(mark: EdgeMark) {
+    this._toMark.highlight = false;
+    this._toMark = mark;
+    this._toMark.highlight = true;
+    this.rotation = mark.dirRot;
+  }
+  /** a pool of EdgeMark; see EdgeMark.setOnEdge */
+  edgeMarkPool: EdgeMark[]; // active/placed marks have (visible == true)
+
+
   constructor(Aname: string, player: Player) {
     super(Aname, player)
-    this.paint(player.color);
+    const fillc = 'rgb(160, 117, 0)'; // off from player.color
+    this.paint(fillc);
+    // make 11 EdgeMarks for future use;
+    this.edgeMarkPool = arrayN(11).map(i => new EdgeMark(this));
+    this._toMark = this.fromMark = this.edgeMarkPool[0]; // initialize to any non-null EdgeMark
   }
+
   override makeShape(size?: number): Paintable {
     return new class DropshipShape extends PathShapeMeeple {
       override strokec = '';
 
       constructor(pColor?: string, radius = TP.meepleRad * .5, g0?: Graphics) {
-        const fillc = factionColors[0];
+        const fillc = factionColors[0];  // temp color; re-paint in Drophship constructor
         super({ fillc, scaleXY: radius, tilt: 90 })
       }
       static override pointAry = this.symmetricPoints(
@@ -495,14 +554,85 @@ class Dropship extends ChaosMeeple {
         [.35, .2],
         [.1, .5],
         [0, .8],
-      )
+      ) // narrrow image so it does not obscure FoT graphics
     }()
   }
 
-  // Note: if we create PairTargets (for cirLegalMark), gamePlay.removeTargets() removes them from their parent
+  // mostly for initial placement from placeBase; Table.dragStart() --> tile.moveTo(undefined)
+  override moveTo(hex0?: Hex2, hex1?: Hex2): void {
+    if (!hex0 || !hex1) return;          // if invoked from Table.dragStart()
+    const edge = this.edge = [hex0, hex1];
+    const map = hex0!.map;
+    if (map.findMtn(...edge)) {
+      map.removeMtn(...edge);
+      map.relink(...edge);    // replace links beneath Mtn on 2-player map (edge0->S->edge1)
+    }
+    // place Dropship, rotate to edge direction
+    this.placeOnEdge(hex0, hex1)
+    return;
+  }
+
+  placeOnEdge(hex0: Hex2, hex1: Hex2, dObj: DisplayObject = this) {
+    const dir01 = hex0.findLinkHex(hex => (hex == hex1));
+    if (!dir01) {
+      throw(`placeOnEdge: hexes ${[hex0, hex1]} are not adjacent`);
+    }
+    dObj.rotation = (H.dirRot[dir01]);        // axial angle: edge is +/- 90 deg
+    hex0.edgePoint(dir01, 1, dObj);           // set dObj (this Dropship) on edge [hex0, hex1]
+    hex0.map.mapCont.overCont.addChild(dObj); // place on top of other tiles
+  }
+
+  // table.dragStart() {
+  //   tile.cantbemovedby(); tile.dragStart();
+  //   table.markLegalHexes() --> tile.markLegal() { forEach(hex): --> tile.isLegalTarget(hex) && hex.setIsLegal}
+  //   tile.moveTo(undef)}
+
+  override isLegalTarget(toHex: Hex2, ctx?: DragContext) { return false }
+  override markLegal(table: Table, setLegal?: (hex: IHex2) => void, ctx?: DragContext): void {}
+  // markLegal never calls setLegal, so (ctx.nLegal == 0) but we don't care
+  override noLegalTarget(ctx: DragContext): void {}
+
+  placeLegalMarks() {
+    let ndx = 0;      // next mark from edgeMarkPool
+    this.edge.forEach(hex0 => {
+      hex0.forEachLinkHex((hex1, dir) =>{
+        if (hex1 == this.edge[0]) return;  // skip [edge[1], edge[0]]
+        const mark = this.edgeMarkPool[ndx++];
+        mark.setOnEdge([hex0, hex1], dir)
+        if (hex1 == this.edge[1]) {
+          this.toMark = this.fromMark = mark; // EdgeMark @ [hex0, hex1]: highlight
+        }
+      })
+    })
+  }
+
   override dragStart(ctx: DragContext): void {
-    // TODO: place LegalMarks on edges of adjacent Hexes
-    super.dragStart(ctx);
+    this.isOverMark = true;
+    super.dragStart(ctx); // no-op
+    this.placeLegalMarks();
+  }
+
+  override dragFunc(hex: IHex2 | undefined, ctx: DragContext): void {
+    const hexMap = ctx.gameState.gamePlay.table?.hexMap!;
+    const sx = ctx.info.event.stageX, sy = ctx.info.event.stageY;
+    const pm = hexMap.mapCont.markCont.globalToLocal(sx, sy);
+    const mark = hexMap.mapCont.markCont.getObjectUnderPoint(pm.x, pm.y, 1) as EdgeMark | undefined;
+    // update toMark when isOverMark changes:
+    if (mark && !this.isOverMark) {
+      this.toMark = mark;
+    } else if (!mark && this.isOverMark) {
+      ctx.info.dxy.x = ctx.info.dxy.y = 0;  // at first rotation, attach to center
+      this.toMark = this.fromMark;
+    }
+    this.isOverMark = !!mark;
+  }
+
+  // Note: targetHex == ctx.targetHex;
+  // Dropship ignores and uses overEdge ?? fromEdge
+  override dropFunc(targetHex: Hex2, ctx: DragContext): void {
+    this.edge = this.toMark.edge;
+    this.placeOnEdge(...this.edge);
+    this.edgeMarkPool.forEach(m => m.visible = false);
   }
 }
 
@@ -522,24 +652,14 @@ class Circadian extends Faction {
   // At end of 'Move' phase, eject Leader/Fighters with MoveInPlay on each tunnel.
   override afterPlaceBase(baseHex: Hex2, adjRegions: HexPair): void {
     baseHex.forEachLinkHex(hex => !hex.ctile?.isMtn && baseHex.map.placeMtn(baseHex, hex))
-    this.placeDropship(adjRegions);
-  }
-
-  /** place Dropship on the given edge */
-  placeDropship(edge: HexPair) {
-    const map = edge[0].map;
-    if (map.findMtn(...edge)) {
-      map.removeMtn(...edge);
-      map.relink(...edge);    // replace links beneath Mtn on 2-player map (edge0->S->edge1)
-    }
-    new PairTarget(edge, this.dropship, false); // dropship is not a target to be removed
-    return;
+    this.dropship.moveTo(...adjRegions);
   }
 
   override fighterStr (fot: FactionOnTile) {
     return fot.fighters * (this.attributes['militarized']?.upgraded ? 3 : 2);
   }
 }
+
 class AI extends Faction {
 
 }
@@ -552,6 +672,7 @@ class Zcharo extends Faction {
     return [str+res, txr] as [number, string];
   }
 }
+
 export class Leyrien extends Faction {
 
   mcCont!: NamedContainer;
@@ -629,6 +750,7 @@ export class Leyrien extends Faction {
     return [str + mor, txm] as [number, string];
   }
 }
+
 class Jrayek extends Faction {
 
   override pins(fot: FactionOnTile) {
@@ -637,6 +759,7 @@ class Jrayek extends Faction {
     return super.pins(fot) + rpins;
   }
 }
+
 class Oxataya extends Faction {
 
   // block Oxataya from any adjacent Lake:

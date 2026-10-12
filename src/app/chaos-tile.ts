@@ -48,7 +48,7 @@ export type HexPair = [Hex2, Hex2];
 export class PairTarget extends NamedContainer {
   static targets: PairTarget[] = [];
 
-  /** create PairTarget with dObj; add to PairTarget.targets; show on overCont. */
+  /** Container with dObj; add to PairTarget.targets; rotate to align with edge; show on overCont. */
   constructor(public pair: HexPair, public dObj: DisplayObject, isTarget = true) {
     const [fHex, tHex] = pair;
     const dir01 = fHex.findLinkHex(hex => (hex == tHex));
