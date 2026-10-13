@@ -1,7 +1,7 @@
 import { C, Constructor, F, S, stime, type XY, type XYWH } from "@thegraid/common-lib";
 import { CenterText, NamedContainer, PathShape, RectShape, TextInRect, UtilButton, type Paintable, type RectWithDispOptions } from "@thegraid/easeljs-lib";
 import { Container, Graphics, MouseEvent } from "@thegraid/easeljs-module";
-import { Meeple, MeepleShape, rightClickable, Table, Tile, type DragContext, type DragFuncs, type HasDragger, type Hex, type HexM, type IHex2 } from "@thegraid/hexlib";
+import { Meeple, rightClickable, Table, Tile, type DragContext, type DragFuncs, type HasDragger, type Hex, type HexM, type IHex2 } from "@thegraid/hexlib";
 import { CardShape } from "./card-shape";
 import { TokenHex, type ChaosHex2 as Hex2, type HexMap2 } from "./chaos-hex";
 import { type BASE_PROD_TOKEN, type BONUS, type ChaosTile, type FactionOnTile, type HARVEST, type LeaderTile, type TERRAIN } from "./chaos-tile";
@@ -10,7 +10,7 @@ import { BgFound, Foundation } from "./foundation";
 import { bonusIcon, phaseIcon, plGemIcon, TextInBox, upGemIcon } from "./functions";
 import type { GamePlay } from "./game-play";
 import type { GameState } from "./game-state";
-import type { Player } from "./player";
+import type { MoveInPlay, Player } from "./player";
 import type { Special } from "./scenario-parser";
 import { CO, priceNames, TP, type PhaseName, type PriceName } from "./table-params";
 
@@ -430,9 +430,11 @@ export class Leader extends ChaosUnit implements LeaderSpec {
   isaRhyzu(): this is Rhyzu {
     return this.isRhyzu > 0;   // versus instanceof
   }
+  movesThisRound: MoveInPlay[] = [];
 
-  baseCard!: LeaderCard;
-  get card() { return this.upgraded ? this.baseCard.otherSide : this.baseCard; }
+  /** two-sided LeaderCard; use leaderCard.otherSide when upgraded */
+  leaderCard!: LeaderCard;
+  get card() { return this.upgraded ? this.leaderCard.otherSide : this.leaderCard; }
 
   constructor(Aname: string, player: Player) {
     super(`${Aname}`, player); // Note: Tile/Meeple (Container) caches itself. so it all drags & drops
@@ -451,7 +453,7 @@ export class Leader extends ChaosUnit implements LeaderSpec {
     this.plGem = plGem ?? 0;
     this.upGem = upGem ?? 0;
     this.upPlace = (name == 'Injura' ? 2 : name == 'Demo' ? 0 : isRhyzu ? 0 : 1);
-    this.baseCard = this.makeCard();
+    this.leaderCard = this.makeCard();
     this.rightClickable()
   }
 
@@ -570,7 +572,7 @@ export class Leader extends ChaosUnit implements LeaderSpec {
     return super.cantBeMovedBy(player, ctx);
   }
 
-  /** the ChaosTile the was holding Leader before dragStart. */
+  /** the ChaosTile that was holding Leader before dragStart. */
   ctxCtile(ctx?: DragContext) {
     // I expect: this.factOnTile.tile is always the source of a Leader. (Leader is always on a Tile)
     return this.factOnTile?.tile ?? (ctx?.info.srcCont as FactionOnTile).tile;
@@ -600,13 +602,24 @@ export class Leader extends ChaosUnit implements LeaderSpec {
     super.dragStart(ctx);
     ctx.targetHex = this.fromHex = this.ctxCtile(ctx).chex;  // how to find ldr.fromHex
     // remove leaderIcon from ctile:
-    this.ctxCtile(ctx)?.addLeader(this, false);
+    this.ctxCtile(ctx).addLeader(this, false);
   }
 
   override dropFunc(targetHex: Hex2, ctx: DragContext): void {
     const ctile = targetHex?.ctile ?? this.ctxCtile(ctx);
+    this.recordMove(ctile);
+    // detect ldr moving *back* to previous tile, trigger undoMove? or otherwise incr moveCounter
+    // TODO: put leader back during player.undoMove, incr moveCounter if leader was only referent in mip
     // place leaderIcon on ctile:
     ctile.getFoT(this.player).addLeader(this);
+  }
+
+  recordMove(toTile: ChaosTile, ctx?: DragContext) {
+    if (!this.gamePlay.isPhase('Move')) return;
+    const fromTile = this.ctxCtile(ctx); // QQQ: do we need ctx? ctx.info.srcCont.tile
+    const mip = this.player.movesInPlay.find(mip => mip.matches(fromTile, toTile));
+    // if (ctx.lastShift) {} // mip could be undefined!
+    mip && this.movesThisRound.push(mip);
   }
 }
 
@@ -662,7 +675,7 @@ export class LeaderCard extends PaintableCont {
   }
 
   switchSides(setBase = false) {
-    const baseSide = this.leader.baseCard.visible ? this.leader.baseCard : this.leader.baseCard.otherSide;
+    const baseSide = this.leader.leaderCard.visible ? this.leader.leaderCard : this.leader.leaderCard.otherSide;
     const otherSide = baseSide.otherSide;
     baseSide.visible = setBase ? true : false;
     otherSide.visible = !baseSide.visible;

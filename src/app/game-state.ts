@@ -400,6 +400,7 @@ export class GameState extends GameStateLib {
         this.setCurPlayerNdx(ndx);
         this.curPlayer.faction.offerPrimaryAndAux(this.pricePhase); // 'Recruit'
         this.doneButton();
+        if (this.autoPhaseIsAfter(this.state.Aname!)) this.state.done!(); // nobody buys this Phase
        },
       done: () => {
         this.startOrPhase('Move')
@@ -417,7 +418,6 @@ export class GameState extends GameStateLib {
         this.doneButton();
         // for each MovePoint: click to drop 'move actions' on hex border from src to dest region
         // adjust nFighters, annotate with Leaders that also Move
-        this.gamePlay.moveFaction(this.curPlayer.faction); // then call gameState.phase.done()
        },
       done: () => {
         this.gamePlay.endMoveFaction();

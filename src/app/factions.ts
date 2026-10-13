@@ -6,7 +6,7 @@ import type { ChaosHex2 as Hex2 } from "./chaos-hex";
 import { BONUS, ChaosTile, FactionOnTile, FAME_BONUS, HARVEST, HexPair } from "./chaos-tile";
 import type { Foundation } from "./foundation";
 import { ChaosMeeple, Leader, Morale, PathShapeMeeple, type ChaosBuilding } from "./meeples";
-import { type Panel, type Player } from "./player";
+import { type Panel, type Player, type SwampTile } from "./player";
 import { type ResearchLevel } from "./research-cell";
 import { pricePhases, TP, type CB, type PricePhase } from "./table-params";
 //
@@ -443,6 +443,9 @@ export class Faction {
     panel.recruitPoints = 0;  // unused RPs are lost.
   }
 
+  endMove() {
+  }
+
   /** override for phase specific checks; Faction attributes */
   checkPhase(phase: Phase) {
   }
@@ -578,6 +581,13 @@ class Dropship extends ChaosMeeple {
     }()
   }
 
+  strengthInRegion(region: ChaosTile): [number, string] {
+    if (!this.edge?.map(hex => hex.ctile).includes(region)) return [0, '']; // not in region
+    const str = (this.player.faction.attributes['tactical']?.upgraded ? 4 : 2)
+    const txt = `Dropship: ${str}`;
+    return [str, txt]
+  }
+
   // mostly for initial placement from placeBase; Table.dragStart() --> tile.moveTo(undefined)
   override moveTo(hex0?: Hex2, hex1?: Hex2): void {
     if (!hex0 || !hex1) return;          // if invoked from Table.dragStart()
@@ -604,6 +614,10 @@ class Dropship extends ChaosMeeple {
     dObj.rotation = (H.dirRot[dir01]);        // axial angle: edge is +/- 90 deg
     hex0.edgePoint(dir01, 1, dObj);           // set dObj (this Dropship) on edge [hex0, hex1]
     hex0.map.mapCont.overCont.addChild(dObj); // place on top of other tiles
+    if (dObj instanceof Dropship) {
+      hex0.ctile?.getFoT(dObj.player).update()
+      hex1.ctile?.getFoT(dObj.player).update()
+    }
   }
 
   // table.dragStart() {
@@ -697,8 +711,14 @@ class Circadian extends Faction {
     this.dropship.moveTo(...adjRegions);
   }
 
-  override fighterStr (fot: FactionOnTile) {
+  override fighterStr(fot: FactionOnTile) {
     return fot.fighters * (this.attributes['militarized']?.upgraded ? 3 : 2);
+  }
+
+  override strengthInRegion(region: ChaosTile): [number, string] {
+    const [str, txt] = super.strengthInRegion(region)
+    const [dstr, dtxt] = this.dropship.strengthInRegion(region)
+    return dstr ? [str + dstr, `txt\n${dtxt}`] : [str, txt];
   }
 }
 
@@ -781,6 +801,16 @@ export class Leyrien extends Faction {
     const rm = removeEltFromArray(moraleToken, ma);
     if (rm.length > 0) ma.forEach((moraleToken, len) => {
       moraleToken.x = (3 - len) * this.player.panel.wh;
+    })
+  }
+
+  override endMove(): void {
+    const fotPres = this.player.fotPresence;
+    fotPres.forEach(fot => {
+      // Leyrien: for each potential fHex.ctile, remove & delete any TeleGraphics
+      const tgOfTile = (fot.tile as SwampTile).teleGraphics;
+      tgOfTile?.forEach(tg => tg.parent.removeChild(tg)); // optional deconstruction
+      tgOfTile && (tgOfTile.length = 0);
     })
   }
 

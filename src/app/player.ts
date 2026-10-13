@@ -1055,8 +1055,8 @@ export class MoveInPlay extends NamedContainer {
   undoMove() {
     removeEltFromArray(this, this.player.movesInPlay);
     if (this.teleGraphic) {
-      const tgs = this.teleGraphic.tgsOnTile(this.from);
-      removeEltFromArray(this.teleGraphic, tgs);
+      const tgs = (this.from as SwampTile).teleGraphics;
+      tgs && removeEltFromArray(this.teleGraphic, tgs);
     }
     // remove from fHex.map...overCont:
     this.parent.parent.removeChild(this.parent); // PairTarget(this) OR TeleGraphic(this, line)
@@ -1121,29 +1121,27 @@ export class TeleGraphic extends NamedContainer {
   constructor(mip: MoveInPlay, pair: HexPair) {
     super('TeleGraphic');
     const [fHex, tHex] = pair;
-    this.addChild(mip);
-    const corner = this.pickCorner(pair);
-    this.dir = corner.dir;
-    this.x = corner.pt.x; this.y = corner.pt.y; // x,y on overCont: += (fHex.x, fHex.y)
+    mip.addChild(this); // this.addChild(mip); // mip is just the counter @ (0, 0)
+    const { pt: cpt, dir } = this.pickCorner(pair);
+    this.dir = dir;
+    mip.x = cpt.x; mip.y = cpt.y; // x,y on overCont: += (fHex.x, fHex.y)
     const fot = (fHex.ctile?.hasFoT(mip.player.facId))!;
     // find coords relative to fHex:
-    const ptx = corner.pt.x - fHex.x, pty = corner.pt.y - fHex.y;
-    const fx = 0, tx = (tHex.x - fHex.x) + fot.x - ptx;
-    const fy = 0, ty = (tHex.y - fHex.y) + fot.y - pty;
-    const points = pointsAtDistance([fx, fy], [tx, ty], TP.hexRad * .25);
+    const tx = (tHex.x - fHex.x) + fot.x - (cpt.x - fHex.x);
+    const ty = (tHex.y - fHex.y) + fot.y - (cpt.y - fHex.y);
+    const points = pointsAtDistance([0, 0], [tx, ty], TP.hexRad * .25);
     const arrow = new PathShape({ points, fillc: C.BLACK, strokec: C.BLACK });
-    // const arrow = new PathShape({ points: [[fx, fy], [fx+2, fy+2], [(fx+tx)/2, (fy+ty)/2], [tx, ty], [tx-2, ty-2]], fillc: C.BLACK, strokec: C.BLACK })
     this.addChild(arrow);
-    fHex.map.mapCont.overCont.addChild(this); // TG -> fHex.map...overCont @ fHex.cornerXY
+    fHex.map.mapCont.overCont.addChild(mip); // TG -> fHex.map...overCont @ fHex.cornerXY
   }
 
   /** corner of pair.fHex that is empty and is closest to pair.tHex
    * @param pair
-   * @returns { dir: ewDir, pt: XY }
+   * @returns \{ dir: ewDir, pt: XY }
    */
   pickCorner(pair: HexPair) {
     const [fHex, tHex] = pair;
-    const tgs = this.tgsOnTile(fHex.ctile!);
+    const tgs = (fHex.ctile! as SwampTile).teleGraphics ?? [];
     const rad = TP.hexRad * .8; // inside the corner
     const cdirs = H.ewDirs.filter(d => !tgs.find(tg => tg.dir == d)); // for nsTopo: corners are on ewDirs
     const pts = cdirs.map(cdir => ({ dir: cdir, pt: fHex.cornerXY(cdir, rad) }));
@@ -1152,11 +1150,11 @@ export class TeleGraphic extends NamedContainer {
     tgs.push(this);
     return p0;
   }
+}
 
-  tgsOnTile(tile: ChaosTile) {
-    let empty: TeleGraphic[];
-    return TeleGraphic.teleGraphics.get(tile) ?? (empty = [], TeleGraphic.teleGraphics.set(tile, empty), empty);
-  }
+/** attach a teleGraphics: TeleGraphic[] field to each Swamp: */
+export interface SwampTile extends ChaosTile {
+  teleGraphics?: TeleGraphic[];
 }
 
 class MoveOfShip extends MoveInPlay {

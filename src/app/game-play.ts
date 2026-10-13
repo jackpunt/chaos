@@ -229,22 +229,14 @@ export class GamePlay extends GamePlayLib {
   endMoveFaction() {
     if (!this.movePlayer) return;
     const faction = this.movePlayer.faction;
+    this.movePlayer.movesInPlay.forEach(mip => mip.parent?.removeChild(mip));
     this.movePlayer.movesInPlay.length = 0;
     this.movePlayer = undefined;
     const moveCounter = faction.player.panel.baseTile.moveCounter;
     moveCounter.value = 0;
     moveCounter.visible = false;
-    if (faction.facId == 3) {
-      const tgOfTile = TeleGraphic.teleGraphics
-      const fotPres = faction.player.fotPresence;
-      fotPres.forEach(fot => {
-        // Leyrien: for each potential fHex.ctile, remove & delete any TeleGraphics
-        tgOfTile.get(fot.tile)?.forEach(tg => tg.parent.removeChild(tg));
-        tgOfTile.delete(fot.tile)
-      })
-    }
+    faction.endMove();                 // Leyrien, Circadian?
     faction.player.setAllFighterVis(); // touch all FoT, setting visibility
-    this.removeTargets(); // remove all MoveInPlay
     this.table.stage.update();
   }
 
