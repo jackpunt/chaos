@@ -1,4 +1,4 @@
-import { arrayN, C, F } from "@thegraid/common-lib";
+import { arrayN, C, F, type XY } from "@thegraid/common-lib";
 import { CenterText, CircleShape, EllipseShape, NamedContainer, PathShape, RectShape, TextInRect, type RectWithDispOptions, type TextInRectOptions } from "@thegraid/easeljs-lib";
 import { Container } from "@thegraid/easeljs-module";
 import type { HARVEST } from "./chaos-tile";
@@ -6,6 +6,10 @@ import { type PriceBonus } from "./meeples";
 import { CO, TP, type PhaseName } from "./table-params";
 
 
+/** distance from origin (or given p0) */
+export function dist(pt: XY, p0 = { x: 0, y: 0 }) {
+  return Math.hypot(pt.x - p0.x, pt.y - p0.y);
+}
 
 /**
  * A TextInRect: increase border [dx] to fill to wide

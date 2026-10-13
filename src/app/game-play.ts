@@ -3,15 +3,16 @@ import { KeyBinder } from "@thegraid/easeljs-lib";
 import { GamePlay as GamePlayLib, SetupElt, TP as TPLib } from "@thegraid/hexlib";
 import type { HexMap2 } from "./chaos-hex";
 import type { ChaosTable } from "./chaos-table";
-import { MoveInPlay, PairTarget, type BONUS, type ChaosTile, type TERRAIN } from "./chaos-tile";
+import { PairTarget, type BONUS, type ChaosTile, type TERRAIN } from "./chaos-tile";
 import type { Faction, FactionId } from "./factions";
 import { BgFound } from "./foundation";
 import type { GameSetup } from "./game-setup";
 import { GameState, type PlayerId } from "./game-state";
 import { Relic } from "./meeples";
 import type { Player } from "./player";
+import { MoveInPlay } from "./player";
 import { ScenarioParser } from "./scenario-parser";
-import { priceNames, TP, type CB } from "./table-params";
+import { priceNames, TP } from "./table-params";
 import type { TacticsCard } from "./tactics-card";
 
 
@@ -152,7 +153,7 @@ export class GamePlay extends GamePlayLib {
   // General: Ctl-click to show upgrade (Leaer & Attribute)
   // General: doImmediate ('L') ('U') Recruit:, Move:
   // General: show Circadian Ship: +2F, +1D;
-  // Setup: Circadian Base [~done]
+  // Setup: Circadian Base [~done] Dropship[10/11]
   // Setup: place Relics on Foundations; player choice? [8/17]
   // Setup: layout FactionOnTile (v & ^) [8/20]
   // Setup: Rhyzu.setPlayer() & popup-card [8/28] (8/29)
@@ -184,6 +185,8 @@ export class GamePlay extends GamePlayLib {
   // Move: delete moveInPlay when incr --> 0 (conservation of MovePoints) [~done]
   // Move: hack so swamps are adjacent for Leyrein: TeleGraphic [9/21]
   // Move: Aux: select Leader card to upgrade (& pay gem). [10/6]
+  // Move: Dropship on Mtn [10/12]
+  // Move: Dropship (MP > 0); decrement MP; Load & Unload (MP or end of Move)
   // Move: doImmediate('U')
   // Combat: choose opponent; choose wheel, card; commit --> reveal, (Ochara!)
   // Combat: auto resolve, remove casualties/buildings, assign Fame (AI, Zcharo, JReyak, Oxataya)

@@ -1,17 +1,17 @@
-import { C, permute, removeEltFromArray, S, stime, type XY } from "@thegraid/common-lib";
-import { AliasLoader, NamedContainer, type Paintable, PathShape, PolyShape, RectShape, TextInRect, type ValueEvent } from "@thegraid/easeljs-lib";
+import { C, permute, removeEltFromArray, S, stime } from "@thegraid/common-lib";
+import { AliasLoader, NamedContainer, type Paintable, PolyShape, RectShape, TextInRect, type ValueEvent } from "@thegraid/easeljs-lib";
 import type { DisplayObject } from "@thegraid/easeljs-module";
 import { type DragContext, type DragFuncs, H, type HasDragger, type HexDir, HexShape, type IHex2, MapTile, NumCounter, Player as PlayerLib, rightClickable, type Table, Tile, TP } from "@thegraid/hexlib";
-import { type ChaosHex2, type ChaosHex2 as Hex2, type HexMap2 } from "./chaos-hex";
+import { type ChaosHex2, type ChaosHex2 as Hex2 } from "./chaos-hex";
 import { type ChaosTable } from "./chaos-table";
 import { NumCounterHex } from "./counters";
 import { type Faction, type FactionId } from "./factions";
 import { Foundation } from "./foundation";
-import { pentagon } from "./functions";
+import { dist } from "./functions";
 import type { GamePlay } from "./game-play";
 import { type baseProdTokenIds, type ChaosBuilding, ChaosToken, type Factory, Leader, LeaderCard, type Outpost, ProdToken, type Relic, type Stronghold, type upgradeProdTokenIds } from "./meeples";
 import { superMethod } from "./mixins";
-import type { Player } from "./player";
+import { MoveInPlay, type Player } from "./player";
 import type { FactionOnTileState, Special } from "./scenario-parser";
 import { CO } from "./table-params";
 
@@ -35,11 +35,6 @@ declare module '@thegraid/easeljs-module' {
     /** short form of drawPolygon */
     pg(points: [number, number][], close: boolean): void;
   }
-}
-
-/** distance from origin (or given p0) */
-function dist(pt: XY, p0 = { x: 0, y: 0 }) {
-  return Math.hypot(pt.x - p0.x, pt.y - p0.y)
 }
 
 export type HexPair = [Hex2, Hex2];
@@ -205,145 +200,6 @@ export class FighterCounter extends NumCounterHex {
   }
 }
 
-
-/** Player uses a MovePoint to move Units from srcTile to toRegion .
- *
- * contains a FighterCounter (placed in fHex) and an Arrow pointing at tHex.
- *
- * tHex is either Adjacent (pentagon arrow) or SwampAdj (corner --> tHex.FoT)
- */
-export class MoveInPlay extends NamedContainer {
-  from: ChaosTile;
-  to: ChaosTile;
-  counter: FighterCounter;
-  teleGraphic?: MoveInPlay.TeleGraphic; // iff this is Leyrien swamp move
-  get fromFot() { return this.from.getFoT(this.player) }
-  get toFot() { return this.to.getFoT(this.player) }
-
-  constructor(public player: Player, from: ChaosTile, to: ChaosTile) {
-    super(`${from.name}-${to.name}`)
-    this.from = from;
-    this.to = to;
-    const counter = this.counter = new FighterCounter(this, `moveFighters`, 0, this.player.color); // (TP.hexSize * .2)
-    this.addChild(counter);
-    counter.clickToInc(true, 5, 1); // --> incValueOnClick(evt, ...) --> incValue(incv)
-    counter.on('incr', (evt: Object) => {
-      // const ve = evt as ValueEvent;
-      if (this.counter.value == 0) {   // note: it never *increments* to zero, must have been ctrl|right click
-        removeEltFromArray(this, this.player.movesInPlay);
-        if (this.teleGraphic) {
-          const tgs = this.teleGraphic.tgsOnTile(this.from);
-          removeEltFromArray(this.teleGraphic, tgs)
-        }
-        // remove from fHex.map...overCont:
-        this.parent.parent.removeChild(this.parent); // PairTarget(this) OR TeleGraphic(this, line)
-        this.player.gamePlay.table.stage.update();
-      }
-    })
-    this.addArrowGraphic();
-    this.toFot;  // set visible
-  }
-
-  matches(from: ChaosTile, to: ChaosTile) {
-    return (from == this.from) && (to == this.to)
-  }
-
-  addArrowGraphic() {
-    const pair = [this.from.chex, this.to.chex] as HexPair;
-    if (pair[0].linkHexes.includes(pair[1])) {
-      // AdjGraphic: container(pent, counter)
-      const color = C.nameToRgbaString(this.player.color, .5);
-      const pent = pentagon(TP.hexRad*.16, TP.hexRad*.1, color, 0, '');
-      pent.y -= TP.hexRad*.2;
-      this.addChildAt(pent, 0);                       // under this.counter
-      this.y -= TP.hexRad * .01;
-      this.counter.y += TP.hexRad * -.05;
-      // overcont->PairTarget->this->[Arrow, Counter]
-      const pairGraphic = new PairTarget(pair, this); // PT -> fHex.map...overCont @ fHex.edgePoint()
-      this.counter.rotation = -pairGraphic.rotation;  // Arrow tilts, Counter stays vertical
-    } else {
-      // Leyrein in swamp! (Tunnels work as adjacent)
-      // A Swamp has at most 5 normal adjacent neighbors (T4,3 T4,5 have adj Lake)
-      // A Swamp has at most 6 "swamp adjacent" connections
-      console.log(stime(this, `.addTeleGraphic:`), pair);
-      const [fHex, tHex] = pair;
-      // overcont->TG->[this->[Counter], line]
-      this.teleGraphic = new MoveInPlay.TeleGraphic(this, pair); // TG -> fHex.map...overCont @ fHex.cornerXY
-      return
-    }
-  }
-  /** fromTile -> SwampGraphic(s) in use */
-  static teleGraphics: Map<ChaosTile, MoveInPlay.TeleGraphic[]> = new Map<ChaosTile, MoveInPlay.TeleGraphic[]>();
-
-  clearMovePairs() {
-
-  }
-  /** update Fighter counters: plus or minus */
-  moveFighters(incr: number) {
-    return this.counter.incValue(incr)
-  }
-}
-export namespace MoveInPlay {
-  // TeleGraphic for SwampCnx
-  // There no HexDir or Edge associated with swamp teleportation.
-  // place figherCounter in a corner of from Hex.
-  //
-  // green hex with a fighterCounter, in 'a corner' of the fromHex
-  // with a line pointing to the toHex.FoT(Leyrien)
-  /** Graphic indicating Leyrien teleportation via Swamp */
-  export class TeleGraphic extends NamedContainer {
-    dir: HexDir;
-    constructor(mip: MoveInPlay, pair: HexPair) {
-      super('TeleGraphic')
-      const [fHex, tHex] = pair;
-      this.addChild(mip);
-      const corner = this.pickCorner(pair);
-      this.dir = corner.dir;
-      this.x = corner.pt.x; this.y = corner.pt.y; // x,y on overCont: += (fHex.x, fHex.y)
-      const fot = fHex.ctile?.hasFoT(mip.player.facId)!;
-      // find coords relative to fHex:
-      const ptx = corner.pt.x - fHex.x, pty = corner.pt.y - fHex.y;
-      const fx = 0, tx = (tHex.x - fHex.x) + fot.x -ptx;
-      const fy = 0, ty = (tHex.y - fHex.y) + fot.y -pty;
-      const points = this.pointsAtDistance(fx, fy, tx, ty, TP.hexRad * .25)
-      const arrow = new PathShape({ points, fillc: C.BLACK, strokec: C.BLACK })
-      // const arrow = new PathShape({ points: [[fx, fy], [fx+2, fy+2], [(fx+tx)/2, (fy+ty)/2], [tx, ty], [tx-2, ty-2]], fillc: C.BLACK, strokec: C.BLACK })
-      this.addChild(arrow);
-      fHex.map.mapCont.overCont.addChild(this); // TG -> fHex.map...overCont @ fHex.cornerXY
-    }
-
-    // subtract d from each end of line:
-    pointsAtDistance(fx: number, fy: number, tx: number, ty: number, d: number) {
-      const dx = tx - fx;
-      const dy = ty - fy;
-      const len = Math.hypot(dx, dy);
-      const dux = d * dx / len;
-      const duy = d * dy / len;
-      return [[fx + dux, fy + duy], [ tx - dux, ty - duy ]] as [number, number][];
-
-    }
-
-    /** corner of pair.fHex that is empty and is closest to pair.tHex
-     * @param pair
-     * @returns { dir: ewDir, pt: XY }
-     */
-    pickCorner(pair: HexPair) {
-      const [fHex, tHex] = pair;
-      const tgs = this.tgsOnTile(fHex.ctile!);
-      const rad = TP.hexRad * .8; // inside the corner
-      const cdirs = H.ewDirs.filter(d => !tgs.find(tg => tg.dir == d)); // for nsTopo: corners are on ewDirs
-      const pts = cdirs.map(cdir => ({ dir: cdir, pt: fHex.cornerXY(cdir, rad) }));
-      const p0 = pts.map(cpt => (cpt.pt.x += fHex.x, cpt.pt.y += fHex.y, cpt))
-        .sort((a, b) => dist(a.pt, tHex) - dist(b.pt, tHex))[0];
-      tgs.push(this);
-      return p0;
-    }
-    tgsOnTile(tile: ChaosTile) {
-      let empty: MoveInPlay.TeleGraphic[];
-      return MoveInPlay.teleGraphics.get(tile) ?? (empty = [], MoveInPlay.teleGraphics.set(tile, empty), empty);
-    }
-  }
-}
 
 /** NumCounterHex that is non-negative. */
 export class FighterIcon extends NumCounterHex {
