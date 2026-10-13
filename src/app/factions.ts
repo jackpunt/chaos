@@ -475,7 +475,7 @@ export class Faction {
 }
 
 /** LegalMark for Dropship on Edge of Hex */
-class EdgeMark extends CircleShape {
+export class EdgeMark extends CircleShape {
   static colora = 'rgba(193, 161, 55, 0.75)'
   static colorb = 'rgba(193, 161, 55, 0.45)'
 
@@ -505,6 +505,10 @@ class EdgeMark extends CircleShape {
     this.visible = true;
   }
 
+  isSameEdge(hex0: Hex2, hex1: Hex2) {
+    return (this.edge[0] == hex0) && (this.edge[1] == hex1) ||
+           (this.edge[0] == hex1) && (this.edge[1] == hex0) ;
+  }
 }
 
 /** Dropship for Circadian Faction */
@@ -613,6 +617,12 @@ class Dropship extends ChaosMeeple {
     })
   }
 
+  override cantBeMovedBy(player: Player, ctx: DragContext): string | boolean | undefined {
+    if (player.facId !== 0) return "Not your Dropship";
+    if (!(ctx.gameState.isPhase('Move') && this.player.hasMP)) return "No move points";
+    return undefined;
+  }
+
   override dragStart(ctx: DragContext): void {
     this.isOverMark = true;
     super.dragStart(ctx); // no-op
@@ -637,7 +647,12 @@ class Dropship extends ChaosMeeple {
   // Note: targetHex == ctx.targetHex;
   // Dropship ignores and uses overEdge ?? fromEdge
   override dropFunc(targetHex: Hex2, ctx: DragContext): void {
-    this.edge = this.toMark.edge;
+    const toMark = this.toMark;
+    if (!toMark.visible) return;  // preemptive drop for "reason"
+    if (!toMark.isSameEdge(... this.edge)) {
+      this.player.newMoveInPlay(this.edge[0].ctile!, toMark.edge[0].ctile!) // TODO: WIP...
+    }
+    this.edge = toMark.edge;
     this.placeOnEdge(...this.edge);
     this.edgeMarkPool.forEach(m => m.visible = false);
   }

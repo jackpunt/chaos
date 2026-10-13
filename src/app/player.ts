@@ -214,7 +214,9 @@ export class Player extends PlayerLib {
   get regionSet() { return [...new Set(this.inRegions)] }
 
   movesInPlay: MoveInPlay[] = [];
-  get hasMP() { return this.movesInPlay.length < this.gamePlay.movePoints }
+  // Assert: this == gamePlay.gameState.curPlayer; Note: using moveCounter vs gamePlay.movePoints
+  get movesLeft() { return this.panel.baseTile.moveCounter.value - this.movesInPlay.length }
+  get hasMP() { return this.movesLeft > 0 }
 
   /** where player has presence but not control (multip players present) */
   get conflict() { return [] as ChaosTile[] } // presence.filter( !control )

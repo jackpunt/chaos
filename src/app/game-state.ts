@@ -108,7 +108,7 @@ export class GameState extends GameStateLib {
   stateNdx(phase: string) { return Object.keys(this.states).indexOf(phase)}
 
   /** run auto placements until autoPhase */
-  autoPhase?: string = 'Build';    // undefined for normal --> 'PlaceRelic'
+  autoPhase?: string = 'Move';    // undefined for normal --> 'PlaceRelic'
   autoPhaseIsAfter(phase: string) {
     return this.autoPhase && this.stateNdx(phase) < this.stateNdx(this.autoPhase);
   }
@@ -264,7 +264,7 @@ export class GameState extends GameStateLib {
         baseTile.moveCounter.value = 0;
         this.gamePlay.moveFaction(plyr.faction, 2); //
         plyr.panel.baseTile.baseRegions?.find(hex => {
-          plyr.newMoveInPlay(baseTile, hex.ctile!);
+          plyr.newMoveInPlay(baseTile, hex.ctile!); // DeployLeaders & Warriors
         });
         this.doneButton();
         if(this.autoPhaseIsAfter('DeployLeaders')) {
@@ -424,7 +424,7 @@ export class GameState extends GameStateLib {
         this.startOrPhase('Combat', undefined, true); // first time: set lBI
       },
       notDone: () => {
-        const moves = this.curPlayer.panel.baseTile.moveCounter.value - this.curPlayer.movesInPlay.length;
+        const moves = this.curPlayer.movesLeft;
         return (moves > 0) ? `moves remaining: ${moves}` : undefined;
       },
     },
