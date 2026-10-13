@@ -10,7 +10,7 @@ import type { GameSetup } from "./game-setup";
 import { GameState, type PlayerId } from "./game-state";
 import { Relic } from "./meeples";
 import type { Player } from "./player";
-import { MoveInPlay } from "./player";
+import { TeleGraphic } from "./player";
 import { ScenarioParser } from "./scenario-parser";
 import { priceNames, TP } from "./table-params";
 import type { TacticsCard } from "./tactics-card";
@@ -235,7 +235,7 @@ export class GamePlay extends GamePlayLib {
     moveCounter.value = 0;
     moveCounter.visible = false;
     if (faction.facId == 3) {
-      const tgOfTile = MoveInPlay.teleGraphics
+      const tgOfTile = TeleGraphic.teleGraphics
       const fotPres = faction.player.fotPresence;
       fotPres.forEach(fot => {
         // Leyrien: for each potential fHex.ctile, remove & delete any TeleGraphics

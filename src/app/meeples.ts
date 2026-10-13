@@ -582,7 +582,7 @@ export class Leader extends ChaosUnit implements LeaderSpec {
     if (toHex.ctile.isLake && this.facId !== 5) return false;
     if (toHex == this.homeHex) return true;
     if (toHex.ctile.baseShape instanceof LeaderCard) return false; // is not *our* homeHex
-    const gameState = ctx?.gameState as GameState;
+    const gameState = ctx!.gameState as GameState;
     if (gameState.isPhase('DeployLeaders') &&
       !this.player.panel.baseTile?.baseRegions!.includes(toHex)) return false; // Rhyzu/neutralPlayer no baseRegions
     // recruit:
@@ -590,8 +590,8 @@ export class Leader extends ChaosUnit implements LeaderSpec {
     // move:
     if (gameState.gamePlay.movePlayer == this.player) {
       if (ctx!.lastShift) return true;
-      const to = toHex.ctile, from = this.factOnTile?.tile!;
-      return !!this.player.movesInPlay.find(mip => mip.matches(from, to))
+      const fromTile = this.factOnTile?.tile!, toTile = toHex.ctile;
+      return !!this.player.movesInPlay.find(mip => mip.matches(fromTile, toTile))
     }
     return false;
   }

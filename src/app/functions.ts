@@ -11,6 +11,16 @@ export function dist(pt: XY, p0 = { x: 0, y: 0 }) {
   return Math.hypot(pt.x - p0.x, pt.y - p0.y);
 }
 
+/** subtract d from each end of line: [fx,fy] --> [tx, ty] */
+export function  pointsAtDistance([fx, fy]: [number, number], [tx, ty]: [number, number], d: number) {
+  const dx = tx - fx;
+  const dy = ty - fy;
+  const len = Math.hypot(dx, dy);
+  const dux = d * dx / len;
+  const duy = d * dy / len;
+  return [[fx + dux, fy + duy], [tx - dux, ty - duy]] as [number, number][];
+}
+
 /**
  * A TextInRect: increase border [dx] to fill to wide
  * @param ntext

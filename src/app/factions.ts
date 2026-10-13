@@ -6,7 +6,7 @@ import type { ChaosHex2 as Hex2 } from "./chaos-hex";
 import { BONUS, ChaosTile, FactionOnTile, FAME_BONUS, HARVEST, HexPair } from "./chaos-tile";
 import type { Foundation } from "./foundation";
 import { ChaosMeeple, Leader, Morale, PathShapeMeeple, type ChaosBuilding } from "./meeples";
-import type { Panel, Player } from "./player";
+import { type Panel, type Player } from "./player";
 import { type ResearchLevel } from "./research-cell";
 import { pricePhases, TP, type CB, type PricePhase } from "./table-params";
 //
@@ -483,8 +483,20 @@ export class EdgeMark extends CircleShape {
   dirRot!: number;
   dropship: Dropship;
 
-  constructor(dropship: Dropship) {
+  /**
+   * Create or clone an EdgeMark for given Dropship.
+   * @param dropship -- if EdgeMark is supplied, clone it
+   */
+  constructor(dropship: Dropship | EdgeMark) {
+    const em = dropship as EdgeMark;
+    if (dropship instanceof EdgeMark) {
+      dropship = em.dropship;
+    }
     super(EdgeMark.colora, TP.hexRad * .4, '');
+    if (em instanceof EdgeMark) {
+      this.edge = em.edge;
+      this.dirRot = em.dirRot;
+    }
     this.dropship = dropship;
     this.visible = false;
   }
@@ -505,9 +517,13 @@ export class EdgeMark extends CircleShape {
     this.visible = true;
   }
 
-  isSameEdge(hex0: Hex2, hex1: Hex2) {
-    return (this.edge[0] == hex0) && (this.edge[1] == hex1) ||
-           (this.edge[0] == hex1) && (this.edge[1] == hex0) ;
+  isSameEdge([hex0, hex1]: HexPair) {
+    const [te0, te1] = this.edge;
+    return te0 == hex0 ? te1 == hex1 : te0 == hex1 ? te1 == hex0 : false;
+  }
+
+  isSameMark(that: EdgeMark) {
+    return this.isSameEdge(that.edge);
   }
 }
 
@@ -619,7 +635,8 @@ class Dropship extends ChaosMeeple {
 
   override cantBeMovedBy(player: Player, ctx: DragContext): string | boolean | undefined {
     if (player.facId !== 0) return "Not your Dropship";
-    if (!(ctx.gameState.isPhase('Move') && this.player.hasMP)) return "No move points";
+    if (!(ctx.gameState.isPhase('Move') && this.player.hasMP))
+        return `No move points: ${this.player.movesLeft} = ${this.player.movesCount} - ${this.player.movesInPlay.length}`;
     return undefined;
   }
 
@@ -648,15 +665,18 @@ class Dropship extends ChaosMeeple {
   // Dropship ignores and uses overEdge ?? fromEdge
   override dropFunc(targetHex: Hex2, ctx: DragContext): void {
     const toMark = this.toMark;
-    if (!toMark.visible) return;  // preemptive drop for "reason"
-    if (!toMark.isSameEdge(... this.edge)) {
-      this.player.newMoveInPlay(this.edge[0].ctile!, toMark.edge[0].ctile!) // TODO: WIP...
+    // if preemptive drop for "reason", !toMark.visible
+    if (toMark.visible) {
+      if (!toMark.isSameEdge(this.edge)) {
+        this.player.newMoveOfShip(this.fromMark, toMark);
+      }
+      this.edge = toMark.edge;
     }
-    this.edge = toMark.edge;
     this.placeOnEdge(...this.edge);
     this.edgeMarkPool.forEach(m => m.visible = false);
   }
 }
+
 
 class Circadian extends Faction {
 

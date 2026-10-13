@@ -1,14 +1,15 @@
 import { arrayN, C, Constructor, permute, removeEltFromArray, S, stime } from "@thegraid/common-lib";
 import { AliasLoader, CenterText, CircleShape, NamedContainer, PathShape, RectShape, TextInRect, UtilButton, type Paintable } from "@thegraid/easeljs-lib";
 import type { DisplayObject } from "@thegraid/easeljs-module";
+import { Graphics } from "@thegraid/easeljs-module";
 import { H, HexMap, LegalMark, newPlanner, NumCounter, Player as PlayerLib, PlayerPanel, TP, type HexDir, type IHex2, type MapCont } from "@thegraid/hexlib";
 import { CardShape } from "./card-shape";
 import { ChaosHex2 as Hex2 } from "./chaos-hex";
 import { type ChaosTable, type ChaosTable as Table } from "./chaos-table";
 import { BaseTile, ChaosTile, FighterCounter, LeaderTile, PairTarget, type BONUS, type FactionOnTile, type HARVEST, type HexPair } from "./chaos-tile";
-import { Faction, factionColors, factionNeutral, type FactionId, type FactionName } from "./factions";
+import { EdgeMark, Faction, factionColors, factionNeutral, type FactionId, type FactionName } from "./factions";
 import { BgFound, Foundation } from "./foundation";
-import { bonusIcon, dist, pentagon } from "./functions";
+import { bonusIcon, dist, pentagon, pointsAtDistance } from "./functions";
 import { type Battle, type GamePlay } from "./game-play";
 import { type PlayerId } from "./game-state";
 import { baseProdTokenIds, buildingCbyName, ChaosBuilding, ChaosUnit, Factory, Leader, Outpost, PriceToken, ProdToken, PTokenShape, Rhyzu, type ChaosUnitType, type PriceId } from "./meeples";
@@ -215,8 +216,9 @@ export class Player extends PlayerLib {
 
   movesInPlay: MoveInPlay[] = [];
   // Assert: this == gamePlay.gameState.curPlayer; Note: using moveCounter vs gamePlay.movePoints
-  get movesLeft() { return this.panel.baseTile.moveCounter.value - this.movesInPlay.length }
+  get movesLeft() { return this.panel.baseTile.moveCounter.value }
   get hasMP() { return this.movesLeft > 0 }
+  get movesCount() {return this.panel.baseTile.moveCounter.value}
 
   /** where player has presence but not control (multip players present) */
   get conflict() { return [] as ChaosTile[] } // presence.filter( !control )
@@ -255,12 +257,28 @@ export class Player extends PlayerLib {
   get cardRules() {
     return this.cardRack.filter(h => h.card).map(h => h.card!.phaseEffect);
   }
+  addNewMove(newMove: MoveInPlay) {
+    this.movesInPlay.push(newMove);   // moveInPlay.length is "MovePoints consumed".
+    this.panel.baseTile.moveCounter.incValue(-1);
+  }
   /** new MoveInPlay factory */
   newMoveInPlay(from: ChaosTile, to: ChaosTile) {
     if (this.movesInPlay.find(p => p.from == from && p.to == to)) return undefined;
     const newMove = new MoveInPlay(this, from, to);
-    this.movesInPlay.push(newMove);   // moveInPlay.length is "MovePoints consumed".
-    this.panel.baseTile.moveCounter.incValue(-1);
+    this.addNewMove(newMove);
+    return newMove;
+  }
+
+  newMoveOfShip(from: EdgeMark, to: EdgeMark) {
+    // for MoveOfShip we remove the oldMove and insert newMove!
+    const newMove = new MoveOfShip(this, from, to);
+    const oldMove = this.movesInPlay.find(p => (p as MoveOfShip).equals?.(newMove));
+    if (oldMove) {
+      removeEltFromArray(oldMove, this.movesInPlay);
+      this.movesInPlay.push(newMove);   // moveInPlay.length is "MovePoints consumed".
+    } else {
+      this.addNewMove(newMove);
+    }
     return newMove;
   }
 
@@ -992,9 +1010,11 @@ export class Panel extends PlayerPanel {
 
 /** Player uses a MovePoint to move Units from srcTile to toRegion .
  *
- * contains a FighterCounter (placed in fHex) and an Arrow pointing at tHex.
+ * contains a FighterCounter and an Arrow pointing at tHex.
  *
  * tHex is either Adjacent (pentagon arrow) or SwampAdj (corner --> tHex.FoT)
+ *
+ * OR: (tHex == fHex) --> MoveOfShip (fat beige line from edge-to-edge)
  *
  * Generic MoveInPlay: Fighters/Leaders --> Adjacent Tile
  * Leyrien SwampMove: TeleGraphic move
@@ -1006,7 +1026,7 @@ export class Panel extends PlayerPanel {
 export class MoveInPlay extends NamedContainer {
   from: ChaosTile;
   to: ChaosTile;
-  counter: FighterCounter;
+  counter!: FighterCounter;
   teleGraphic?: TeleGraphic; // iff this is Leyrien swamp move
   get fromFot() { return this.from.getFoT(this.player); }
   get toFot() { return this.to.getFoT(this.player); }
@@ -1015,26 +1035,23 @@ export class MoveInPlay extends NamedContainer {
     super(`${from.name}-${to.name}`);
     this.from = from;
     this.to = to;
-    const counter = this.counter = new FighterCounter(this, `moveFighters`, 0, this.player.color); // (TP.hexSize * .2)
-    this.addChild(counter);
-    counter.clickToInc(true, 5, 1); // --> incValueOnClick(evt, ...) --> incValue(incv)
-    counter.on('incr', (evt: Object) => {
-      // const ve = evt as ValueEvent;
-      if (this.counter.value == 0) { // note: it never *increments* to zero, must have been ctrl|right click
-        const move = removeEltFromArray(this, this.player.movesInPlay)[0]; // maybe undefined
-        if (this.teleGraphic) {
-          const tgs = this.teleGraphic.tgsOnTile(this.from);
-          removeEltFromArray(this.teleGraphic, tgs);
-        }
-        // remove from fHex.map...overCont:
-        this.parent.parent.removeChild(this.parent); // PairTarget(this) OR TeleGraphic(this, line)
-        this.player.gamePlay.table.stage.update();
-      }
-    });
+    this.setupCounter();
     this.addArrowGraphic();
     this.toFot; // set visible
   }
 
+  setupCounter() {
+    const counter = this.counter = new FighterCounter(this, `moveFighters`, 0, this.player.color); // (TP.hexSize * .2)
+    this.addChild(counter);
+    counter.clickToInc(true, 5, 1); // --> incValueOnClick(evt, ...) --> incValue(incv)
+    counter.on('incr', (evt: Object) => {
+      if (this.counter.value == 0) { // note: it never *increments* to zero, must have been ctrl|right click
+        this.undoMove();
+      }
+    });
+  }
+
+  /** remove from player.movesInPlay; when Fighter, Leaders, (dropship?)  */
   undoMove() {
     removeEltFromArray(this, this.player.movesInPlay);
     if (this.teleGraphic) {
@@ -1050,6 +1067,11 @@ export class MoveInPlay extends NamedContainer {
     return (from == this.from) && (to == this.to);
   }
 
+  equals(mip: MoveInPlay) {
+    this.matches(mip.from, mip.to)
+  }
+
+  /** add pentagon and move children to PairTarget on edge between fHex and tHex */
   addArrowGraphic() {
     const pair = [this.from.chex, this.to.chex] as HexPair;
     if (pair[0].linkHexes.includes(pair[1])) {
@@ -1075,9 +1097,6 @@ export class MoveInPlay extends NamedContainer {
     }
   }
 
-  /** fromTile -> SwampGraphic(s) in use */
-  static teleGraphics: Map<ChaosTile, TeleGraphic[]> = new Map<ChaosTile, TeleGraphic[]>();
-
   clearMovePairs() {
   }
   /** update Fighter counters: plus or minus */
@@ -1094,6 +1113,10 @@ export class MoveInPlay extends NamedContainer {
 // with a line pointing to the toHex.FoT(Leyrien)
 /** Graphic indicating Leyrien teleportation via Swamp */
 export class TeleGraphic extends NamedContainer {
+
+  /** fromTile -> SwampGraphic(s) in use */
+  static teleGraphics: Map<ChaosTile, TeleGraphic[]> = new Map<ChaosTile, TeleGraphic[]>();
+
   dir: HexDir;
   constructor(mip: MoveInPlay, pair: HexPair) {
     super('TeleGraphic');
@@ -1107,22 +1130,11 @@ export class TeleGraphic extends NamedContainer {
     const ptx = corner.pt.x - fHex.x, pty = corner.pt.y - fHex.y;
     const fx = 0, tx = (tHex.x - fHex.x) + fot.x - ptx;
     const fy = 0, ty = (tHex.y - fHex.y) + fot.y - pty;
-    const points = this.pointsAtDistance(fx, fy, tx, ty, TP.hexRad * .25);
+    const points = pointsAtDistance([fx, fy], [tx, ty], TP.hexRad * .25);
     const arrow = new PathShape({ points, fillc: C.BLACK, strokec: C.BLACK });
     // const arrow = new PathShape({ points: [[fx, fy], [fx+2, fy+2], [(fx+tx)/2, (fy+ty)/2], [tx, ty], [tx-2, ty-2]], fillc: C.BLACK, strokec: C.BLACK })
     this.addChild(arrow);
     fHex.map.mapCont.overCont.addChild(this); // TG -> fHex.map...overCont @ fHex.cornerXY
-  }
-
-  // subtract d from each end of line:
-  pointsAtDistance(fx: number, fy: number, tx: number, ty: number, d: number) {
-    const dx = tx - fx;
-    const dy = ty - fy;
-    const len = Math.hypot(dx, dy);
-    const dux = d * dx / len;
-    const duy = d * dy / len;
-    return [[fx + dux, fy + duy], [tx - dux, ty - duy]] as [number, number][];
-
   }
 
   /** corner of pair.fHex that is empty and is closest to pair.tHex
@@ -1140,9 +1152,55 @@ export class TeleGraphic extends NamedContainer {
     tgs.push(this);
     return p0;
   }
+
   tgsOnTile(tile: ChaosTile) {
     let empty: TeleGraphic[];
-    return MoveInPlay.teleGraphics.get(tile) ?? (empty = [], MoveInPlay.teleGraphics.set(tile, empty), empty);
+    return TeleGraphic.teleGraphics.get(tile) ?? (empty = [], TeleGraphic.teleGraphics.set(tile, empty), empty);
   }
 }
 
+class MoveOfShip extends MoveInPlay {
+  fromMark: EdgeMark;
+  toMark: EdgeMark;
+  constructor(player: Player, fromMark: EdgeMark, toMark: EdgeMark) {
+    // from and to must share a hex, find it:
+    const hex = fromMark.edge[0] == toMark.edge[0] ? toMark.edge[0]
+        : fromMark.edge[0] == toMark.edge[1] ? toMark.edge[1]
+        : fromMark.edge[1]; // must == to.edge[0] or to.edge[1]
+    const tile = hex.ctile!;
+    super(player, tile, tile); // unique in movesInPlay
+    this.fromMark = fromMark;
+    this.toMark = toMark;
+    this.addArrowGraphic();    // now that fromMark is set
+  }
+
+  /** true if fromEdge:HexPair match and toEdge match */
+  override equals(that: MoveInPlay) {
+    if (!(that instanceof MoveOfShip)) return false;
+    // true if HexPairs match in either order
+    return this.fromMark.isSameMark(that.fromMark) && this.toMark.isSameMark(that.toMark)
+  }
+
+  override setupCounter(): void {
+  }
+
+  override undoMove(): void {
+    // TODO: implement undoMove
+  }
+
+  override addArrowGraphic(): void {
+    super.addArrowGraphic
+    if (!this.fromMark) return;
+    const strokec = Player.colorScheme[factionColors[0]];
+    const { x: fx, y: fy } = this.fromMark;
+    const { x: tx, y: ty } = this.toMark;
+    const points = pointsAtDistance([fx, fy], [tx, ty], TP.hexRad * .25);
+    const arrow = new PathShape({ points, fillc: C.BLACK, strokec }, new Graphics().ss(3));
+    // const arrow = new PathShape({ points: [[fx, fy], [fx+2, fy+2], [(fx+tx)/2, (fy+ty)/2], [tx, ty], [tx-2, ty-2]], fillc: C.BLACK, strokec: C.BLACK })
+    this.addChild(arrow);
+    this.fromMark.edge[0].map.mapCont.overCont.addChild(this); // TG -> fHex.map...overCont @ fHex.cornerXY
+    // TODO: remove graphics when endMove
+    // TODO: put right-click on Dropship (or arrow line?) to undo last MoveOfShip
+  }
+  // TODO: fix moving Leader!
+}
