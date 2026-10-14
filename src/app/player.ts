@@ -214,6 +214,7 @@ export class Player extends PlayerLib {
   /** Tiles constaining Units or Buildings of this Player */
   get regionSet() { return [...new Set(this.inRegions)] }
 
+  /** moves by curPlayer... */
   movesInPlay: MoveInPlay[] = [];
   // Assert: this == gamePlay.gameState.curPlayer; Note: using moveCounter vs gamePlay.movePoints
   get movesLeft() { return this.panel.baseTile.moveCounter.value }
@@ -1026,29 +1027,42 @@ export class Panel extends PlayerPanel {
 export class MoveInPlay extends NamedContainer {
   from: ChaosTile;
   to: ChaosTile;
+  /** Fighters using this Move */
   counter!: FighterCounter;
+  /** Leaders using this Move */
+  leaders!: Leader[];
   teleGraphic?: TeleGraphic; // iff this is Leyrien swamp move
   get fromFot() { return this.from.getFoT(this.player); }
   get toFot() { return this.to.getFoT(this.player); }
 
   constructor(public player: Player, from: ChaosTile, to: ChaosTile) {
-    super(`${from.name}-${to.name}`);
+    super(`Move:${from.name}-${to.name}`);
     this.from = from;
     this.to = to;
     this.setupCounter();
     this.addArrowGraphic();
-    this.toFot; // set visible
+    this.toFot.setFighterVis(); // set visible
   }
 
   setupCounter() {
     const counter = this.counter = new FighterCounter(this, `moveFighters`, 0, this.player.color); // (TP.hexSize * .2)
     this.addChild(counter);
     counter.clickToInc(true, 5, 1); // --> incValueOnClick(evt, ...) --> incValue(incv)
-    counter.on('incr', (evt: Object) => {
-      if (this.counter.value == 0) { // note: it never *increments* to zero, must have been ctrl|right click
+    const onIncr = (evt: Object) => {
+      // Note: counter never *increments* to zero, must have been ctrl|right click
+      if (this.counter.value == 0 && (this.leaders ? this.leaders.length == 0 : true)) {
         this.undoMove();
       }
-    });
+    }
+    counter.on('incr', onIncr);
+  }
+
+  moveLeader(ldr: Leader) {
+    this.leaders || (this.leaders = []);
+    this.leaders.push(ldr);
+  }
+  removeLeader(ldr: Leader) {
+    this.leaders && removeEltFromArray(ldr, this.leaders);
   }
 
   /** remove from player.movesInPlay; when Fighter, Leaders, (dropship?)  */
@@ -1059,8 +1073,10 @@ export class MoveInPlay extends NamedContainer {
       tgs && removeEltFromArray(this.teleGraphic, tgs);
     }
     // remove from fHex.map...overCont:
-    this.parent.parent.removeChild(this.parent); // PairTarget(this) OR TeleGraphic(this, line)
-    this.player.gamePlay.table.stage.update();
+    this.parent.removeChild(this); // PairTarget(pent) & TeleGraphic(this, line) are children of this!
+    this.player.panel.baseTile.moveCounter.incValue(1);  // another move available
+    // this.player.gamePlay.table.stage.update();
+    this.to.getFoT(this.player).setFighterVis(false).update();   // erase if possible
   }
 
   matches(from: ChaosTile, to: ChaosTile) {
@@ -1079,12 +1095,17 @@ export class MoveInPlay extends NamedContainer {
       const color = C.nameToRgbaString(this.player.color, .5);
       const pent = pentagon(TP.hexRad * .16, TP.hexRad * .1, color, 0, '');
       pent.y -= TP.hexRad * .2;
-      this.addChildAt(pent, 0); // under this.counter
-      this.y -= TP.hexRad * .01;
+      // Borrow PairTarget to get edge location and rotation:
+      const edgeCont = new PairTarget(pair, pent, false); // PT -> fHex.map...overCont @ fHex.edgePoint()
+      // put this @ edgeCont; put edgeCont in this
+      this.x = edgeCont.x; this.y = edgeCont.y;
+      edgeCont.parent.addChild(this);   // on overCont
+      edgeCont.x = 0; edgeCont.y = 0;
+      this.addChildAt(edgeCont, 0);     // under the counter
+
       this.counter.y += TP.hexRad * -.05;
       // overcont->PairTarget->this->[Arrow, Counter]
-      const pairGraphic = new PairTarget(pair, this); // PT -> fHex.map...overCont @ fHex.edgePoint()
-      this.counter.rotation = -pairGraphic.rotation; // Arrow tilts, Counter stays vertical
+      // this.counter.rotation = -pairGraphic.rotation; // Arrow tilts, Counter stays vertical
     } else {
       // Leyrein in swamp! (Tunnels work as adjacent)
       // A Swamp has at most 5 normal adjacent neighbors (T4,3 T4,5 have adj Lake)

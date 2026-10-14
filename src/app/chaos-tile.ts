@@ -195,8 +195,8 @@ export class FighterCounter extends NumCounterHex {
     super.incValue(incv);
     mip.toFot.update();
     mip.fromFot.update();
-    mip.toFot;    // set visible
-    mip.fromFot;  // set visible
+    mip.toFot.setFighterVis();    // set visible
+    mip.fromFot.setFighterVis();  // set visible
   }
 }
 
@@ -290,15 +290,18 @@ export class FactionOnTile extends NamedContainer {
     this.update()
   }
 
-  setFighterVis() {
-    const isMoving = (this.player.gamePlay.movePlayer == this.player);
-    this.fighterIcon.visible = isMoving || (this.fighters > 0);
+  // undoMove set isMoving false to erase the empty FoT, so it is not a source of moveIcon.
+  setFighterVis(isMoving = (this.player.gamePlay.movePlayer == this.player)) {
+    // const isMoving = (this.player.gamePlay.movePlayer == this.player)
+    // const isMoving = !!this.player.movesInPlay.find(mip => mip.toFot == this);
+    this.fighterIcon.visible = isMoving || (this.fighters > 0) || this.leaders.length > 0;
     this.moveIcon.visible = isMoving;
+    return this;
   }
 
   addFighter(n = 1) {
-    this.fighters += n;  // this entrypoint is unused; faction.addFighter
-    this.setFighterVis();  // QQQ: update here or above in setFighterVis?
+    this.fighters += n;  // this entrypoint used by panel.recruitToBase; faction.addFighter
+    this.setFighterVis();
     this.update();
   }
 
@@ -590,11 +593,10 @@ export class ChaosTile extends MapTile {
     return this.factions[facId]
   }
   // TODO: specialize LeaderTile.getFoT() to provide FoT at Center
-  /** get FoT(player) creating it if mecessary. visible = isMoving || (fot.fighters > 0) */
+  /** get FoT(player) creating it if mecessary. */
   getFoT(plyr: Player) {
     const facId = plyr.facId;
     const fot = this.factions[facId] ?? (this.factions[facId] = new FactionOnTile(plyr, this));
-    fot.setFighterVis();
     return fot;
   }
   // Delegate FoT actions to the associated FoT.

@@ -315,7 +315,7 @@ export class HexMap2 extends HexMap<ChaosHex2> {
 
     const placeTile = (tileSpec: TileSpec) => {
       const { row, col, ter, h } = tileSpec;
-      const tile = new chaosTile(`T${row},${col}:${ter.slice(0,1)}:${h}`, ter, h); // player = undefined
+      const tile = new chaosTile(`T${row},${col}_${ter.slice(0,1)}_${h}`, ter, h); // player = undefined
       map.replaceTile(tile, row, col);
     }
     map.sculptMap();                                 // reshape to basic hexes

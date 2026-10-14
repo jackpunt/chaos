@@ -593,7 +593,8 @@ export class Leader extends ChaosUnit implements LeaderSpec {
     if (gameState.gamePlay.movePlayer == this.player) {
       if (ctx!.lastShift) return true;
       const fromTile = this.factOnTile?.tile!, toTile = toHex.ctile;
-      return !!this.player.movesInPlay.find(mip => mip.matches(fromTile, toTile))
+      if (this.player.movesInPlay.find(mip => mip.matches(fromTile, toTile))) return true;
+      if (this.movesThisRound.at(-1)?.matches(toTile, fromTile)) return true;
     }
     return false;
   }
@@ -607,19 +608,35 @@ export class Leader extends ChaosUnit implements LeaderSpec {
 
   override dropFunc(targetHex: Hex2, ctx: DragContext): void {
     const ctile = targetHex?.ctile ?? this.ctxCtile(ctx);
-    this.recordMove(ctile);
-    // detect ldr moving *back* to previous tile, trigger undoMove? or otherwise incr moveCounter
-    // TODO: put leader back during player.undoMove, incr moveCounter if leader was only referent in mip
+    this.recordMove(ctile, ctx);
     // place leaderIcon on ctile:
     ctile.getFoT(this.player).addLeader(this);
   }
 
-  recordMove(toTile: ChaosTile, ctx?: DragContext) {
+  // detect ldr moving *back* to previous tile, trigger undoMove? or otherwise incr moveCounter
+  // TODO: put leader back during player.undoMove, incr moveCounter if leader was only referent in mip
+  recordMove(toTile: ChaosTile, ctx: DragContext) {
     if (!this.gamePlay.isPhase('Move')) return;
-    const fromTile = this.ctxCtile(ctx); // QQQ: do we need ctx? ctx.info.srcCont.tile
+    const fromTile = (this.fromHex as Hex2).ctile!;
+    // isLegalTarget generally verifies that there is a MoveInPlay for this move:
     const mip = this.player.movesInPlay.find(mip => mip.matches(fromTile, toTile));
-    // if (ctx.lastShift) {} // mip could be undefined!
-    mip && this.movesThisRound.push(mip);
+    // if (ctx.lastShift) {} // mip could be undefined! Shift gives a free Move!
+    if (mip)  {
+      this.movesThisRound.push(mip);
+      mip.moveLeader(this);  // mip.leaders.push(this)
+      return;
+    }
+    // Leader moved back to prev Tile/FoT
+    if (this.movesThisRound.at(-1)?.matches(toTile, fromTile)) {
+      const mip = this.movesThisRound.pop()!
+      mip.removeLeader(this);
+      // undoMove if this is the last Leader using mip (and no Fighters)
+      if (mip.counter.value == 0 && mip.leaders.length == 0) {
+        mip.undoMove();
+        fromTile.getFoT(this.player).setFighterVis(false)
+      }
+      return;
+    }
   }
 }
 
