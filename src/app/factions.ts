@@ -318,7 +318,7 @@ export class Faction {
           pvcb();
         });
       } else {
-        console.log(stime(this, `.pvcb: all MovePoints built:)`), newlyBuilt);
+        console.log(stime(this, `.pvcb: all MovePoints built:`), newlyBuilt);
         panel.deactivateButtons();
         cb();
       }

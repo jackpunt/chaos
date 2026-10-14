@@ -1,7 +1,7 @@
 import { C, type XY } from "@thegraid/common-lib";
 import { CenterText, RectShape, type Paintable } from "@thegraid/easeljs-lib";
 import type { DisplayObject } from "@thegraid/easeljs-module";
-import { Tile, type DragContext, type HasDragger } from "@thegraid/hexlib";
+import { Tile, type DragContext, type HasDragger, type Hex1 } from "@thegraid/hexlib";
 import { ChaosHex2 as Hex2 } from "./chaos-hex";
 import { type BONUS, type ChaosTile } from "./chaos-tile";
 import { bonusIcon, gemlockIcon } from "./functions";
@@ -20,6 +20,11 @@ export class Foundation extends Tile {
   static mapScale = .3;  // scale when on main map
 
   declare player: Player;
+
+  override get hex() {
+    return this.onTile?.hex;
+  }
+  override set hex(hex: Hex1 | undefined ) {}
 
   /** cTile this Foundation has been placed upon; in tile.foundations[] */
   onTile?: ChaosTile;

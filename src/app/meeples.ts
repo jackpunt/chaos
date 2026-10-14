@@ -1,7 +1,7 @@
 import { C, Constructor, F, S, stime, type XY, type XYWH } from "@thegraid/common-lib";
 import { CenterText, NamedContainer, PathShape, RectShape, TextInRect, UtilButton, type Paintable, type RectWithDispOptions } from "@thegraid/easeljs-lib";
 import { Container, Graphics, MouseEvent } from "@thegraid/easeljs-module";
-import { Meeple, rightClickable, Table, Tile, type DragContext, type DragFuncs, type HasDragger, type Hex, type HexM, type IHex2 } from "@thegraid/hexlib";
+import { Meeple, rightClickable, Table, Tile, type DragContext, type DragFuncs, type HasDragger, type Hex, type Hex1, type HexM, type IHex2 } from "@thegraid/hexlib";
 import { CardShape } from "./card-shape";
 import { TokenHex, type ChaosHex2 as Hex2, type HexMap2 } from "./chaos-hex";
 import { type BASE_PROD_TOKEN, type BONUS, type ChaosTile, type FactionOnTile, type HARVEST, type LeaderTile, type TERRAIN } from "./chaos-tile";
@@ -854,6 +854,9 @@ export class ChaosBuilding extends ChaosPresence {
   strength = 0;    // maybe something more general with Effects or Advice
   declare player: Player;
 
+  override get hex() { return this.found.hex }
+  override set hex(hex: Hex1 | undefined) {}
+
   override get radius() { return TP.meepleRad; }
   readonly bText!: BONUS;           // 'E2' 'C' 'G1'
   homeAry!: Foundation[];  // buildings in residence (take/put from left)
@@ -894,11 +897,19 @@ export class ChaosBuilding extends ChaosPresence {
     if (!this.player.isOnHex(toHex)) return false;
     return !!tile?.foundations.find(f => f && (!f.bldg || f.bldg == this))
   }
+
+  override noLegalTarget(ctx: DragContext): void {
+    console.log(stime(this, `.dragStart:`), "no legal target")
+    super.noLegalTarget(ctx)
+  }
+
   override cantBeMovedBy(player: Player, ctx: DragContext): string | boolean | undefined {
     if (ctx.lastCtrl) return undefined;   // TODO: Temporary override everything!
+    const reason = super.cantBeMovedBy(player, ctx); // check (player == this.player)
+    if (reason) return reason;  // lastShift || Not your tile,
     if (!this.player.panel.doneButton.isActive) return "No Build Points";
     if (!this.fromPanel && !TP.newlyBuilt.includes(this)) return "not newly built";
-    return super.cantBeMovedBy(player, ctx); // check (player == this.player)
+    return undefined;
   }
 
   override sendHome(): void {
@@ -926,6 +937,7 @@ export class ChaosBuilding extends ChaosPresence {
       this.fromPanel = true;
       this.homeAry[ndx].bldg = undefined; // OK to drag; remove from Panel
     } else {
+      console.log(stime(this, `.dragStart:`), "must build left-most building")
       this.stopDrag();          // leave on Panel
     }
   }
@@ -959,9 +971,10 @@ export class ChaosBuilding extends ChaosPresence {
   }
 
   placeBuilding(targetHex?: Hex2, add = true) {
+    // Assert: if (!add) then !!targetHex
     if (!targetHex) {
       this.sendHome();
-    } else {
+    } else if (add) {
       // ASSERT: there is a Foundation! from isLegalTarget()
       // on targetHex (on map), place on Foundation.
       const fnd = this.findFoundation(targetHex)
@@ -973,6 +986,8 @@ export class ChaosBuilding extends ChaosPresence {
         this.player.faction.doImmediateBonus(fnd.bonus, () => {});
       }
       fnd.onTile?.addBuilding(this, add);
+    } else {
+      (this.hex as Hex2).ctile!.addBuilding(this, add); // dragStart removes from foundation
     }
     TP.whenBuildingPlaced(this, targetHex);  // build or un-build, depending on targetHex
   }
@@ -1014,8 +1029,31 @@ export class Stronghold extends ChaosBuilding {
 
 // Each Faction has a specialized Stronghold
 class CircadianStronghold extends Stronghold {
+  static bldgByTerrain: Partial<Record<TERRAIN, CircadianStronghold>> = {};
   // max 1 Cliffs, 1 Swamp, 1 Plains
   // may count as Region for Income phase
+  override isLegalTarget(toHex: Hex2, ctx?: DragContext): boolean {
+    // if terrain type alreay occupied:
+    const terr = toHex.ctile?.terrain
+    if (terr && CircadianStronghold.bldgByTerrain[terr]) return false;
+    return super.isLegalTarget(toHex, ctx);
+  }
+
+  override placeBuilding(targetHex?: Hex2, add?: boolean): void {
+    const byTerrain = CircadianStronghold.bldgByTerrain;
+    if (!targetHex) {
+      // removing building: TODO: see which works:
+      if (this.fromHex) {
+        delete byTerrain[(this.fromHex as Hex2).ctile!.terrain]
+      } else {
+        const terr = (Object.keys(byTerrain) as TERRAIN[]).find(key => byTerrain[key] == this)!;
+        delete byTerrain[terr];
+      }
+    } else {
+      byTerrain[targetHex.ctile!.terrain] = this;
+    }
+    super.placeBuilding(targetHex, add)
+  }
 }
 class AIStronghold extends Stronghold {
   // set AI_Trap
@@ -1025,6 +1063,10 @@ class ZcharoStronghold extends Stronghold {
 }
 class LeyrienStronghold extends Stronghold {
   // Boost Morale, cant be build in Swamp
+  override isLegalTarget(toHex: Hex2, ctx?: DragContext): boolean {
+    if (toHex.ctile?.isSwamp) return false;
+    return super.isLegalTarget(toHex, ctx);
+  }
 }
 class JrayekStronghold extends Stronghold {
   // Atk = 2
