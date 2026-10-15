@@ -108,6 +108,7 @@ export class GameState extends GameStateLib {
   stateNdx(phase: string) { return Object.keys(this.states).indexOf(phase)}
 
   // autoPhases: string[] = ['PlaceBase', 'PlaceRelic', 'DeployLeaders', 'BeginRound', 'SetPrices', 'Discovery'];
+  autoDiscover: PricePhase[] = ['Build', 'Recruit', 'Move'];
   autoPhases: string[] = ['Harvest', 'Recruit'];
   /** run auto placements until autoPhase */
   autoPhaseX?: string = 'Build';    // undefined for normal --> 'PlaceRelic'
@@ -356,7 +357,20 @@ export class GameState extends GameStateLib {
         this.setCurPlayerNdx(ndx);
         this.curPlayer.faction.offerPrimaryAndAux(this.pricePhase); // 'Discovery'
         this.doneButton();
-        if (this.isAutoPhase()) this.state.done!(); // nobody buys this Phase
+        if (this.isAutoPhase()) {
+          const plyr = this.curPlayer, facId = plyr.facId, faction = plyr.faction;
+          // do the research of choice:
+          const panel = plyr.gamePlay.table.neutralPanel;
+          const discPhase = this.autoDiscover;
+          this.autoDiscover.forEach(discPhase => {
+            const { phaseRow, level } = faction.researchLevelOfPhase[discPhase];
+            if (level < phaseRow.length - 1)  {
+              faction.researchLevelOfPhase[discPhase].level = level + 1;
+              phaseRow[level+1].immediate(plyr.faction);
+            }
+          })
+          this.state.done!(); // nobody buys this Phase
+        }
         // TODO: discover something? [not required, can D&D tokens afterwards]
       },
       done: () => {
@@ -375,7 +389,8 @@ export class GameState extends GameStateLib {
           const plyr = this.curPlayer, facId = plyr.facId;
           // click on 'Build' button, to setup TP.whenBuildingPlacedCB --> bldg->FoT
           const panel = plyr.gamePlay.table.neutralPanel;
-          const rc = panel.researchCells[1][0]; // first Build cell
+          const { phaseRow, level } = plyr.faction.researchLevelOfPhase['Build'];
+          const rc = phaseRow[level];    // current Build cell
           const onClick = ((rc.pButton as any)._listeners['click'] as CB[])[0]; // first/only click listener
           onClick(); // request/run rc.primary()
           const bldg = plyr.panel.buildings.find(b => b.Aname.endsWith('1'))!; // Assert: no gemlock to pay for Factory${1}.

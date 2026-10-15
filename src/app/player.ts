@@ -158,14 +158,15 @@ export class Player extends PlayerLib {
     }
   }
 
-  canPayGemlock() {
+  get canPayGemlock() {
     const agem = (this.gems >= 1);
     const unlock = !!this.panel.foundations['unlock']!.hex?.isOnMap && (this.coins >= 2);
-    return [agem || unlock, agem, unlock] as [boolean, boolean, boolean];
+    // return [agem || unlock, agem, unlock] as [boolean, boolean, boolean];
+    return { canpay: agem || unlock, agem, unlock };
   }
 
   payGemlock() {
-    const [canpay, agem , unlock] = this.canPayGemlock()
+    const { canpay, agem, unlock } = this.canPayGemlock
     if (!canpay) return false;
     // setup choice for 'Gem' or 'E2'
     const gf = () => this.payGems(1), ef = () => this.payEnergy(2);
@@ -676,14 +677,14 @@ export class Panel extends PlayerPanel {
         [Outpost,  'C', 'P'],    // outPost
         [StrongC, 'G1', 'S'],    // Stronghold
       ][btype] as [Constructor<ChaosBuilding>, BONUS, string]
-      const F0_btext = 'E2  /    \n/\n    /  G1';
+      const F0_btext = 'E2  /    \n/\n    /  G1';   // for (ftype == 2) income for F0
 
       bldgs.toReversed().forEach((ftype, rndx) => {
         const ndx = nbldgs - 1 - rndx; // actual ndx in homeAry
         const x = x00 + ndx * wh * 1.01; // place bgf from left-to-right
         const y = y0 + wh * row;
         // TODO: use TextTweaks to convert E*, C, G* to glyphs?
-        // 1 or 0 indicates a gemLock (or none); 2 or 3 is only on F0: E2/G or E3
+        // [ftype] 0: no-gem; 1: add gemLock; 2: E2/G; 3: E3 (for F0 Income)
         const bonus = [bText, bText, F0_btext, 'E3'][ftype] as BONUS;
         const Aname = `${bid}${this.player.facId}.${ndx}`;  // F, P, S identifies type of Building!
         const bgf = homeAry[ndx] = new BgFound(Aname, bonus, fs); // background Foundation on Panel

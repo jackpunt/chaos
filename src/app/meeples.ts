@@ -564,7 +564,7 @@ export class Leader extends ChaosUnit implements LeaderSpec {
   }
 
   override cantBeMovedBy(player: Player, ctx: DragContext): string | boolean | undefined {
-    // if moving from panel, must pay gemlock:
+    // if moving from panel, must pay plGem:
     const plGem = this.upgraded ? this.upPlace : this.plGem;
     if (!this.isOnMap && plGem) {
       if (plGem > player.gems) return `${plGem} Gem${plGem > 1 ? 's' : ''} to recruit`;
@@ -585,13 +585,16 @@ export class Leader extends ChaosUnit implements LeaderSpec {
     if (toHex == this.homeHex) return true;
     if (toHex.ctile.baseShape instanceof LeaderCard) return false; // is not *our* homeHex
     const gameState = ctx!.gameState as GameState;
-    if (gameState.isPhase('DeployLeaders') &&
-      !this.player.panel.baseTile?.baseRegions!.includes(toHex)) return false; // Rhyzu/neutralPlayer no baseRegions
-    // recruit:
+    if (gameState.isPhase('DeployLeaders')) {
+      // Note: Rhyzu(neutralPlayer) has no baseTile, so: false (deploy during SetPrices)
+      if (!this.player.panel.baseTile?.baseRegions!.includes(toHex)) return false;
+    }
+    // from Panel (any phase, but intentionally for: SetPrices and Recruit)
     if (!this.isOnMap) return this.isaRhyzu() ? true : (toHex.ctile == this.player.panel.baseTile);
-    // move:
+    // Move:
     if (gameState.gamePlay.movePlayer == this.player) {
       if (ctx!.lastShift) return true;
+      if (this.movesThisRound.slice(0, -1).find(mip => mip.from.chex == toHex)) return false; // no looping back
       const fromTile = this.factOnTile?.tile!, toTile = toHex.ctile;
       if (this.player.movesInPlay.find(mip => mip.matches(fromTile, toTile))) return true;
       if (this.movesThisRound.at(-1)?.matches(toTile, fromTile)) return true;
@@ -898,17 +901,22 @@ export class ChaosBuilding extends ChaosPresence {
     return !!tile?.foundations.find(f => f && (!f.bldg || f.bldg == this))
   }
 
+  get isNewlyBuilt() { return TP.newlyBuilt.includes(this) }
+
   override noLegalTarget(ctx: DragContext): void {
+    if (this.isNewlyBuilt) return;
     console.log(stime(this, `.dragStart:`), "no legal target")
     super.noLegalTarget(ctx)
   }
 
   override cantBeMovedBy(player: Player, ctx: DragContext): string | boolean | undefined {
-    if (ctx.lastCtrl) return undefined;   // TODO: Temporary override everything!
+    if (ctx.lastShift) return undefined;   // Override everything!
     const reason = super.cantBeMovedBy(player, ctx); // check (player == this.player)
-    if (reason) return reason;  // lastShift || Not your tile,
+    if (reason) return reason;  // Not your tile
+    if (this.isNewlyBuilt) return undefined;
     if (!this.player.panel.doneButton.isActive) return "No Build Points";
-    if (!this.fromPanel && !TP.newlyBuilt.includes(this)) return "not newly built";
+    if (!this.fromPanel) return "not newly built";
+    if (this.found.gemlock && !player.canPayGemlock.canpay) return 'Can\'t pay gemlock'
     return undefined;
   }
 
@@ -921,7 +929,7 @@ export class ChaosBuilding extends ChaosPresence {
     this.found = this.homeAry[ndx];
   }
 
-  /** useful for determining 'Move' direction. */
+  /** true if dragStart from panel; useful for determining 'Move' direction. */
   fromPanel = true;   // initially all Buildings are on panel.
 
   override dragStart(ctx: DragContext): void {
@@ -985,9 +993,19 @@ export class ChaosBuilding extends ChaosPresence {
       if (fnd.bonus !== '-') {
         this.player.faction.doImmediateBonus(fnd.bonus, () => {});
       }
-      fnd.onTile?.addBuilding(this, add);
+      fnd.onTile!.addBuilding(this, true);
     } else {
-      (this.hex as Hex2).ctile!.addBuilding(this, add); // dragStart removes from foundation
+      if (this.isNewlyBuilt) { // return bonus if able:
+        const fnd = this.found;
+        if (fnd.bonus == 'E2') this.player.coins -= 2;
+        else if (fnd.bonus == 'G1') this.player.gems -= 1;
+        else if (fnd.bonus == 'C') {
+          this.player.cards.at(-1)?.sendHome();
+          this.player.panel.cardPanel.addCard(); // update number
+        }
+        else console.log(stime(this, `.removeBuilding: CHEAT! unreturned bonus: [${fnd.bonus}]`));
+      }
+      (this.hex as Hex2).ctile!.addBuilding(this, false); // remove from FoT; (dragStart removed it from foundation)
     }
     TP.whenBuildingPlaced(this, targetHex);  // build or un-build, depending on targetHex
   }

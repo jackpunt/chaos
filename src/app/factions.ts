@@ -263,7 +263,7 @@ export class Faction {
         }
         : () => this.deactivateDiscovery(cb);
 
-      if (level < phaseRow.length-1) {
+      if (level < phaseRow.length - 1) {
         // TODO: stash & 'restore/recompute' status of enabled aButton
         // click -> rl.level = rc.level
         // TODO: do not activate if gemlock && player can't pay?
@@ -275,7 +275,7 @@ export class Faction {
   deactivateDiscovery(cb: CB) {
     pricePhases.forEach(pName => {
       const { phaseRow, level } = this.researchLevelOfPhase[pName];
-      if (level < phaseRow.length-1) {
+      if (level < phaseRow.length - 1) {
         phaseRow[level+1].activateForDiscovery(this, false, () => {});
       }
     })
@@ -292,7 +292,7 @@ export class Faction {
   offerBuildAction(pv: number, cb: CB) {
     // allow pv Build actions:
     const newlyBuilt = TP.newlyBuilt;
-    newlyBuilt.length = 0;
+    TP.newlyBuilt.length = 0;    // reset for this Player's turn.
     TP.whenBuildingPlacedCB = (building: ChaosBuilding | Foundation, hex?: Hex2) => {
       const bldg = building as ChaosBuilding, found = building as Foundation;
       const [onMap, fromMap] = (building.isMeep) ? [!!bldg.found.onTile, !bldg.fromPanel] : [!!found.onTile, found.fromMap]
@@ -305,11 +305,11 @@ export class Faction {
       } // else: ignore Move from map to map, or pick&drop on panel
     }
     const pvcb = () => {
-      const panel = this.player.panel;
-      if (pv - newlyBuilt.length > 0) {
-        console.log(stime(this, `.buildAction(${pv}) ${pv - newlyBuilt.length}`))
+      const panel = this.player.panel, toBuild = pv - newlyBuilt.length;
+      if (toBuild > 0) {
+        console.log(stime(this, `.buildAction(${pv}) ${toBuild}`))
         // ChaosBuilding.placeBuilding() --> TP.whenBuildingPlacedCB(bldg, hex)
-        panel.setDoneButton(`Build Done ${pv}`, () => {
+        panel.setDoneButton(`Build Done ${toBuild}`, () => {
           console.log(stime(this, `.buildDone: ? newlyBuilt=)`), newlyBuilt)
           pvcb();
         });
@@ -318,7 +318,7 @@ export class Faction {
           pvcb();
         });
       } else {
-        console.log(stime(this, `.pvcb: all MovePoints built:`), newlyBuilt);
+        console.log(stime(this, `.pvcb: all Build Points used:`), newlyBuilt);
         panel.deactivateButtons();
         cb();
       }

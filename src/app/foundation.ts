@@ -98,6 +98,11 @@ export class Foundation extends Tile {
     return !this.onTile;
   }
 
+  override cantBeMovedBy(player: Player, ctx: DragContext): string | boolean | undefined {
+    if (this.gemlock && !player.canPayGemlock.canpay) return 'Can\'t pay gemlock';
+    return super.cantBeMovedBy(player, ctx);
+  }
+
   /** set to true if resetMove moves Foundation from onTile to Panel */
   fromMap = false;
   override dragStart(ctx: DragContext): void {
