@@ -1,6 +1,6 @@
 import { C, permute, removeEltFromArray, S, stime } from "@thegraid/common-lib";
 import { AliasLoader, NamedContainer, type Paintable, PolyShape, RectShape, TextInRect, type ValueEvent } from "@thegraid/easeljs-lib";
-import type { DisplayObject } from "@thegraid/easeljs-module";
+import type { DisplayObject, MouseEvent } from "@thegraid/easeljs-module";
 import { type DragContext, type DragFuncs, H, type HasDragger, type HexDir, HexShape, type IHex2, MapTile, NumCounter, Player as PlayerLib, rightClickable, type Table, Tile, TP } from "@thegraid/hexlib";
 import { type ChaosHex2, type ChaosHex2 as Hex2 } from "./chaos-hex";
 import { type ChaosTable } from "./chaos-table";
@@ -238,6 +238,7 @@ export class FactionOnTile extends NamedContainer {
   fighterIcon: FighterIcon;
   moveIcon: MoveIcon;
   strIcon: TextInRect;
+  strText: TextInRect;  // 'card' showing sources of strength
 
   constructor(player: Player, tile: ChaosTile) {
     super(`FoT_${player.facId}-${tile.Aname}`);
@@ -250,8 +251,21 @@ export class FactionOnTile extends NamedContainer {
     this.moveIcon = new MoveIcon(player, tile);
     this.addChild(this.fighterIcon, this.moveIcon);  // update after BaseTile moves...
     const border = [.1, .1, .09, -.15] as [number, number, number, number];
+    const bgColor = 'rgba(251, 251, 251, 0.5)';
     this.strIcon = new TextInRect(`0`, { fontSize: TP.meepleRad * .2, border })
+    this.strText = new TextInRect(`0`, { fontSize: TP.meepleRad * .2, border, bgColor })
     this.strIcon.visible = false;
+    const rightClickStrIcon = (evt: MouseEvent) => {
+      evt.stopImmediatePropagation();     // cribbed from Leader -> LeaderCard
+      const card = this.strText, parCont = this.tile.hex!.map.mapCont.overCont;
+      const { height } = card.getBounds();
+      this.strIcon.parent.localToLocal(this.strIcon.x, this.strIcon.y - height/2, parCont, card);
+      parCont.addChild(card);
+      card.visible = true;
+      card.on(S.click, () => { card.visible = false; card.stage.update()}, this, true)
+      card.stage.update();
+    }
+    rightClickable(this.strIcon, rightClickStrIcon)
     this.addChild(this.strIcon);
   }
 
@@ -389,6 +403,7 @@ export class FactionOnTile extends NamedContainer {
     this.strIcon.label_text = `${str}`;
     this.strIcon.y = -yl * .81;
     this.strIcon.visible = (str > 0);
+    this.strText.label_text = txt;
     this.stage.update();
   }
 

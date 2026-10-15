@@ -467,9 +467,9 @@ export class Faction {
     if (fot) {
       const addStrength = (ds: number, src: string) => {
         str = str + ds;
-        txt = `${txt}\n${src} ${ds}`;
+        txt = (ds > 0) ? `${txt}${txt?'\n':''}${src} ${ds}` : txt;
       }
-      addStrength(this.fighterStr (fot), 'Fighters: ');
+      addStrength(this.fighterStr (fot), 'Fighters:  ');
       addStrength(this.leaderStr  (fot), 'Leaders:  ');
       addStrength(this.buildingStr(fot), 'Buildings:');
     }
@@ -718,7 +718,7 @@ class Circadian extends Faction {
   override strengthInRegion(region: ChaosTile): [number, string] {
     const [str, txt] = super.strengthInRegion(region)
     const [dstr, dtxt] = this.dropship.strengthInRegion(region)
-    return dstr ? [str + dstr, `txt\n${dtxt}`] : [str, txt];
+    return dstr ? [str + dstr, `${txt}\n${dtxt}`] : [str, txt];
   }
 }
 
