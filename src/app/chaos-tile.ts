@@ -322,7 +322,7 @@ export class FactionOnTile extends NamedContainer {
   addBuilding(bldg: ChaosBuilding, add = true) {
     // building graphics handled by ctile.foundations
     if (add) {
-      this.buildings.push(bldg);
+      if (!this.buildings.includes(bldg)) this.buildings.push(bldg);  // belts & suspenders
     } else {
       removeEltFromArray(bldg, this.buildings);
     }

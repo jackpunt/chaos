@@ -5,6 +5,7 @@ import { H, type DragContext, type HexDir, type IHex2, type Phase, type Table } 
 import type { ChaosHex2 as Hex2 } from "./chaos-hex";
 import { BONUS, ChaosTile, FactionOnTile, FAME_BONUS, HARVEST, HexPair } from "./chaos-tile";
 import type { Foundation } from "./foundation";
+import { rotationAtPoint } from "./functions";
 import { ChaosMeeple, Leader, Morale, PathShapeMeeple, type ChaosBuilding } from "./meeples";
 import { type Panel, type Player, type SwampTile } from "./player";
 import { type ResearchLevel } from "./research-cell";
@@ -288,11 +289,20 @@ export class Faction {
   /** allow drag from ProdTokenPool, then invoke CB */
   allowProdTokenPoolCB?: CB;
 
+  /** Number of primary actions in given PricePhase for this Faction; alternative to parsing the text */
+  nPhaseActionsForFaction(phase: PricePhase) {
+    return this.researchLevelOfPhase[phase].nPrimaryActions;
+  }
+
+  /** used to track Build actions */
+  newlyBuilt: (ChaosBuilding | Foundation)[] = [];
+
   /** allow Build Action (pv times) then run cb() */
   offerBuildAction(pv: number, cb: CB) {
     // allow pv Build actions:
-    const newlyBuilt = TP.newlyBuilt;
-    TP.newlyBuilt.length = 0;    // reset for this Player's turn.
+
+    const newlyBuilt = this.newlyBuilt;
+    this.newlyBuilt.length = 0;    // reset for this Player's turn.
     TP.whenBuildingPlacedCB = (building: ChaosBuilding | Foundation, hex?: Hex2) => {
       const bldg = building as ChaosBuilding, found = building as Foundation;
       const [onMap, fromMap] = (building.isMeep) ? [!!bldg.found.onTile, !bldg.fromPanel] : [!!found.onTile, found.fromMap]
@@ -443,6 +453,25 @@ export class Faction {
     panel.recruitPoints = 0;  // unused RPs are lost.
   }
 
+  /** Faction's turn to Move, with nMove movepoints */
+  moveFaction(nMove = this.nPhaseActionsForFaction('Move')) {
+    const player = this.player, gamePlay = player.gamePlay;
+    gamePlay.movePoints = nMove;
+    gamePlay.movePlayer = player;
+    const baseTile = player.panel.baseTile;
+    baseTile.moveCounter.value = (nMove);
+    baseTile.moveCounter.visible = true;
+    // set visibity on fot.moveIcon & fot.fighterIcon; set pre-Move state
+    player.presence.forEach(fot => { fot.setFighterVis(); fot.setPreMove(); });
+    console.log(stime(this, `.moveFaction(n=${nMove}): preFighters=`), player.presence.map(fot => fot.preFighters));
+    baseTile.stage.update();
+    // TODO: D&D stuff for MoveShape [8/12]
+    // TODO: after 'done' find & clear all the MoveShape on all MapTile [8/12]
+    // start() -> saveState(player, phase); state.restart() -> restore state(player, phase)
+    // TODO: create "bridge" [srcTile, toRegion] with counter
+    // TODO: more in chaos-tile.MoveShape
+  }
+
   endMove() {
   }
 
@@ -546,7 +575,8 @@ class Dropship extends ChaosMeeple {
     this._toMark.highlight = false;
     this._toMark = mark;
     this._toMark.highlight = true;
-    this.rotation = mark.dirRot;
+    rotationAtPoint(this, mark.dirRot)
+    // this.rotation = mark.dirRot;
   }
   /** a pool of EdgeMark; see EdgeMark.setOnEdge */
   edgeMarkPool: EdgeMark[]; // active/placed marks have (visible == true)
@@ -669,7 +699,7 @@ class Dropship extends ChaosMeeple {
     if (mark && !this.isOverMark) {
       this.toMark = mark;
     } else if (!mark && this.isOverMark) {
-      ctx.info.dxy.x = ctx.info.dxy.y = 0;  // at first rotation, attach to center
+      // ctx.info.dxy.x = ctx.info.dxy.y = 0;  // at first rotation, attach to center
       this.toMark = this.fromMark;
     }
     this.isOverMark = !!mark;

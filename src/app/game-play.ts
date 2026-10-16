@@ -4,13 +4,12 @@ import { GamePlay as GamePlayLib, SetupElt, TP as TPLib } from "@thegraid/hexlib
 import type { HexMap2 } from "./chaos-hex";
 import type { ChaosTable } from "./chaos-table";
 import { PairTarget, type BONUS, type ChaosTile, type TERRAIN } from "./chaos-tile";
-import type { Faction, FactionId } from "./factions";
+import type { FactionId } from "./factions";
 import { BgFound } from "./foundation";
 import type { GameSetup } from "./game-setup";
 import { GameState, type PlayerId } from "./game-state";
 import { Relic } from "./meeples";
 import type { Player } from "./player";
-import { TeleGraphic } from "./player";
 import { ScenarioParser } from "./scenario-parser";
 import { priceNames, TP } from "./table-params";
 import type { TacticsCard } from "./tactics-card";
@@ -198,28 +197,8 @@ export class GamePlay extends GamePlayLib {
   // Relics: Win?; assign Relic do Bonus (Research, Upgrade-Circadian)
   // ... next round
 
-  /** move points from 'Move' action, for the given Faction, from ResearchLevel of Phase 'Move' */
-  mpForFaction(faction: Faction) {
-    const level = faction.researchLevelOfPhase['Move'].level;
-    return [2, 3, 4, 5, 6][level];
-  }
+
   /** Faction's turn to Move, with nMove movepoints */
-  moveFaction(faction: Faction, nMove = this.mpForFaction(faction)) {
-    this.movePoints = nMove;
-    this.movePlayer = faction.player;
-    const baseTile = faction.player.panel.baseTile;
-    baseTile.moveCounter.value = (nMove);
-    baseTile.moveCounter.visible = true;
-    // set visibity on fot.moveIcon & fot.fighterIcon; set pre-Move state
-    faction.player.presence.forEach(fot => { fot.setFighterVis(); fot.setPreMove(); });
-    console.log(stime(this, `.moveFaction(n=${nMove}): preFighters=`), faction.player.presence.map(fot => fot.preFighters));
-    baseTile.stage.update();
-    // TODO: D&D stuff for MoveShape [8/12]
-    // TODO: after 'done' find & clear all the MoveShape on all MapTile [8/12]
-    // start() -> saveState(player, phase); state.restart() -> restore state(player, phase)
-    // TODO: create "bridge" [srcTile, toRegion] with counter
-    // TODO: more in chaos-tile.MoveShape
-  }
 
   /** player currently enabled to Move (not always curPlayer!) controls visibility of MoveIcon & (fighters == 0) */
   movePlayer?: Player;
@@ -246,7 +225,7 @@ export class GamePlay extends GamePlayLib {
     const faction = this.movePlayer.faction
     this.movePlayer.fotPresence.forEach(fot => fot.resetMove());
     this.endMoveFaction();                       // this.movePlayer = undefined
-    this.moveFaction(faction, this.movePoints);  // this.movePlayer = faction.player;
+    faction.moveFaction(this.movePoints);  // this.movePlayer = faction.player;
   }
 
   findBattles(pid: PlayerId) {
@@ -275,7 +254,7 @@ export class GamePlay extends GamePlayLib {
     KeyBinder.keyBinder.setKey('B', () => this.curPlayer.faction.offerBuildAction(2, ()=>{}))
     KeyBinder.keyBinder.setKey('R', () => this.curPlayer.faction.offerRecruit(2, ()=>{}))
     KeyBinder.keyBinder.setKey('H', () => this.curPlayer.faction.offerHarvestActions(2, ()=>{}))
-    KeyBinder.keyBinder.setKey('M', () => this.moveFaction(this.curPlayer.faction)); // use mpForFaction()
+    KeyBinder.keyBinder.setKey('M', () => this.curPlayer.faction.moveFaction()); // use mpForFaction()
     KeyBinder.keyBinder.setKey('C-M', () => this.endMoveFaction()); // use mpForFaction()
   }
 }

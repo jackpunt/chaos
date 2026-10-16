@@ -620,7 +620,8 @@ export class Leader extends ChaosUnit implements LeaderSpec {
   // TODO: put leader back during player.undoMove, incr moveCounter if leader was only referent in mip
   recordMove(toTile: ChaosTile, ctx: DragContext) {
     if (!this.gamePlay.isPhase('Move')) return;
-    const fromTile = (this.fromHex as Hex2).ctile!;
+    const fromTile = (this.fromHex as Hex2)?.ctile;
+    if (!fromTile) { return; } // from stopDrag()
     // isLegalTarget generally verifies that there is a MoveInPlay for this move:
     const mip = this.player.movesInPlay.find(mip => mip.matches(fromTile, toTile));
     // if (ctx.lastShift) {} // mip could be undefined! Shift gives a free Move!
@@ -901,7 +902,7 @@ export class ChaosBuilding extends ChaosPresence {
     return !!tile?.foundations.find(f => f && (!f.bldg || f.bldg == this))
   }
 
-  get isNewlyBuilt() { return TP.newlyBuilt.includes(this) }
+  get isNewlyBuilt() { return this.player.faction.newlyBuilt.includes(this) }
 
   override noLegalTarget(ctx: DragContext): void {
     if (this.isNewlyBuilt) return;
@@ -986,10 +987,11 @@ export class ChaosBuilding extends ChaosPresence {
       // ASSERT: there is a Foundation! from isLegalTarget()
       // on targetHex (on map), place on Foundation.
       const fnd = this.findFoundation(targetHex)
-      fnd.bldg = this;   // mark Foundation occupied
       this.scaleX = this.scaleY = add ? Foundation.mapScale : 1;
       this.x = fnd.x; this.y = fnd.y;
       fnd.parent.addChild(this);
+      if (fnd.bldg == this) return;  // cantBeMovedBy --> dragStop --> dropFunc; bldg not moved/placed; no bonus
+      fnd.bldg = this;   // mark Foundation occupied
       if (fnd.bonus !== '-') {
         this.player.faction.doImmediateBonus(fnd.bonus, () => {});
       }

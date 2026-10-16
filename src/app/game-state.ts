@@ -268,7 +268,7 @@ export class GameState extends GameStateLib {
         this.setCurPlayerNdx(pndx);
         const plyr = this.curPlayer, baseTile = plyr.panel.baseTile;
         baseTile.moveCounter.value = 0;
-        this.gamePlay.moveFaction(plyr.faction, 2); //
+        plyr.faction.moveFaction(2); // move Fighters to 2 baseTile.baseRegions
         plyr.panel.baseTile.baseRegions?.find(hex => {
           plyr.newMoveInPlay(baseTile, hex.ctile!); // DeployLeaders & Warriors
         });

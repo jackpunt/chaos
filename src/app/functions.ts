@@ -4,6 +4,7 @@ import { Container } from "@thegraid/easeljs-module";
 import type { HARVEST } from "./chaos-tile";
 import { type PriceBonus } from "./meeples";
 import { CO, TP, type PhaseName } from "./table-params";
+import type { DisplayObject } from "@thegraid/easeljs-module";
 
 
 /** distance from origin (or given p0) */
@@ -19,6 +20,33 @@ export function  pointsAtDistance([fx, fy]: [number, number], [tx, ty]: [number,
   const dux = d * dx / len;
   const duy = d * dy / len;
   return [[fx + dux, fy + duy], [tx - dux, ty - duy]] as [number, number][];
+}
+
+export function rotationAtPoint(dObj: DisplayObject, angleDegrees: number, pt: XY = { x: 0, y: 0 }): void {
+    const DEG_TO_RAD = Math.PI / 180;
+    const currentRad = dObj.rotation * DEG_TO_RAD;
+    const newRad = angleDegrees * DEG_TO_RAD;
+
+    // 1. pt position relative to current origin (dObj.x, dObj.y)
+    const dx = pt.x - dObj.x;
+    const dy = pt.y - dObj.y;
+
+    // 2. Un-rotate to find local offset relative to origin {0,0}
+    const cosCur = Math.cos(currentRad);
+    const sinCur = Math.sin(currentRad);
+    const localX = dx * cosCur + dy * sinCur;
+    const localY = -dx * sinCur + dy * cosCur;
+
+    // 3. Rotate local offset to the new angle
+    const cosNew = Math.cos(newRad);
+    const sinNew = Math.sin(newRad);
+    const newRelX = localX * cosNew - localY * sinNew;
+    const newRelY = localX * sinNew + localY * cosNew;
+
+    // 4. Update rotation and position dObj origin to match pt
+    dObj.rotation = angleDegrees;
+    dObj.x = pt.x - newRelX;
+    dObj.y = pt.y - newRelY;
 }
 
 /**

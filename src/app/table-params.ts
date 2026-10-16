@@ -30,9 +30,6 @@ export class TP extends TPLib {
   // timeout: see also 'autoEvent'
   static stepDwell:  number = 150
 
-  /** used to track Build actions */
-  static newlyBuilt: (ChaosBuilding | Foundation)[] = [];
-
   /** Build action: Before-Advice callback on placeBuilding(hex) or placeFoundation(hex)  */
   static whenBuildingPlacedCB?: (building: ChaosBuilding | Foundation, hex?: ChaosHex2) => void;
   static whenBuildingPlaced(built: Foundation | ChaosBuilding, hex?: ChaosHex2) {
