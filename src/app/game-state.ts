@@ -361,7 +361,7 @@ export class GameState extends GameStateLib {
           const plyr = this.curPlayer, facId = plyr.facId, faction = plyr.faction;
           // do the research of choice:
           const panel = plyr.gamePlay.table.neutralPanel;
-          const discPhase = this.autoDiscover;
+          const discPhase = this.autoDiscover;   // auto make mulitple Discovery:
           this.autoDiscover.forEach(discPhase => {
             const { phaseRow, level } = faction.researchLevelOfPhase[discPhase];
             if (level < phaseRow.length - 1)  {

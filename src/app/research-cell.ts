@@ -6,7 +6,7 @@ import { type Faction } from "./factions";
 import { gemlockIcon } from "./functions";
 import { type PriceToken } from "./meeples";
 import type { Player } from "./player";
-import { CO, TP, type CB, type PricePhase } from "./table-params";
+import { CO, pricePhases, TP, type CB, type PricePhase } from "./table-params";
 
 
 // %, Energy, Gem, Card, Build, Recruit, Leader, Harvest, Move,
@@ -38,6 +38,20 @@ export class ResearchLevel extends RectShape {
     this.phaseRow[level].addChild(this); // phaseRow contains ResearchCell
   }
 
+  // pricePhases.forEach(pName) => pAPL[pName] = ResGrid[pName].map((rs, n) => new ResearchCell(pNmae, n, rs).matchv().pv)
+  static phaseActionsPerLevel: Record<PricePhase, number[]> = {
+    Discovery: [1, 1, 1, 1, 2],
+    Build:     [1, 1, 2, 2, 3],
+    Harvest:   [1, 2, 2, 3, 3], //<-- hv, not pv
+    Recruit:   [2, 4, 5, 7, 9],
+    Move:      [2, 3, 4, 5, 6],
+  }
+
+  get researchCell() { return this.phaseRow[this.level] }
+  get nPrimaryActions() {
+    return ResearchLevel.phaseActionsPerLevel[this.pricePhase][this.level]
+  }
+
   constructor(public faction: Faction, public phaseRow: ResearchCell[], public pricePhase: PricePhase, level = 0) {
     const dx = TP.hexRad * .9/5-2, dy = dx;
     super({ x: -dx/2, y: -dy/2, w: dx, h: dy });
@@ -45,9 +59,6 @@ export class ResearchLevel extends RectShape {
     // TODO: just click to advance curPlayer's token to next level
     this.makeDragable(faction.player.gamePlay.table); // maybe not
     this.paint(faction.player.color);
-  }
-
-  showTokenAtLevel(faction: Faction) {
   }
 
   makeDragable(table: HasDragger) {
@@ -190,6 +201,19 @@ export class ResearchCell extends NamedContainer {
   getPriceToken(faction: Faction) {
     return faction.player.gamePlay.gameState.priceToken(this.pName)!;
   }
+  // p: '%'|'B'|'E'|'R'|'M'
+  matchv(ps = this.ps, p = ps.substring(0, 1) as '%'|'B'|'E'|'R'|'M') {
+    // % B E H R M
+    let hv = 0;
+    const match = ps.match(`${p}(\\d)?(_H(\\d))?`); // (p)_H(hv)
+    if (!match) return { p, pv: 0, hv };  // never; indicates string/config error
+    const np = ps.split(' ').length;
+    const pv = Number.parseInt(match[1] ?? `${np}`); // repetions of p: 'M3' or 'B B B'
+    if (Number.isNaN(pv)) debugger;
+    hv = (match[3] !== undefined) ? Number.parseInt(match[3]) : 1; // assert: (bv > 1) only if (b == 'G')
+    if (Number.isNaN(hv)) debugger;
+    return { p, pv, hv };
+  }
 
   /** enable doing primary action for this phase at this level; pay Bank/Pricer */
   primary(faction: Faction, cb: CB = () => {}) {
@@ -207,38 +231,32 @@ export class ResearchCell extends NamedContainer {
       this.payAction(pt, player)
     }
     // % B E H R M
-    let match: RegExpMatchArray | null, pv0 = 0, pv = 0, hv = 0;
-    const matchv = (p: '%'|'B'|'E'|'R'|'M', ps = this.ps) => {
-      match = ps.match(`${p}(\\d)?(_H(\\d))?`); // (p)_H(hv)
-      if (!match) return;
-      const np = ps.split(' ').length;
-      pv = pv0 = Number.parseInt(match[1] ?? `${np}`); // repetions of p: 'M3' or 'B B B'
-      if (Number.isNaN(pv)) debugger;
-      hv = (match[3] !== undefined) ? Number.parseInt(match[3]) : 1; // assert: (bv > 1) only if (b == 'G')
-      if (Number.isNaN(hv)) debugger;
-      return pv;
-    }
-    // parse ps; do it;
-    if (matchv('%')) {         // Discovery
-      const pvcb = () => {
-        if (pv-- > 0) {
-          faction.offerDiscoveryAction(1, pvcb); // TODO: set Panel Buttons (ex: use only 1 of 2 Discovery)
-        } else {
-          cb();
+    const { p, pv, hv } = this.matchv();
+    switch (p) {
+      case '%': {
+        let pvv = pv;
+        const pvcb = () => {
+          if (pvv-- > 0) {
+            faction.offerDiscoveryAction(1, pvcb); // TODO: set Panel Buttons (ex: use only 1 of 2 Discovery)
+          } else {
+            cb();
+          }
         }
+        return pvcb();
       }
-      pvcb();
-    } else if (matchv('B')) {
-      faction.offerBuildAction(pv, cb); // Build: pv actions; TODO; check Foundation placement
-    } else if (matchv('E')) {
-      player.coins += pv;               // Harvest: pv Energy & hv actions
-      faction.offerHarvestActions(hv, cb);
-    } else if (matchv('R')) {
-      faction.offerRecruit(pv, cb);     // Recruit: pv Recruits
-    } else if (matchv('M')) {
-      gamePlay.moveFaction(faction, pv);// Move: pv movePoints;
-    } else {
-
+      case 'B': {
+        return faction.offerBuildAction(pv, cb); // Build: pv actions; TODO; check Foundation placement
+      }
+      case 'E': {
+        player.coins += pv;                   // Harvest: pv Energy & hv actions
+        return faction.offerHarvestActions(hv, cb);
+      }
+      case 'R': {
+        return faction.offerRecruit(pv, cb);  // Recruit: pv Recruits
+      }
+      case 'M': {
+        return faction.moveFaction(pv);       // Move: pv movePoints;
+      }
     }
   }
 

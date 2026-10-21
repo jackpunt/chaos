@@ -290,7 +290,7 @@ export class Faction {
   allowProdTokenPoolCB?: CB;
 
   /** Number of primary actions in given PricePhase for this Faction; alternative to parsing the text */
-  nPhaseActionsForFaction(phase: PricePhase) {
+  nPrimaryActionsIn(phase: PricePhase) {
     return this.researchLevelOfPhase[phase].nPrimaryActions;
   }
 
@@ -454,7 +454,7 @@ export class Faction {
   }
 
   /** Faction's turn to Move, with nMove movepoints */
-  moveFaction(nMove = this.nPhaseActionsForFaction('Move')) {
+  moveFaction(nMove = this.nPrimaryActionsIn('Move')) {
     const player = this.player, gamePlay = player.gamePlay;
     gamePlay.movePoints = nMove;
     gamePlay.movePlayer = player;
