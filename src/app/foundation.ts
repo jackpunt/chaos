@@ -34,12 +34,11 @@ export class Foundation extends Tile {
   _bldg?: ChaosBuilding;
   get bldg() { return this._bldg; }
   set bldg(b: ChaosBuilding | undefined) {
-    if (b == this._bldg) return;  // nothing to change
-    if (b && this._bldg) debugger;     // collision!
+    if (b && this._bldg && b != this._bldg) debugger;     // collision!
     this._bldg = b;
     if (b) {
       b.x = this.x; b.y = this.y;
-      b.found = this;
+      if (b.found != this) b.found = this;
       b.scaleX = b.scaleY = this.scaleX;
       this.parent?.addChild(b);
     }
@@ -94,11 +93,19 @@ export class Foundation extends Tile {
     this.paint(up ? Foundation.upColor : Foundation.dnColor); // light-mauve : grey@.5
   }
 
-  override isDragable(ctx?: DragContext): boolean {
-    return !this.onTile;
-  }
+  // override isDragable(ctx?: DragContext): boolean {
+  //   return !this.onTile || this.isNewlyBuilt;  // maybe just let cantbemovedby handle this?
+  // }
+
+  get isNewlyBuilt() { return this.player.faction.newlyBuilt.includes(this) }
 
   override cantBeMovedBy(player: Player, ctx: DragContext): string | boolean | undefined {
+    if (ctx.lastShift) return undefined;   // Override everything! (except isDragable!)
+    const reason = super.cantBeMovedBy(player, ctx); // check (player == this.player)
+    if (reason) return reason;  // Not your tile
+    if (this.isNewlyBuilt) return undefined;
+    if (this.onTile) return "not newly built";
+    if (player.faction.toBuild <= 0) return "no Build Points";
     if (this.gemlock && !player.canPayGemlock.canpay) return 'Can\'t pay gemlock';
     return super.cantBeMovedBy(player, ctx);
   }
@@ -107,6 +114,10 @@ export class Foundation extends Tile {
   fromMap = false;
   override dragStart(ctx: DragContext): void {
     this.fromMap = !!this.onTile;   // expect 'false'
+    if (this.onTile) {
+      const exndx = this.onTile.foundations.indexOf(this);
+      if (exndx >= 0) this.onTile.foundations[exndx] = undefined;
+    }
     this.faceUp(true);
     super.dragStart(ctx);
   }
@@ -132,7 +143,7 @@ export class Foundation extends Tile {
 
   placeFoundation(targetHex: Hex2) {
     targetHex.ctile?.addFoundation(this); // may set scaleX, scaleY
-    TP.whenBuildingPlaced(this, targetHex); // place or remove foundation
+    this.player.faction.whenBuildingPlaced(this, targetHex);  // place or remove foundation
   }
 
   override sendHome(): void {

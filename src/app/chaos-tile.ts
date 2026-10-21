@@ -11,7 +11,7 @@ import { dist } from "./functions";
 import type { GamePlay } from "./game-play";
 import { type baseProdTokenIds, type ChaosBuilding, ChaosToken, type Factory, Leader, LeaderCard, type Outpost, ProdToken, type Relic, type Stronghold, type upgradeProdTokenIds } from "./meeples";
 import { superMethod } from "./mixins";
-import { MoveInPlay, type Player } from "./player";
+import { type MoveInPlay, type Player } from "./player";
 import type { FactionOnTileState, Special } from "./scenario-parser";
 import { CO } from "./table-params";
 
@@ -529,8 +529,9 @@ export class ChaosTile extends MapTile {
   }
 
   // similar to pToken.moveTo(this.hex)
+  /** add ProdToken replacing the previous/original prodToken */
   addHarvest(pToken: ProdToken) {
-    this.removeChild(this.prodToken);   // retain referene in this.origToken
+    this.removeChild(this.prodToken);   // retain reference in this.origToken
     this.prodToken.hex = undefined;     // one meep per hex...
     if (this.hex) this.hex.meep = undefined; // Note: all ChaosTile have a hex.
     if (pToken !== this.origToken) {
@@ -571,7 +572,8 @@ export class ChaosTile extends MapTile {
   // "Each Region can contain no more than 3 Foundations"
   // --> Leader: no Foundation required: cons a null-foundation; (still limit 3 buildings?)
   addFoundation(f: Foundation, commit = true) {
-    const ndx = this.ndxForFoundation();
+    const exndx = this.foundations.indexOf(f);
+    const ndx = (exndx >= 0) ? exndx : this.ndxForFoundation();
     if (commit && ndx != undefined) {
       this.foundations[ndx] = f;
       f.onTile = this;   // record Foundation is onTile on the map.
@@ -583,7 +585,6 @@ export class ChaosTile extends MapTile {
       f.faceUp(true);
       f.homeXY = { x: f.x, y: f.y };    // see Foundation.sendHome()
       this.chex.mapCont.overCont.addChild(f);
-      f.mouseEnabled = false;
     }
     return ndx;
   }

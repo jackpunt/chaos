@@ -29,12 +29,6 @@ export class TP extends TPLib {
   static aButtonEvent?: MouseEvent = undefined;
   // timeout: see also 'autoEvent'
   static stepDwell:  number = 150
-
-  /** Build action: Before-Advice callback on placeBuilding(hex) or placeFoundation(hex)  */
-  static whenBuildingPlacedCB?: (building: ChaosBuilding | Foundation, hex?: ChaosHex2) => void;
-  static whenBuildingPlaced(built: Foundation | ChaosBuilding, hex?: ChaosHex2) {
-    if (TP.whenBuildingPlacedCB) TP.whenBuildingPlacedCB(built, hex);
-  }
 }
 
 

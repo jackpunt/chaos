@@ -591,7 +591,7 @@ export class Leader extends ChaosUnit implements LeaderSpec {
     }
     // from Panel (any phase, but intentionally for: SetPrices and Recruit)
     if (!this.isOnMap) return this.isaRhyzu() ? true : (toHex.ctile == this.player.panel.baseTile);
-    // Move:
+    // Move: [Combat retreat for special Leader]
     if (gameState.gamePlay.movePlayer == this.player) {
       if (ctx!.lastShift) return true;
       if (this.movesThisRound.slice(0, -1).find(mip => mip.from.chex == toHex)) return false; // no looping back
@@ -914,8 +914,9 @@ export class ChaosBuilding extends ChaosPresence {
     if (ctx.lastShift) return undefined;   // Override everything!
     const reason = super.cantBeMovedBy(player, ctx); // check (player == this.player)
     if (reason) return reason;  // Not your tile
+    if (player.faction.onlyFoundation) return "can only place a Foundation";
     if (this.isNewlyBuilt) return undefined;
-    if (!this.player.panel.doneButton.isActive) return "No Build Points";
+    if (player.faction.toBuild <= 0) return "no Build Points";
     if (!this.fromPanel) return "not newly built";
     if (this.found.gemlock && !player.canPayGemlock.canpay) return 'Can\'t pay gemlock'
     return undefined;
@@ -1009,7 +1010,7 @@ export class ChaosBuilding extends ChaosPresence {
       }
       (this.hex as Hex2).ctile!.addBuilding(this, false); // remove from FoT; (dragStart removed it from foundation)
     }
-    TP.whenBuildingPlaced(this, targetHex);  // build or un-build, depending on targetHex
+    this.player.faction.whenBuildingPlaced(this, targetHex);  // build or un-build, depending on targetHex
   }
   // invoke before super.dropFunc -> moveTo(hex)
   // but after dragger.drop: dropCont.addChild(dobj)

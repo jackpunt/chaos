@@ -283,7 +283,7 @@ export class Faction {
     cb();
   }
 
-  /** not allowed to drag ChaosBuilding */
+  /** not allowed to drag ChaosBuilding; true for immediateBonus(F) */
   onlyFoundation = false;
 
   /** allow drag from ProdTokenPool, then invoke CB */
@@ -297,43 +297,51 @@ export class Faction {
   /** used to track Build actions */
   newlyBuilt: (ChaosBuilding | Foundation)[] = [];
 
-  /** allow Build Action (pv times) then run cb() */
-  offerBuildAction(pv: number, cb: CB) {
-    // allow pv Build actions:
+  get toBuild() { return this.pv - this.newlyBuilt.length; }
 
+  /** Build action: Before-Advice callback on placeBuilding(hex) or placeFoundation(hex)  */
+  whenBuildingPlaced = (building: ChaosBuilding | Foundation, hex?: Hex2) => {
     const newlyBuilt = this.newlyBuilt;
+    const bldg = building as ChaosBuilding, found = building as Foundation;
+    const [onMap, fromMap] = (building.isMeep) ? [!!bldg.found.onTile, !bldg.fromPanel] : [!!found.onTile, found.fromMap]
+    console.log(stime(this, `.whenBuildingPlacedCB:`), building.Aname, {onMap, fromMap}, newlyBuilt);
+    if (onMap && !fromMap) {
+      newlyBuilt.includes(building) || newlyBuilt.push(building);  // will be newly placed on hex
+      this.setBuildingDoneButtons()
+    } else if (!onMap && fromMap) {
+      removeEltFromArray(building, newlyBuilt);  // unbuild; pvcb will see length changed
+    } // else: ignore Move from map to map, or pick&drop on panel
+  };
+
+  pv!: number;
+  buildingDoneCB?: () => void;
+
+  /** recurse until pv buildings or doneButton */
+  setBuildingDoneButtons() {
+    const newlyBuilt = this.newlyBuilt, pv = this.pv;
+    const panel = this.player.panel;
+    panel.setDoneButton(`Build Done ${this.toBuild}`, () => {
+      console.log(stime(this, `.buildDone: ? newlyBuilt=)`), newlyBuilt)
+      panel.deactivateButtons();
+      this.buildingDoneCB && this.buildingDoneCB();
+    });
+    panel.setResetButton(`Reset Build`, () => {
+      console.log(stime(this, `.resetBuild: newlyBuilt.forEach(b => b.sendHome() ?)`), newlyBuilt)
+      this.setBuildingDoneButtons();
+    });
+    if (this.toBuild > 0) {
+      console.log(stime(this, `.buildAction(${pv}) toBuild: ${this.toBuild}`))
+    } else {
+      console.log(stime(this, `.pvcb: all Build Points used:`), newlyBuilt);
+    }
+  };   // pvcb()
+
+  /** allow Build Action (pv times) then run cb() */
+  offerBuildAction(pv: number, cb?: CB) {
     this.newlyBuilt.length = 0;    // reset for this Player's turn.
-    TP.whenBuildingPlacedCB = (building: ChaosBuilding | Foundation, hex?: Hex2) => {
-      const bldg = building as ChaosBuilding, found = building as Foundation;
-      const [onMap, fromMap] = (building.isMeep) ? [!!bldg.found.onTile, !bldg.fromPanel] : [!!found.onTile, found.fromMap]
-      console.log(stime(this, `.whenBuildingPlacedCB:`), building.Aname, {onMap, fromMap}, newlyBuilt);
-      if (onMap && !fromMap) {
-        newlyBuilt.push(building);  // will be newly placed on hex
-        pvcb();
-      } else if (!onMap && fromMap) {
-        removeEltFromArray(building, newlyBuilt);  // unbuild; pvcb will see length changed
-      } // else: ignore Move from map to map, or pick&drop on panel
-    }
-    const pvcb = () => {
-      const panel = this.player.panel, toBuild = pv - newlyBuilt.length;
-      if (toBuild > 0) {
-        console.log(stime(this, `.buildAction(${pv}) ${toBuild}`))
-        // ChaosBuilding.placeBuilding() --> TP.whenBuildingPlacedCB(bldg, hex)
-        panel.setDoneButton(`Build Done ${toBuild}`, () => {
-          console.log(stime(this, `.buildDone: ? newlyBuilt=)`), newlyBuilt)
-          pvcb();
-        });
-        panel.setResetButton(`Reset Build`, () => {
-          console.log(stime(this, `.resetBuild: newlyBuilt.forEach(b => b.sendHome() ?)`), newlyBuilt)
-          pvcb();
-        });
-      } else {
-        console.log(stime(this, `.pvcb: all Build Points used:`), newlyBuilt);
-        panel.deactivateButtons();
-        cb();
-      }
-    }
-    pvcb(); // recursive loop until all BuildActions used and panel doneButton clicked.
+    this.pv = pv;                  // allow pv Build actions:
+    this.buildingDoneCB = cb;      // not used at this time. (the cb arg is supplied: () => {})
+    this.setBuildingDoneButtons(); // recursive loop until all BuildActions used and panel doneButton clicked.
   }
 
   offerHarvestActions(hv: number, cb: CB) {
@@ -394,14 +402,17 @@ export class Faction {
     } else if (bs == '%') {
       this.offerDiscoveryAction(iv, cb)
     } else if (bs == 'F') {
-      console.log(stime(this, `.doImmediateBonus: player.offerPlaceFoundation(cb)`));
-      this.offerBuildAction(1, cb); // TODO: restrict to Foundation
+      console.log(stime(this, `.doImmediateBonus: this.offerPlaceFoundation(cb)`));
+      this.onlyFoundation = true;
+      this.offerBuildAction(1, () => { this.onlyFoundation = false; cb() }); // TODO: restrict to Foundation
     } else if (bs == 'PT') {
-      console.log(stime(this, `.doImmediateBonus: player.offerProdToken(cb)`));
+      console.log(stime(this, `.doImmediateBonus: this.offerProdToken(cb)`));
       this.allowProdTokenPoolCB = cb;
       // TODO: activate panelReset/Done(cb)
     } else if (bs == 'UT') {
-      console.log(stime(this, `.doImmediateBonus: player.offerLeaderUpgrade(cb)`));
+      console.log(stime(this, `.doImmediateBonus: this.offerPTokenUpgrade(cb)`));
+      // Generally a Faction has access to only one ProdToken, if so flip it.
+      // Oxataya or anyone who controls Region where (for ex Circ) left a ProdToken may need to offer choice
       cb();
     } else if (matchv('E')) {
       player.coins += iv;
@@ -463,6 +474,7 @@ export class Faction {
     baseTile.moveCounter.visible = true;
     // set visibity on fot.moveIcon & fot.fighterIcon; set pre-Move state
     player.presence.forEach(fot => { fot.setFighterVis(); fot.setPreMove(); });
+
     console.log(stime(this, `.moveFaction(n=${nMove}): preFighters=`), player.presence.map(fot => fot.preFighters));
     baseTile.stage.update();
     // TODO: D&D stuff for MoveShape [8/12]

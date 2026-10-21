@@ -185,7 +185,7 @@ export class GamePlay extends GamePlayLib {
   // Move: hack so swamps are adjacent for Leyrein: TeleGraphic [9/21]
   // Move: Aux: select Leader card to upgrade (& pay gem). [10/6]
   // Move: Dropship on Mtn [10/12]
-  // Move: Dropship (MP > 0); decrement MP; Load & Unload (MP or end of Move)
+  // Move: Dropship (MP > 0); decrement MP; Load & Unload (MP or end of Move) [10/13]
   // Move: doImmediate('U')
   // Combat: choose opponent; choose wheel, card; commit --> reveal, (Ochara!)
   // Combat: auto resolve, remove casualties/buildings, assign Fame (AI, Zcharo, JReyak, Oxataya)
@@ -254,7 +254,7 @@ export class GamePlay extends GamePlayLib {
     KeyBinder.keyBinder.setKey('B', () => this.curPlayer.faction.offerBuildAction(2, ()=>{}))
     KeyBinder.keyBinder.setKey('R', () => this.curPlayer.faction.offerRecruit(2, ()=>{}))
     KeyBinder.keyBinder.setKey('H', () => this.curPlayer.faction.offerHarvestActions(2, ()=>{}))
-    KeyBinder.keyBinder.setKey('M', () => this.curPlayer.faction.moveFaction()); // use mpForFaction()
-    KeyBinder.keyBinder.setKey('C-M', () => this.endMoveFaction()); // use mpForFaction()
+    KeyBinder.keyBinder.setKey('M', () => this.curPlayer.faction.moveFaction()); // use nPrimary()
+    KeyBinder.keyBinder.setKey('C-M', () => this.endMoveFaction());
   }
 }
