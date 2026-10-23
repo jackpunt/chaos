@@ -176,7 +176,7 @@ export class Faction {
   set gems(v) { this.player.coinCounter?.updateValue(v); }
 
   facId!: FactionId;
-  facName: FactionName = this.name;
+  get facName() { return factionNames[this.facId] }
 
   constructor(facId: FactionId, public player: Player) {
     this.facId = facId;
@@ -393,7 +393,7 @@ export class Faction {
   // Foundation: En, Gn, C, %
   // Income: from ProdToken!
   // Note: 'this' may be undefined! (from afterUpdate(..., panel))
-  doImmediateBonus(bs: string, cb: CB) {
+  doImmediateBonus(bs: string, cb: CB = () => {} ) {
     const player = this.player;
     // use match to determine repetition value (v)
     let match: RegExpMatchArray | null, iv!: number;
@@ -467,8 +467,7 @@ export class Faction {
     // move fighters from Panel to Base; TODO: (facId == 5) allow recruit to Stronghold
     const panel = player.panel;
     const nRecruit = panel.baseRecruitCounter.value;
-    panel.baseTile.getFoT(player).fighters += nRecruit;
-    panel.baseTile.getFoT(player).setFighterVis(); // QQQ: see if new count shows
+    panel.baseTile.getFoT(player).addFighter(nRecruit);
     panel.baseRecruitCounter.value = 0;
     panel.recruitPoints = 0;  // unused RPs are lost.
   }
@@ -559,7 +558,7 @@ export class Faction {
 
   /** resolve wounded opponents from Battle; AI to override to get Fame. */
   woundOtherFighters(n = 0, fot: FactionOnTile) {
-    fot.fighters -= n;
+    fot.addFighter(-n);
     fot.player.panel.woundedToRecruit(n);
   }
 }

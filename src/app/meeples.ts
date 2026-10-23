@@ -411,8 +411,8 @@ export class Leader extends ChaosUnit implements LeaderSpec {
   static allLeaders: Leader[] = [];
   static allLeadersByName = new Map<LeaderName, Leader>();
 
-  /** src & dst for D&D */
-  factOnTile?: FactionOnTile;
+  /** records location of Leader: src & dst for D&D */
+  inFoT?: FactionOnTile;
 
   facId: FactionId;
   get stats() { return this.upgraded ? this.stats2 : this.stats0 }
@@ -458,13 +458,13 @@ export class Leader extends ChaosUnit implements LeaderSpec {
   }
 
   override get inRegion(): ChaosTile | undefined {
-    return this.factOnTile?.tile.chex.isOnMap ? this.factOnTile?.tile : undefined;
+    return this.inFoT?.tile.chex.isOnMap ? this.inFoT?.tile : undefined;
   }
 
   // make card visible, and scale up:
   override onRightClick(evt: MouseEvent) {
     evt.stopImmediatePropagation();
-    const tile = this.factOnTile!.tile;
+    const tile = this.inFoT!.tile;
     const card = this.card, parCont = tile.hex!.map.mapCont.overCont;
     const otherSide = card.otherSide;
     card.scale = 1.6;        //
@@ -560,7 +560,7 @@ export class Leader extends ChaosUnit implements LeaderSpec {
   }
 
   get isOnMap() {
-    return this.factOnTile?.tile.isOnMap
+    return this.inFoT?.tile.isOnMap
   }
 
   override cantBeMovedBy(player: Player, ctx: DragContext): string | boolean | undefined {
@@ -575,7 +575,7 @@ export class Leader extends ChaosUnit implements LeaderSpec {
   /** the ChaosTile that was holding Leader before dragStart. */
   ctxCtile(ctx?: DragContext) {
     // I expect: this.factOnTile.tile is always the source of a Leader. (Leader is always on a Tile)
-    return this.factOnTile?.tile ?? (ctx?.info.srcCont as FactionOnTile).tile;
+    return this.inFoT?.tile ?? (ctx?.info.srcCont as FactionOnTile).tile;
   }
 
   override isLegalTarget(toHex: Hex2, ctx?: DragContext): boolean {
@@ -595,7 +595,7 @@ export class Leader extends ChaosUnit implements LeaderSpec {
     if (gameState.gamePlay.movePlayer == this.player) {
       if (ctx!.lastShift) return true;
       if (this.movesThisRound.slice(0, -1).find(mip => mip.from.chex == toHex)) return false; // no looping back
-      const fromTile = this.factOnTile?.tile!, toTile = toHex.ctile;
+      const fromTile = this.inFoT?.tile!, toTile = toHex.ctile;
       if (this.player.movesInPlay.find(mip => mip.matches(fromTile, toTile))) return true;
       if (this.movesThisRound.at(-1)?.matches(toTile, fromTile)) return true;
     }
@@ -801,7 +801,7 @@ export class Rhyzu extends Leader {
       const homeTileBase = this.homeTile?.baseShape as LeaderCard | undefined;
       homeTileBase?.rzIcon?.paint(iColor);
       this.homeHex?.tile?.reCache(0);
-      this.factOnTile?.update();
+      this.inFoT?.update();
     }
     super.paint(CO.rhy_zu, force);   // --> baseShape.paint()
   }
@@ -994,7 +994,7 @@ export class ChaosBuilding extends ChaosPresence {
       if (fnd.bldg == this) return;  // cantBeMovedBy --> dragStop --> dropFunc; bldg not moved/placed; no bonus
       fnd.bldg = this;   // mark Foundation occupied
       if (fnd.bonus !== '-') {
-        this.player.faction.doImmediateBonus(fnd.bonus, () => {});
+        this.player.faction.doImmediateBonus(fnd.bonus);
       }
       fnd.onTile!.addBuilding(this, true);
     } else {

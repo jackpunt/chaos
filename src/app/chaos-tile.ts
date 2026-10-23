@@ -155,8 +155,9 @@ export class MoveIcon extends ChaosToken {
   override isLegalTarget(toHex: Hex2, ctx: DragContext): boolean {
     const toTile = toHex.ctile;
     if (!toTile) return false;
-    if (!this.player.moveIsRedoploy && toTile.isBase) return false;
-    if (this.player.moveIsRedoploy && !this.player.isOnHex(toHex)) return false;
+    const isRedeploy = this.player.moveIsRedoploy;
+    if (!isRedeploy && toTile.isBase) return false;
+    if (!!isRedeploy && !this.player.isOnHex(toHex)) return false;
     // No direct reciprocal MoveInPlay:
     if (this.player.movesInPlay.find(mip => mip.from == toTile && mip.to == this.srcTile)) return false;
     if (this.player.facId !== 5 && toTile?.isLake) return false; // vs: !faction.canEnterLake
@@ -169,6 +170,10 @@ export class MoveIcon extends ChaosToken {
   }
 
   override dropFunc(targetHex: Hex2, ctx: DragContext) {
+    const isRedeploy = this.player.moveIsRedoploy;
+    if (isRedeploy) {
+      isRedeploy(targetHex)
+    } else
     if (this.player.hasMP) {
       const toRegion = targetHex?.ctile, srcTile = this.srcTile;
       if (toRegion && toRegion != srcTile) {
@@ -308,21 +313,22 @@ export class FactionOnTile extends NamedContainer {
 
   // methods to add/remove elements
   /**
-   * Add or Remove a Leader from FoT
+   * Add or Remove a Leader from FoT (dragStart removes)
    * @param ldr
    * @param add true/false => add/remove
    */
   addLeader(ldr: Leader, add = true) {
     if (add) {
       if (!this.leaders.includes(ldr)) {
+        ldr.inFoT?.addLeader(ldr, false);  // auto-remove from previous FoT
         // similar to Hex with tile/meep; we have array of slots for Leaders:
         this.leaders.push(ldr);
       }
-      ldr.factOnTile = this;
+      ldr.inFoT = this;
     } else {
       removeEltFromArray(ldr, this.leaders);
       this.removeChild(ldr)
-      // ldr.factOnTile = undefined;
+      ldr.inFoT = undefined;
     }
     this.update()
   }
@@ -336,7 +342,8 @@ export class FactionOnTile extends NamedContainer {
     return this;
   }
 
-  addFighter(n = 1) {
+  addFighter(n = 1, fromFoT?: FactionOnTile) {
+    fromFoT?.addFighter(-n);
     this.fighters += n;  // this entrypoint used by panel.recruitToBase; faction.addFighter
     this.setFighterVis();
     this.update();
@@ -877,12 +884,9 @@ export class BaseTile extends ChaosTile {
     // return fighters and Leaders: (not just the adj foundation locations: all the map! for PlaceBaseAndMove tests)
     this.player.fotPresence.forEach(fot => {
       if (fot == baseFot) return;
-      const nf = fot.fighters;
-      baseFot.fighterIcon.incValue(nf);        // send fighters back to base
-      fot.fighters = 0;
       fot.leaders.forEach(ldr => ldr.sendHome()); // return to LeaderCard
       fot.leaders.length = 0;
-      fot.update();
+      baseFot.addFighter(fot.fighters, fot);      // send fighters back to base
     })
     this.player.movesInPlay.length = 0;    // clear move-counter (re-enable Moves)
     this.player.setAllFighterVis();               // vis on 0-sized fighters

@@ -140,7 +140,7 @@ export class ResearchCell extends NamedContainer {
   // TODO: confirm ability to pay before activating?
   activateForAction(faction: Faction, pcb?: CB, acb?: CB) {
     const panel = faction.player.gamePlay.table.neutralPanel; // faction.player.panel;
-    console.log(stime(this, `.activateForAction(${this.pName}):`), !!pcb, !!acb, faction.name);
+    // console.log(stime(this, `.activateForAction(${this.pName}):`), !!pcb, !!acb, faction.name);
     if (pcb) {
       this.pButton.on(S.click, () => {
         this.pButton.activate(false);

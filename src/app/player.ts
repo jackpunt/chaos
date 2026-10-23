@@ -316,9 +316,9 @@ export class Player extends PlayerLib {
   }
 
   /** display available opponent FoTs, choose one -> cb */
-  chooseBattleFoT(battleFoTs: BattleFoTs[], cb: CB)  {
+  chooseBattleFoT(battleFoTs: BattleFoTs[], cb: (bf: BattleFoTs) => void)  {
     if (battleFoTs.length == 1) {
-      setTimeout(() => cb(battleFoTs[0][1], 10));
+      setTimeout(() => cb(battleFoTs[0]), 10);
       return;
     }
     battleFoTs.forEach(bfp => {
@@ -335,36 +335,31 @@ export class Player extends PlayerLib {
     const ndx = (battle.fots[0].player == this) ? 0 : 1;
     const tactic: Tactic = battle.tactics[ndx] ?? { wheel: 'ddr' }; // retreat by default
     // dummy reply:
-    tactic.wheel = 'asd';    // or whatever
+    tactic.wheel = (this.gems > 0) ? 'asd' : 'ds0';    // or whatever
     tactic.card = this.cards[0]; // TODO: remove card from cardRack?
     battle.tactics[ndx] = tactic;
     setTimeout(cb, 50)
   }
 
   /** true to restrict movement for Redeploy */
-  moveIsRedoploy = false;
+  moveIsRedoploy?: (toHex: Hex2) => void;
 
   /** FoT has chosen to retreat; move to adjacent w/presence (or base) */
-  // need some way to delegate to Faction (Circ: Zoey)
-  retreat(fot: FactionOnTile) {
-    // TODO: check for facId == 3 && SwampAdj
-    const ftile = fot.tile;
-    const adjTiles = ftile.hex!.linkHexes.map(hex => (hex as Hex2).ctile!)
-      .filter(tile => !!tile && (this.facId == 5 || !tile.isLake))
-    if (this.facId == 3 && ftile.isSwamp) {
-      const allSwampCnx = this.gamePlay.tilesInPlay.filter(tile => tile.isSwampCnx); // maybe base
-      adjTiles.push(...allSwampCnx)
+  // TODO: need some way to delegate to Faction (Circ: Zoey)
+  retreat(fot: FactionOnTile, cb: CB) {
+    // fot.moveIcon.activate(), movePoints = 1, moveIsRedeploy
+    const moveFighters = (toHex: Hex2) => {
+      const tfot = toHex.ctile!.getFoT(this);
+      tfot.addFighter(fot.fighters, fot);
+      this.panel.deactivateButtons();
+      const zoey = Leader.allLeadersByName.get('Zoey')!;
+      if (fot.leaders.includes(zoey)) {
+        this.panel.popupChoice('redeploy Zoey', 'Zoey to Base',
+          () => { tfot.addLeader(zoey); cb() }, () => { cb() } )
+      }
     }
-    // TODO: put up GUI with each adjTile? set phase='retreat' and tweak isLegalTarget?
-    // doneButton? => moveFighters()
-    // fot.moveIcon.dropFunc ->
-    fot.moveIcon
-    const moveFighters = () => {
-      const n = fot.fighters;
-      fot.fighters = 0;
-
-    }
-    this.panel.setDoneButton('Retreat', moveFighters)
+    this.moveIsRedoploy = moveFighters;   // invoked by moveIcon.dropFunc()
+    fot.setFighterVis(true);              // activate fot.moveIcon;
   }
 }
 
@@ -1096,10 +1091,12 @@ export class MoveInPlay extends NamedContainer {
     counter.on('incr', onIncr);
   }
 
+  /** include ldr in this.leaders */
   moveLeader(ldr: Leader) {
     this.leaders || (this.leaders = []);
     this.leaders.push(ldr);
   }
+  /** exclude ldr from this.leaders */
   removeLeader(ldr: Leader) {
     this.leaders && removeEltFromArray(ldr, this.leaders);
   }

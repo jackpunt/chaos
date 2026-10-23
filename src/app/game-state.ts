@@ -443,13 +443,14 @@ export class GameState extends GameStateLib {
         // adjust nFighters, annotate with Leaders that also Move
         if (this.isAutoPhase()) {
           const plyr = this.curPlayer;
+          // move plyr's Leader & minions to Relic1 hex:
           const toFoT = this.gamePlay.hexOfRelic(1)!.ctile!.getFoT(plyr);
           plyr.panel.baseTile.baseRegions?.forEach(hex => {
-            const fromFoT = hex.ctile?.getFoT(plyr)!;
+            const fromFoT = hex.ctile!.getFoT(plyr);
             const ldr = fromFoT.leaders[0];
             if (ldr) {
-              fromFoT.addLeader(ldr, false);
               toFoT.addLeader(ldr);
+              toFoT.addFighter(fromFoT.fighters, fromFoT);
             }
           })
           this.state.done!()
@@ -502,7 +503,9 @@ export class GameState extends GameStateLib {
         else this.state.done!(battle);
       },
       done: (battle: Battle) => {
-        console.log(stime(this, `.Battle: resolve`), battle);
+        const strs = battle.fots.map(fot => `${fot.faction.facName}(${fot.strength[0]})` );
+        console.log(stime(this, `.Battle: resolve`), strs[0], 'vs', strs[1], battle);
+        this.gamePlay.resolveBattle(battle);
         // resolve battle
         // commit and resolve (lose: Leaders, Fighters, Buildings) (retreat: Leader, redeploy)
         // -- auto if no choices [or no conflict]

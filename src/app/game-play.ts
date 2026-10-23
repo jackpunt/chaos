@@ -269,31 +269,31 @@ export class GamePlay extends GamePlayLib {
 
   /** return { strength, damage, shields } */
   resolveWheel(fot: FactionOnTile, wheel: Wheel, card: TacticsCard | undefined) {
-    let str = 0, atk = 0, def = 0, die = this.dieRoll;
+    let [str, txt] = fot.strength, atk = 0, def = 0, die = 0, cstr = 0;
     const nleft = card?.nLeft ?? 0, nright = card?.nRight ?? 0;
 
     if (wheel == 'ddr') {
       def = nleft + nright - 2;
     } else if (wheel == 'ds0') {
       def = nleft;
-      str = nright;
+      str += (cstr = nright);
     } else if (wheel == 'sa0') {
-      str = nleft;
+      str += (cstr = nleft);
       atk = nright;
     } else if (wheel == 'aa4') {
       atk = nleft + nright;
     } else if (wheel == 'asd') {
       fot.player.gems -= 1;
       atk = nleft;
-      str = nright + die;
+      str += (cstr = nright) + (die = this.dieRoll);
       if (die == 1) def += 1;
     } else if (wheel == 'sdd') {
       fot.player.gems -= 1;
-      str = nleft + die;
+      str += (cstr = nleft) + (die = this.dieRoll);
       def = nright
       if (die == 1) def += 1;
     }
-    str += fot.strength[0];   // leader, fighters, buildings (& faction ability? on terrain)
+    console.log(stime(this, `.Wheel: ${fot.facId}`), { wheel, str, atk, def, die, cstr, txt })
     return { str, atk, def }
   }
 
@@ -306,21 +306,37 @@ export class GamePlay extends GamePlayLib {
     const sad1 = this.resolveWheel(fot1, w1, tac1?.card);
     const maxStr = sad0.str >= sad1.str ? 0 : 1;
     const retreat = (w0 == 'ddr' && w1 == 'ddr') ? maxStr : w0 == 'ddr' ? 0 : w1 == 'ddr' ? 1 : undefined;
+    const winner = (retreat != undefined) ? (1 - retreat) : maxStr;
     const wound0 = Math.min(4, fot0.fighters, Math.max(0, sad1.atk - sad0.def));
     const wound1 = Math.min(4, fot1.fighters, Math.max(0, sad0.atk - sad1.def));
     fot0.faction.woundOtherFighters(wound1, fot1);
     fot1.faction.woundOtherFighters(wound0, fot0);
+    // remove buildings of loser:
+    const loserFoT = [fot1, fot0][winner];
+    const loserBldgs = loserFoT.buildings.slice();
+    console.log(stime(this, `.Battle:`), { winner, retreat, wound0, wound1 });
+    loserFoT.buildings.length = 0;
+    loserBldgs.forEach(bldg => {
+      bldg.sendHome();
+      const bonus = bldg.found.bonus;    //  E2, C, G1
+      bldg.player.faction.doImmediateBonus(bonus)
+    })
+    // remove Units of loser:
     if (retreat !== undefined) {
-      const winner = [1, 0][retreat]; // other faction wins
+      // if loser Retreats, deal with that:
       const rfot = [fot0, fot1][retreat];
-      // fighters 'reploy' as retreat:
-      rfot.player.retreat(rfot);  // identify adjacent tiles (or Base or wassname), select one, move
-      // remaining Leaders go to baseTile
-      rfot.leaders.forEach(ldr => {
-        // ldr.moveTo(...baseTile)
-        rfot.addLeader(ldr, false);
-        rfot.player.panel.baseTile.addLeader(ldr);
-      })
+      const leadersToBase = () => {
+        // remaining Leaders go to baseTile (after Zoey decides)
+        rfot.leaders.forEach(ldr => {
+          rfot.player.panel.baseTile.getFoT(ldr.player).addLeader(ldr);
+        })
+      }
+      rfot.player.retreat(rfot, leadersToBase);       // ASYNC!  fighters 'reploy' as retreat:
+    } else {
+      // defeated Fighters to Base, Leaders.sendHome()
+      loserFoT.leaders.slice().forEach(ldr => ldr.sendHome());
+      loserFoT.leaders.length = 0;
+      loserFoT.player.panel.baseTile.getFoT(loserFoT.player).addFighter(loserFoT.fighters, loserFoT);
     }
   }
 
