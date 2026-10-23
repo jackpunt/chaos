@@ -269,22 +269,22 @@ export class HexMap2 extends HexMap<ChaosHex2> {
 
       {row: 3, col: 3, ter: 'Plains', h: 'G1'}, // Plain:gem
       {row: 3, col: 4, ter: 'Swamp', h: 'C'}, // Swamp:card
-      {row: 3, col: 5, ter: 'Hills', h: 'G1'}, // Hills:gem
+      {row: 3, col: 5, ter: 'Cliffs', h: 'G1'}, // Cliffs:gem
       {row: 4, col: 2, ter: 'Swamp', h: 'E2'}, // S:energy
       {row: 4, col: 3, ter: 'Swamp', h: 'C'}, // S:card
-      {row: 4, col: 4, ter: 'Hills', h: 'E2'}, // H:energy
+      {row: 4, col: 4, ter: 'Cliffs', h: 'E2'}, // H:energy
       {row: 4, col: 5, ter: 'Swamp', h: 'G1'}, // swamp:gem
       {row: 5, col: 2, ter: 'Plains', h: 'C'}, // Plain:card
       {row: 5, col: 4, ter: 'Plains', h: 'E2'}, // Plain:energy
 
       {row: 4, col: 6, ter: 'Lake', h: '-'}, // Lake:none
       {row: 5, col: 3, ter: 'Lake', h: '-'}, // Lake:none
-      {row: 5, col: 5, ter: 'Hills', h: 'C'}, // Hills:card
+      {row: 5, col: 5, ter: 'Cliffs', h: 'C'}, // Cliffs:card
       {row: 6, col: 4, ter: 'Base', h: '-'}, // Base(2)|xtile3
     ];
-    const xtile3 = permute6([{ter: 'Hills', h: 'E2'}, {ter: 'Swamp', h: 'G1'}, {ter: 'Plains', h: 'C' }], p6ary[0])
-    const xtile4 = permute6([{ter: 'Hills', h: 'C' }, {ter: 'Swamp', h: 'E2'}, {ter: 'Plains', h: 'G1'}], p6ary[1])
-    const xtile5 = permute6([{ter: 'Hills', h: 'G1'}, {ter: 'Swamp', h: 'C' }, {ter: 'Plains', h: 'E2'}], p6ary[2])
+    const xtile3 = permute6([{ter: 'Cliffs', h: 'E2'}, {ter: 'Swamp', h: 'G1'}, {ter: 'Plains', h: 'C' }], p6ary[0])
+    const xtile4 = permute6([{ter: 'Cliffs', h: 'C' }, {ter: 'Swamp', h: 'E2'}, {ter: 'Plains', h: 'G1'}], p6ary[1])
+    const xtile5 = permute6([{ter: 'Cliffs', h: 'G1'}, {ter: 'Swamp', h: 'C' }, {ter: 'Plains', h: 'E2'}], p6ary[2])
     const xbase = (tid: TERRAIN) => ({ ter: tid });
 
     const tiles3: TileSpec[] = rct([

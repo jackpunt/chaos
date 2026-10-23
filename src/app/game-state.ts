@@ -1,6 +1,7 @@
 import { arrayN, C, stime } from "@thegraid/common-lib";
 import { GameState as GameStateLib, TP, type Phase } from "@thegraid/hexlib";
 import type { ChaosTable as Table } from "./chaos-table";
+import type { FactionOnTile } from "./chaos-tile";
 import { factionNames, type FactionId } from "./factions";
 import { pentagon } from "./functions";
 import type { Battle, GamePlay } from "./game-play";
@@ -8,9 +9,11 @@ import { Relic, type PriceToken } from "./meeples";
 import type { Player } from "./player";
 import { priceNames, pricePhases, type CB, type PhaseName, type PriceName, type PricePhase } from "./table-params";
 
+export type BattleFoTs = [FactionOnTile, FactionOnTile];
 declare module '@thegraid/hexlib' {
   interface Phase {
     notDone?: () => string | undefined; // '' or reason/reminder of what needs to be done.
+    battleFoTS?: BattleFoTs[];
   }
 }
 
@@ -109,9 +112,9 @@ export class GameState extends GameStateLib {
 
   // autoPhases: string[] = ['PlaceBase', 'PlaceRelic', 'DeployLeaders', 'BeginRound', 'SetPrices', 'Discovery'];
   autoDiscover: PricePhase[] = ['Build', 'Recruit', 'Move'];
-  autoPhases: string[] = ['Harvest', 'Recruit'];
+  autoPhases: string[] = ['Harvest', 'Recruit', 'Build'];
   /** run auto placements until autoPhase */
-  autoPhaseX?: string = 'Build';    // undefined for normal --> 'PlaceRelic'
+  autoPhaseX?: string = 'Combat';    // undefined for normal --> 'PlaceRelic'
   isAutoPhase(phase = this.state.Aname!) {
     // autoPhases implicitly includes all phase up to autoPhase:
     if (this.autoPhaseX && this.stateNdx(phase) < this.stateNdx(this.autoPhaseX)) return true;
@@ -294,7 +297,7 @@ export class GameState extends GameStateLib {
 
       notDone: () => {
         const plyr = this.curPlayer, facId = plyr.facId, baseTile = plyr.panel.baseTile;;
-        if (!baseTile.baseRegions?.find(hex => hex.ctile!.hasFoT(facId).leaders.length > 0)) {
+        if (!baseTile.baseRegions?.find(hex => hex.ctile!.hasFoT(facId)!.leaders.length > 0)) {
           return "must place a Leader!";
         } if (baseTile.getFoT(plyr).fighters > 0) {
           return "must place fighters!"
@@ -438,10 +441,23 @@ export class GameState extends GameStateLib {
         this.doneButton();
         // for each MovePoint: click to drop 'move actions' on hex border from src to dest region
         // adjust nFighters, annotate with Leaders that also Move
+        if (this.isAutoPhase()) {
+          const plyr = this.curPlayer;
+          const toFoT = this.gamePlay.hexOfRelic(1)!.ctile!.getFoT(plyr);
+          plyr.panel.baseTile.baseRegions?.forEach(hex => {
+            const fromFoT = hex.ctile?.getFoT(plyr)!;
+            const ldr = fromFoT.leaders[0];
+            if (ldr) {
+              fromFoT.addLeader(ldr, false);
+              toFoT.addLeader(ldr);
+            }
+          })
+          this.state.done!()
+        };
        },
       done: () => {
         this.gamePlay.endMoveFaction();
-        this.startOrPhase('Combat', undefined, true); // first time: set lBI
+        this.startOrPhase('Combat', undefined, true); // first time: set lBI & cull FoTs
       },
       notDone: () => {
         const moves = this.curPlayer.movesLeft;
@@ -449,48 +465,58 @@ export class GameState extends GameStateLib {
       },
     },
     Combat: {
-      start: (ndx = this.phaseNdx, init: boolean = false) => {
+      battleFoTS: [],
+      start: (ndx = this.gunPlayer.index, init: boolean = false) => {
         if (init) {
+          ndx = this.gunPlayer.index;            // maybe redundant...
+          this.gamePlay.removeEmptyFoTs(); // when entering Combat phase, remove reference to empty FoTs
           this.lastBattleInitiator = this.nextNdx(ndx, this.nPlayers - 1); // plyr to the right
+        } else {
+          this.phaseNdx = this.lastBattleInitiator!;
         }
         this.setCurPlayerNdx(ndx);
-        // find Regions with conflict; for curPlayer highlight Battle Regions (if any)
-        // class Battle(ctile, stat1, stat2); stat: { plyr, wheel, card }
-        const battles = this.gamePlay.findBattles(this.curPlayerNdx);
-        if (battles.length > 0) {
-          // curPlayer select a Battle; --> Each Player selects Wheel & Card;
-          this.curPlayer.chooseBattle(battles, (battle: Battle) => this.phase('Battle', battle))
-          return;
+        this.doneButton('Combat');
+        const facId = this.curPlayer.facId;
+        // find Tiles with conflict for curPlayer; highlight Conflict Tiles/FoTs (if any)
+        const confTiles = this.gamePlay.conflictTiles(facId);
+        const battleFoTs = this.state.battleFoTS = this.gamePlay.battleFoTs(confTiles, facId);
+        if (battleFoTs.length > 0) {
+          // curPlayer select a Battle; choose Tile & Opponent; then each Player selects Wheel & Card; resolve
+          this.curPlayer.chooseBattleFoT(battleFoTs, (bf: BattleFoTs) => this.phase('Battle', bf))
         } else if (this.lastBattleInitiator == this.curPlayerNdx) {
           // all the way around and last player to initiate has no more battles;
           this.phase('Income');
-          return;
         }
-        this.doneButton('Combat');
        },
       done: () => this.startOrPhase('Income'),
+      notDone: () => (this.state.battleFoTS!.length > 0) ? 'choose a Battle!' : undefined,
     },
+    // each Player choose their Tactic; then resolve: winner, casulaties, removal
     Battle: {
-      start: (battle: Battle) => {
-        // select Wheel & Card (w/Gem)
-        if (!battle.stat1.wheel) battle.stat1.plyr.setBattlePlan(battle, () => super.phase('Battle', battle))
-        else if (!battle.stat2.wheel) battle.stat2.plyr.setBattlePlan(battle, () => super.phase('Battle', battle))
+      // class Battle(ctile, stat1, stat2); stat: { plyr, wheel, card }
+      start: (bf: BattleFoTs, battle: Battle = this.gamePlay.newBattle(bf)) => {
+        // battle has { fots, tactics }
+        // select Tactic: wheel (w/Gem) & card
+        if (!battle.tactics[0]) battle.fots[0].player.setBattlePlan(battle, () => super.phase('Battle', bf, battle))
+        else if (!battle.tactics[1]) battle.fots[1].player.setBattlePlan(battle, () => super.phase('Battle', bf, battle))
         else this.state.done!(battle);
-        return;
       },
       done: (battle: Battle) => {
+        console.log(stime(this, `.Battle: resolve`), battle);
         // resolve battle
         // commit and resolve (lose: Leaders, Fighters, Buildings) (retreat: Leader, redeploy)
         // -- auto if no choices [or no conflict]
         // after Battle: advance Fame for Oxataya, JRayek, [Zcharo, AI, Leyrien]
         // -- test for WIN
-        this.lastBattleInitiator = battle.stat1.plyr.index;
-        this.state = this.states['Combat'];
-        this.state.start(this.nextNdx(this.lastBattleInitiator));
+        this.lastBattleInitiator = battle.fots[0].player.index;
+        const nextNdx = this.nextNdx(this.lastBattleInitiator);
+        this.phase('Combat', nextNdx);    // sets phaseIndex, but we ignore that and use lastBattleInitiator
+        // this.state = this.states['Combat'];
+        // this.state.start(this.nextNdx(this.lastBattleInitiator));
       }
     },
     Income: {
-      start: (ndx = this.phaseNdx) => {
+      start: (ndx = this.gunPlayer) => {
         this.setCurPlayerNdx(ndx);
         this.doneButton();
         // auto mostly? choice of E/G, G/%

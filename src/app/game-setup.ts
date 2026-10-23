@@ -207,13 +207,6 @@ class NullGameSetup extends GameSetupLib {
     return new NullTable(this.stage);
   }
 
-  override makeGamePlay(startElt: SetupElt): GamePlay {
-    const gp = new GamePlay(this, startElt);
-    Tile.gamePlay = gp;
-    this.hexMap.setupMapTiles(ChaosTile);   // TODO: move this to ScenarioParser.parseScenario()
-    return gp;
-  }
-
   /** hack a neutral 'Player' so we can build the neutral Panel (the Research tracks)  */
   makeNeutralPlayer(gamePlay: GamePlay) {
     const np = TP.numPlayers;      // this.facIds.length
@@ -242,9 +235,29 @@ class NullGameSetup extends GameSetupLib {
 
 /** the class instantiated by stage.components.ts
  *
- * for reasons, we wrap it this way:
+ * ideally, NullGameSetup would be un-modified, and put game-specific changes here:
+ *
+ * so facNames, facIds, initialScenario()
  */
 export class GameSetup extends NullGameSetup {
+  declare gamePlay: GamePlay;
+
+  constructor(canvasId?: string, qParam?: Params) {
+    super(canvasId, { f: '0,3', ...qParam })
+  }
+
+  override makeGamePlay(startElt: SetupElt): GamePlay {
+    const gp = new GamePlay(this, startElt);
+    Tile.gamePlay = gp;
+    this.hexMap.setupMapTiles(ChaosTile);   // TODO: move this to ScenarioParser.parseScenario()
+    return gp;
+  }
+
+  /** the generally accessible Tiles ['Swamp', 'Cliffs', 'Plains', 'Lake'], excluding Mtn, Base */
+  override startGame(): void {
+    this.gamePlay.tilesInPlay = this.hexMap.filterEachHex(hex => !!hex.ctile).map(hex => hex.ctile!).filter(tile => (['Swamp', 'Plains', 'Cliffs', 'Lake']).includes(tile.terrain))
+    super.startGame();
+  }
 }
 
 /** Table used by NullGameSetup */

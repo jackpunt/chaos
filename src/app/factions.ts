@@ -6,7 +6,7 @@ import type { ChaosHex2 as Hex2 } from "./chaos-hex";
 import { BONUS, ChaosTile, FactionOnTile, FAME_BONUS, HARVEST, HexPair } from "./chaos-tile";
 import type { Foundation } from "./foundation";
 import { rotationAtPoint } from "./functions";
-import { ChaosMeeple, Leader, Morale, PathShapeMeeple, type ChaosBuilding } from "./meeples";
+import { ChaosMeeple, Leader, Morale, Outpost, PathShapeMeeple, Stronghold, type ChaosBuilding } from "./meeples";
 import { type Panel, type Player, type SwampTile } from "./player";
 import { type ResearchLevel } from "./research-cell";
 import { pricePhases, TP, type CB, type PricePhase } from "./table-params";
@@ -199,8 +199,17 @@ export class Faction {
 
   }
 
+  /** number of units this FactionOnTile would pin */
   pins(fot: FactionOnTile) {
     return fot.fighters + fot.leaders.length; // each unit pins 1
+  }
+
+  /** number of this Faction's units (which would be) pinned on given Region */
+  numPinned(tile: ChaosTile) {
+    // the OTHER Factions present on tile:
+    const fots = tile.factionsPresent.filter(fot => fot.facId !== this.facId);
+    const pins = Math.max(... fots.map(fot => fot.pins));
+    return pins;
   }
 
   incFame() {
@@ -499,6 +508,12 @@ export class Faction {
   buildingStr(fot: FactionOnTile) {
     return Math.sum(...fot.buildings.map(b => b.strength));
   }
+  leaderAtk(fot: FactionOnTile) {
+    return Math.sum(...fot.leaders.map(ldr => ldr.stats[1]));
+  }
+  leaderDef(fot: FactionOnTile) {
+    return Math.sum(...fot.leaders.map(ldr => ldr.stats[2]));
+  }
 
   // while computing Strength, also build a text block to explain the source
   /** sum of all  Strength components: Fighters, Leader(s), Rhyzu, Terrain/Faction effects */
@@ -506,15 +521,46 @@ export class Faction {
     const fot = region.hasFoT(this.facId);
     let str = 0, txt = '';
     if (fot) {
-      const addStrength = (ds: number, src: string) => {
+      const addValueTxt = (ds: number, src: string) => {
         str = str + ds;
         txt = (ds > 0) ? `${txt}${txt?'\n':''}${src} ${ds}` : txt;
       }
-      addStrength(this.fighterStr (fot), 'Fighters:  ');
-      addStrength(this.leaderStr  (fot), 'Leaders:  ');
-      addStrength(this.buildingStr(fot), 'Buildings:');
+      addValueTxt(this.fighterStr (fot), 'Fighters:  ');
+      addValueTxt(this.leaderStr  (fot), 'Leaders:  ');
+      addValueTxt(this.buildingStr(fot), 'Buildings:');
     }
     return [str, txt];
+  }
+
+  attackInRegion(region: ChaosTile): [number, string] {
+    const fot = region.hasFoT(this.facId);
+    let str = 0, txt = '';
+    const addValueTxt = (ds: number, src: string) => {
+      str = str + ds;
+      txt = (ds > 0) ? `${txt}${txt?'\n':''}${src} ${ds}` : txt;
+    }
+    if (fot) {
+      addValueTxt(this.leaderAtk  (fot), 'Leaders:  ');
+    }
+    return [str, txt];
+  }
+  defenceInRegion(region: ChaosTile): [number, string] {
+    const fot = region.hasFoT(this.facId);
+    let str = 0, txt = '';
+    const addValueTxt = (ds: number, src: string) => {
+      str = str + ds;
+      txt = (ds > 0) ? `${txt}${txt?'\n':''}${src} ${ds}` : txt;
+    }
+    if (fot) {
+      addValueTxt(this.leaderDef  (fot), 'Leaders:  ');
+    }
+    return [str, txt];
+  }
+
+  /** resolve wounded opponents from Battle; AI to override to get Fame. */
+  woundOtherFighters(n = 0, fot: FactionOnTile) {
+    fot.fighters -= n;
+    fot.player.panel.woundedToRecruit(n);
   }
 }
 
@@ -603,6 +649,10 @@ class Dropship extends ChaosMeeple {
     this._toMark = this.fromMark = this.edgeMarkPool[0]; // initialize to any non-null EdgeMark
   }
 
+  isOnHex(hex: Hex2) {
+    return this.edge.includes(hex);
+  }
+
   override makeShape(size?: number): Paintable {
     return new class DropshipShape extends PathShapeMeeple {
       override strokec = '';
@@ -628,6 +678,13 @@ class Dropship extends ChaosMeeple {
     const str = (this.player.faction.attributes['tactical']?.upgraded ? 4 : 2)
     const txt = `Dropship: ${str}`;
     return [str, txt]
+  }
+
+  defenceInRegion(region: ChaosTile): [number, string] {
+    if (!this.edge?.map(hex => hex.ctile).includes(region)) return [0, '']; // not in region
+    const def = (this.player.faction.attributes['tactical']?.upgraded ? 2 : 1)
+    const txt = `Dropship: ${def}`;
+    return [def, txt]
   }
 
   // mostly for initial placement from placeBase; Table.dragStart() --> tile.moveTo(undefined)
@@ -734,7 +791,7 @@ class Dropship extends ChaosMeeple {
 }
 
 
-class Circadian extends Faction {
+export class Circadian extends Faction {
 
   dropship: Dropship;
 
@@ -753,12 +810,29 @@ class Circadian extends Faction {
     this.dropship.moveTo(...adjRegions);
   }
 
+  override pins(fot: FactionOnTile) {
+    const renzo = Leader.allLeadersByName.get('Renzo')!, rup = renzo && renzo.upgraded;
+    const rpins = (!fot.leaders.includes(renzo) ? 0 : rup ? 4 : 2); // +1 implicitly include
+    return super.pins(fot) + rpins;
+  }
+
+  override numPinned(tile: ChaosTile): number {
+  // Leaders are pinned 1:1 except Renzo is 3:1 or 5:1
+    return Math.floor(super.numPinned(tile) / 2);   // approximate, Leaders pin differently, esp Renzo
+  }
+
   override fighterStr(fot: FactionOnTile) {
     return fot.fighters * (this.attributes['militarized']?.upgraded ? 3 : 2);
   }
 
   override strengthInRegion(region: ChaosTile): [number, string] {
     const [str, txt] = super.strengthInRegion(region)
+    const [dstr, dtxt] = this.dropship.strengthInRegion(region)
+    return dstr ? [str + dstr, `${txt}\n${dtxt}`] : [str, txt];
+  }
+
+  override defenceInRegion(region: ChaosTile): [number, string] {
+    const [str, txt] = super.defenceInRegion(region)
     const [dstr, dtxt] = this.dropship.strengthInRegion(region)
     return dstr ? [str + dstr, `${txt}\n${dtxt}`] : [str, txt];
   }
@@ -867,10 +941,48 @@ export class Leyrien extends Faction {
 
 class Jrayek extends Faction {
 
+  override strengthInRegion(region: ChaosTile): [number, string] {
+    const [str, txt] = super.attackInRegion(region);
+    if (region.isCliffs) {
+      const cs = this.attributes['hostile']?.upgraded ? 4 : 2;
+      return [str + cs, `${txt}\nCliffs`];
+    }
+    return [str, txt];
+  }
+
+  override attackInRegion(region: ChaosTile): [number, string] {
+    const [atk, txt] = super.attackInRegion(region);
+    const bldgs = region.hasFoT(this.facId)?.buildings;
+    if (bldgs?.find(bldg => (bldg.player.facId == this.facId) && (bldg instanceof Stronghold))) {
+      return [atk + 2, `${txt}\nStronghold`];
+    }
+    return [atk, txt];
+  }
+
+  override defenceInRegion(region: ChaosTile): [number, string] {
+    const [def, txt] = super.defenceInRegion(region);
+    const bldgs = region.hasFoT(this.facId)?.buildings;
+    if (bldgs?.find(bldg => (bldg.player.facId == this.facId) && (bldg instanceof Stronghold))) {
+      return [def + 1, `${txt}\nStronghold`];
+    }
+    return [def, txt];
+  }
+
+  // fortified.upgraded: each of my bldgs pins 1
   override pins(fot: FactionOnTile) {
-    const renzo = Leader.allLeadersByName.get('Renzo')!, rup = renzo && renzo.upgraded;
-    const rpins = (!fot.leaders.includes(renzo) ? 0 : rup ? 4 : 2); // +1 implicitly include
-    return super.pins(fot) + rpins;
+    if (!this.attributes['fortified']?.upgraded) return super.pins(fot);
+    const blds = fot.buildings.filter(bldg => (bldg.player.facId == this.facId)
+      && ((bldg instanceof Outpost) || (bldg instanceof Stronghold)))
+    return super.pins(fot) + blds.length;
+  }
+
+  // fortified.!upgraded: each of their bldgs pins 2
+  override numPinned(tile: ChaosTile): number {
+    if (this.attributes['fortified']?.upgraded) return super.numPinned(tile);
+    const fots = tile.factionsPresent.filter(fot => fot.facId !== this.facId)
+    const blds = fots.flatMap(fot => fot.buildings.filter(bldg => (bldg.player.facId !== this.facId)
+      && ((bldg instanceof Outpost) || (bldg instanceof Stronghold))));
+    return super.numPinned(tile) + blds.length * 2;
   }
 }
 

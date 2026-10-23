@@ -1,27 +1,29 @@
 import { permute, stime } from "@thegraid/common-lib";
 import { KeyBinder } from "@thegraid/easeljs-lib";
 import { GamePlay as GamePlayLib, SetupElt, TP as TPLib } from "@thegraid/hexlib";
-import type { HexMap2 } from "./chaos-hex";
+import type { ChaosHex2 as Hex2, HexMap2 } from "./chaos-hex";
 import type { ChaosTable } from "./chaos-table";
-import { PairTarget, type BONUS, type ChaosTile, type TERRAIN } from "./chaos-tile";
+import { PairTarget, type BONUS, type ChaosTile, type FactionOnTile, type TERRAIN } from "./chaos-tile";
 import type { FactionId } from "./factions";
 import { BgFound } from "./foundation";
 import type { GameSetup } from "./game-setup";
-import { GameState, type PlayerId } from "./game-state";
+import { GameState, type BattleFoTs, type PlayerId } from "./game-state";
 import { Relic } from "./meeples";
 import type { Player } from "./player";
 import { ScenarioParser } from "./scenario-parser";
 import { priceNames, TP } from "./table-params";
 import type { TacticsCard } from "./tactics-card";
 
-
-type Wheel = string;  // TBD: define names for the wheel slots
-type BattleStat = { plyr: Player, wheel: Wheel, card: TacticsCard }
+type Wheel =   'ds0' | 'sa0' | 'aa4' |'asd' | 'sdd' | 'ddr';
+export type Tactic = { wheel: Wheel, card?: TacticsCard }
 /** a Region in conflict and 2 contestant Player */
 export class Battle {
-  region!: ChaosTile;
-  stat1!: BattleStat;
-  stat2!: BattleStat;
+  fots!: BattleFoTs;
+  tactics: (Tactic | undefined)[] = [undefined, undefined];   // 2 elements
+
+  constructor(bf: BattleFoTs) {
+    this.fots = bf;
+  }
 }
 
 export class GamePlay extends GamePlayLib {
@@ -36,6 +38,9 @@ export class GamePlay extends GamePlayLib {
   declare gameSetup: GameSetup;
   declare hexMap: HexMap2;
   declare table: ChaosTable;
+
+  /** the generally accessible Tiles ['Swamp', 'Cliffs', 'Plains', 'Lake'], excluding Mtn, Base */
+  tilesInPlay: ChaosTile[] = [];
 
   /** Players in table order; the order they were created. */
   override get allPlayers() { return super.allPlayers as Player[] }
@@ -131,7 +136,7 @@ export class GamePlay extends GamePlayLib {
   placeInitialRelics() {
     const map = this.hexMap;
     const relics = Relic.allRelics.filter(rel => !rel.foundation.onTile);
-    const terr: TERRAIN[] = ['Hills', 'Swamp', 'Plains'];
+    const terr: TERRAIN[] = ['Cliffs', 'Swamp', 'Plains'];
     const hexes = map.filterEachHex(hex => terr.includes(hex.ctile?.terrain ?? 'Base') && (!hex.ctile!.foundations[1]) )
     permute(hexes);
     const empty = permute(['E2', 'G1', 'C'] as BONUS[]).map(b => new BgFound(`noR_${b}`, b));
@@ -143,6 +148,10 @@ export class GamePlay extends GamePlayLib {
         hex.ctile?.addFoundation(empty.pop()!, true);
       }
     })
+  }
+
+  hexOfRelic(rn: number) {
+    return Relic.allRelics[rn-1].hex as Hex2;
   }
 
   // TODO:
@@ -228,8 +237,91 @@ export class GamePlay extends GamePlayLib {
     faction.moveFaction(this.movePoints);  // this.movePlayer = faction.player;
   }
 
-  findBattles(pid: PlayerId) {
-    return [] as Battle[];
+  newBattle(bf: BattleFoTs) {
+    return new Battle(bf);
+  }
+
+  /** Remove empty FoTs, before Combat & after each Battle is resolved */
+  removeEmptyFoTs() {
+    this.tilesInPlay.forEach(tile => {
+      tile.factions.forEach((fot, n) => fot?.isOccupied || (tile.factions[n] = undefined))
+    })
+  }
+
+  /** Tiles with given Faction and another FoT */
+  conflictTiles(facId: FactionId) {
+    return this.tilesInPlay.filter(tile => tile.hasFoT(facId) && tile.factionsPresent.length > 1)
+  }
+
+  /** list each pair of [FoT(pid), FoT]; initiator is in slot[0] */
+  battleFoTs(confTiles: ChaosTile[], facId: FactionId) {
+    const battles = [] as [FactionOnTile, FactionOnTile][];
+    confTiles.forEach(ctile => {
+      const pfot = ctile.hasFoT(facId)!;  // assert is non-null
+      ctile.factionsPresent.filter(fot => (fot !== pfot) && battles.push([pfot, fot]) )
+    })
+    return battles;
+  }
+
+  get dieRoll() {
+    return permute([1, 2, 2, 3, 3, 4])[0];
+  }
+
+  /** return { strength, damage, shields } */
+  resolveWheel(fot: FactionOnTile, wheel: Wheel, card: TacticsCard | undefined) {
+    let str = 0, atk = 0, def = 0, die = this.dieRoll;
+    const nleft = card?.nLeft ?? 0, nright = card?.nRight ?? 0;
+
+    if (wheel == 'ddr') {
+      def = nleft + nright - 2;
+    } else if (wheel == 'ds0') {
+      def = nleft;
+      str = nright;
+    } else if (wheel == 'sa0') {
+      str = nleft;
+      atk = nright;
+    } else if (wheel == 'aa4') {
+      atk = nleft + nright;
+    } else if (wheel == 'asd') {
+      fot.player.gems -= 1;
+      atk = nleft;
+      str = nright + die;
+      if (die == 1) def += 1;
+    } else if (wheel == 'sdd') {
+      fot.player.gems -= 1;
+      str = nleft + die;
+      def = nright
+      if (die == 1) def += 1;
+    }
+    str += fot.strength[0];   // leader, fighters, buildings (& faction ability? on terrain)
+    return { str, atk, def }
+  }
+
+  /** resolve strength, damage-shields, remove losing units/buildings */
+  resolveBattle(battle: Battle) {
+    const [fot0, fot1] = battle.fots;
+    const [tac0, tac1] = battle.tactics;
+    const w0 = tac0?.wheel!, w1 = tac1?.wheel!;
+    const sad0 = this.resolveWheel(fot0, w0, tac0?.card);
+    const sad1 = this.resolveWheel(fot1, w1, tac1?.card);
+    const maxStr = sad0.str >= sad1.str ? 0 : 1;
+    const retreat = (w0 == 'ddr' && w1 == 'ddr') ? maxStr : w0 == 'ddr' ? 0 : w1 == 'ddr' ? 1 : undefined;
+    const wound0 = Math.min(4, fot0.fighters, Math.max(0, sad1.atk - sad0.def));
+    const wound1 = Math.min(4, fot1.fighters, Math.max(0, sad0.atk - sad1.def));
+    fot0.faction.woundOtherFighters(wound1, fot1);
+    fot1.faction.woundOtherFighters(wound0, fot0);
+    if (retreat !== undefined) {
+      const winner = [1, 0][retreat]; // other faction wins
+      const rfot = [fot0, fot1][retreat];
+      // fighters 'reploy' as retreat:
+      rfot.player.retreat(rfot);  // identify adjacent tiles (or Base or wassname), select one, move
+      // remaining Leaders go to baseTile
+      rfot.leaders.forEach(ldr => {
+        // ldr.moveTo(...baseTile)
+        rfot.addLeader(ldr, false);
+        rfot.player.panel.baseTile.addLeader(ldr);
+      })
+    }
   }
 
   brake = false; // for debugger

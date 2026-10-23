@@ -1122,7 +1122,7 @@ export class Relic extends ChaosMeeple {
     return new RectShape({ x: -size/2, y: -size * .5, w: size, h: size, rr: [rc, rc, 2, 2] }, C.grey32);
   }
   readonly foundation: Foundation; // placed on map hex by placeRelic(hex)
-
+  override get hex() { return this.foundation.hex }
   /**
    *
    * @param n Relic number (1..6)

@@ -10,8 +10,8 @@ import { BaseTile, ChaosTile, FighterCounter, LeaderTile, PairTarget, type BONUS
 import { EdgeMark, Faction, factionColors, factionNeutral, type FactionId, type FactionName } from "./factions";
 import { BgFound, Foundation } from "./foundation";
 import { bonusIcon, dist, pentagon, pointsAtDistance } from "./functions";
-import { type Battle, type GamePlay } from "./game-play";
-import { type PlayerId } from "./game-state";
+import { type Battle, type GamePlay, type Tactic } from "./game-play";
+import { type BattleFoTs, type PlayerId } from "./game-state";
 import { baseProdTokenIds, buildingCbyName, ChaosBuilding, ChaosUnit, Factory, Leader, Outpost, PriceToken, ProdToken, PTokenShape, Rhyzu, type ChaosUnitType, type PriceId } from "./meeples";
 import { ResearchCell, ResearchLevel, ResGrid } from "./research-cell";
 import { CO, pricePhases, type CB, type PhaseName } from "./table-params";
@@ -192,16 +192,12 @@ export class Player extends PlayerLib {
 
   /** Array of FoT for this Player with fighters, leaders or buildings; setFighterVis() */
   get presence() {
-    return this.fotPresence.filter(fot => this.isInFot(fot))
+    return this.fotPresence.filter(fot => fot.isOccupied)
   }
 
-  /** return true if fot has Fighters, Leaders or Buildings. */
-  isInFot(fot?: FactionOnTile) {
-    return fot && (fot.fighters > 0 || fot.leaders.length > 0 || fot.buildings.length > 0)
-  }
   /** return true if player.facId has FoT with fighters, leaders or buildings */
   isOnTile(ctile?: ChaosTile, fot = ctile?.hasFoT(this.facId)) {
-    return this.isInFot(fot);
+    return fot && fot.isOccupied;
   }
 
   /** true if Player has presence on Hex, includes player's Base */
@@ -319,18 +315,56 @@ export class Player extends PlayerLib {
     doneFunc();
   }
 
-  chooseBattle(battles: Battle[], cb: (battle: Battle) => void) {
-    // TODO: choose from GUI
-    cb(battles[0]);
+  /** display available opponent FoTs, choose one -> cb */
+  chooseBattleFoT(battleFoTs: BattleFoTs[], cb: CB)  {
+    if (battleFoTs.length == 1) {
+      setTimeout(() => cb(battleFoTs[0][1], 10));
+      return;
+    }
+    battleFoTs.forEach(bfp => {
+      bfp[1].setButton((evt) => {
+        battleFoTs.forEach(bfp => bfp[1].button.visible = false);   // deactivate
+        cb(bfp)
+      });
+    })
   }
 
+  /** select wheel & card for the given Battle */
   setBattlePlan(battle: Battle, cb: () => void) {
     // oh, sure: plyr2 can see the stat1.wheel & card...
-    const stat = (battle.stat1.plyr == this) ? battle.stat1 : battle.stat2;
+    const ndx = (battle.fots[0].player == this) ? 0 : 1;
+    const tactic: Tactic = battle.tactics[ndx] ?? { wheel: 'ddr' }; // retreat by default
     // dummy reply:
-    stat.wheel = "retreat";    // or whatever
-    stat.card = this.cards[0];
+    tactic.wheel = 'asd';    // or whatever
+    tactic.card = this.cards[0]; // TODO: remove card from cardRack?
+    battle.tactics[ndx] = tactic;
     setTimeout(cb, 50)
+  }
+
+  /** true to restrict movement for Redeploy */
+  moveIsRedoploy = false;
+
+  /** FoT has chosen to retreat; move to adjacent w/presence (or base) */
+  // need some way to delegate to Faction (Circ: Zoey)
+  retreat(fot: FactionOnTile) {
+    // TODO: check for facId == 3 && SwampAdj
+    const ftile = fot.tile;
+    const adjTiles = ftile.hex!.linkHexes.map(hex => (hex as Hex2).ctile!)
+      .filter(tile => !!tile && (this.facId == 5 || !tile.isLake))
+    if (this.facId == 3 && ftile.isSwamp) {
+      const allSwampCnx = this.gamePlay.tilesInPlay.filter(tile => tile.isSwampCnx); // maybe base
+      adjTiles.push(...allSwampCnx)
+    }
+    // TODO: put up GUI with each adjTile? set phase='retreat' and tweak isLegalTarget?
+    // doneButton? => moveFighters()
+    // fot.moveIcon.dropFunc ->
+    fot.moveIcon
+    const moveFighters = () => {
+      const n = fot.fighters;
+      fot.fighters = 0;
+
+    }
+    this.panel.setDoneButton('Retreat', moveFighters)
   }
 }
 
@@ -743,6 +777,10 @@ export class Panel extends PlayerPanel {
 
   /** fighters available in each stage of recruiting; [0] is fast-trackable; [lim] is in Base */
   recruits = [] as NumCounter[];
+  /** wounded fighters appear in recruits[0] */
+  woundedToRecruit(n = 0) {
+    this.recruits[0].incValue(n);
+  }
   /** available recruit actions */
   _recruitCounter!: NumCounter;
   get recruitPoints() { return this._recruitCounter.value; }
@@ -828,7 +866,7 @@ export class Panel extends PlayerPanel {
   baseRecruitCounter!: NumCounter;
 
   // increase fighters in Base by n (presumably also decrement some recruit counter)
-  // override for Circadian, also for Oxataya: allow recruit to Stronghold
+  // override for Oxataya: allow recruit to Stronghold
   // at end of Recruit phase/action
   recruitToBase(n = this.baseRecruitCounter.value) {
     this.baseTile.addFighter(this.player, n);

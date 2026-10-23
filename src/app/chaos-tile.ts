@@ -1,11 +1,12 @@
 import { C, permute, removeEltFromArray, S, stime } from "@thegraid/common-lib";
-import { AliasLoader, NamedContainer, type Paintable, PolyShape, RectShape, TextInRect, type ValueEvent } from "@thegraid/easeljs-lib";
+import { AliasLoader, NamedContainer, type Paintable, PolyShape, RectShape, TextInRect, type TextInRectOptions, UtilButton, type UtilButtonOptions, type ValueEvent } from "@thegraid/easeljs-lib";
 import type { DisplayObject, MouseEvent } from "@thegraid/easeljs-module";
+import { Graphics, PolyStar } from "@thegraid/easeljs-module";
 import { type DragContext, type DragFuncs, H, type HasDragger, type HexDir, HexShape, type IHex2, MapTile, NumCounter, Player as PlayerLib, rightClickable, type Table, Tile, TP } from "@thegraid/hexlib";
 import { type ChaosHex2, type ChaosHex2 as Hex2 } from "./chaos-hex";
 import { type ChaosTable } from "./chaos-table";
 import { NumCounterHex } from "./counters";
-import { type Faction, type FactionId } from "./factions";
+import { type Circadian, type Faction, type FactionId } from "./factions";
 import { Foundation } from "./foundation";
 import { dist } from "./functions";
 import type { GamePlay } from "./game-play";
@@ -86,7 +87,7 @@ class HarvestToken {
 }
 
 // 'Base' tile marks space where a Faction Base can be placed (replacing the place-keeper)
-const terrainIds = ['Mtn', 'Hills', 'Swamp', 'Plains', 'Lake', 'Base', 'Ldr'] as const;
+const terrainIds = ['Mtn', 'Cliffs', 'Swamp', 'Plains', 'Lake', 'Base', 'Ldr'] as const;
 
 // 'energy' is E2, 'energy1' is E1, 'recruit1' is 'R1'
 // energy1 on AI Base; 'recruit1' on Oxataya Base
@@ -111,7 +112,7 @@ export type FAME_BONUS = 'E1' | 'E2' | 'C' | 'G1' | '%' | 'R1' | 'R2' | 'M1' | '
 
 const colorOfTerrain: Record<TERRAIN, string> = {
   Mtn: C.grey64,
-  Hills: C.nameToRgbaString('rgb(190, 152, 0)', .35),
+  Cliffs: C.nameToRgbaString('rgb(190, 152, 0)', .35),
   Swamp: C.nameToRgbaString('rgb(20, 100, 0)', .35),
   Plains: C.nameToRgbaString('rgb(130, 61, 0)', .35),
   Lake: C.lightblue,
@@ -149,15 +150,24 @@ export class MoveIcon extends ChaosToken {
   isToSwamp(ctile: ChaosTile) {
     return ctile.isSwamp;
   }
+
+  // moveIsRedeploy: 1 movePoint, moveInPlay=[], toHex.ctile.hasFot(this.player.facId)
   override isLegalTarget(toHex: Hex2, ctx: DragContext): boolean {
-    if (toHex.ctile?.isBase) return false;
+    const toTile = toHex.ctile;
+    if (!toTile) return false;
+    if (!this.player.moveIsRedoploy && toTile.isBase) return false;
+    if (this.player.moveIsRedoploy && !this.player.isOnHex(toHex)) return false;
     // No direct reciprocal MoveInPlay:
-    if (this.player.movesInPlay.find(mip => mip.from == toHex.ctile && mip.to == this.srcTile)) return false;
-    if (this.player.facId !== 5 && toHex.ctile?.isLake) return false; // vs: !faction.canEnterLake
-    if (this.player.facId === 3 && toHex.ctile?.isSwampCnx && this.isFromSwamp) return true; // Leyrein connects Swamps
-    if (this.player.facId === 0 && this.srcTile.isBase) return true; // TODO: && isAdj(dropShip)
+    if (this.player.movesInPlay.find(mip => mip.from == toTile && mip.to == this.srcTile)) return false;
+    if (this.player.facId !== 5 && toTile?.isLake) return false; // vs: !faction.canEnterLake
+    if (this.player.facId === 3 && toTile?.isSwampCnx && this.isFromSwamp) return true; // Leyrein connects Swamps
+    if (this.player.facId === 0 && this.srcTile.isBase // unload action: move from dropship:
+      && (this.player.faction as Circadian).dropship.isOnHex(toHex)) return true; //
+    if (this.player.facId === 0 && toTile.isBase        // load/redeploy to dropship
+      && (this.player.faction as Circadian).dropship.isOnHex(this.srcTile.chex)) return true;
     return this.fromHex.linkHexes.includes(toHex);
   }
+
   override dropFunc(targetHex: Hex2, ctx: DragContext) {
     if (this.player.hasMP) {
       const toRegion = targetHex?.ctile, srcTile = this.srcTile;
@@ -227,12 +237,19 @@ export class FactionOnTile extends NamedContainer {
   set fighters(n: number) { this.fighterIcon.value = Math.max(n, 0) }
 
   leaders: Leader[] = [ ];              // 2+ slots (own + Rhyzu), Zcharo: 4, Oxataya: 4
-  strength = 0;                         // Apparent strength of Faction
-  pins = 0;
+  get pins() {
+    return this.player.faction.pins(this);
+  }
+
+  // Apparent strength of Faction, and text explainer
+  get strength() {
+    return this.player.faction.strengthInRegion(this.tile);
+  }
 
   get facId() { return this.player.facId; }
   get index() { return this.player.index; }
 
+  faction: Faction;
   player: Player;
   tile: ChaosTile;
   fighterIcon: FighterIcon;
@@ -242,6 +259,7 @@ export class FactionOnTile extends NamedContainer {
 
   constructor(player: Player, tile: ChaosTile) {
     super(`FoT_${player.facId}-${tile.Aname}`);
+    this.faction = player.faction;
     this.player = player;
     this.tile = tile;
     this.setXY();   // move to sector for player
@@ -267,6 +285,7 @@ export class FactionOnTile extends NamedContainer {
     }
     rightClickable(this.strIcon, rightClickStrIcon)
     this.addChild(this.strIcon);
+    // this.setButton(()=>{ this.button.activate(false) });
   }
 
   /** if (FoT.isBase) addChild(dObj) so dObj moves with Base Tile. */
@@ -282,6 +301,10 @@ export class FactionOnTile extends NamedContainer {
     }
   }
 
+  /** this faction is present (for combat or whatever) */
+  get isOccupied() {
+     return (this.fighters > 0 || this.leaders.length > 0 || this.buildings.length > 0)
+  }
 
   // methods to add/remove elements
   /**
@@ -439,6 +462,34 @@ export class FactionOnTile extends NamedContainer {
     }
     return rv
   }
+
+  button!: TriangleButton;
+  /** show triangle button, onClick -> cb() */
+  setButton(cb: (evt: Object) => void) {
+    const rad = this.tile.radius * .4, tilt = this.invert * 90;
+    const fillc = C.nameToRgbaString(this.player.color, .4);
+    const butt = new TriangleButton('', { rad, nsides: 3, fillc, tilt })
+    butt.paint();
+    butt.Aname = `TriangleButt${this.id}`;
+    this.addChild(butt);
+    const cbb = ((evt: MouseEvent) => { evt.stopImmediatePropagation(); cb(evt) }) as (evt: Object) => void
+    butt.on(S.click, cbb, this, true);
+    butt.activate(true);
+    this.button = butt;
+  }
+}
+
+
+type polyOpts = { rad?: number, nsides?: number, pSize?: number, tilt?: number, fillc?: string, strokec?: string }
+class TriangleButton extends UtilButton {
+  constructor(label: string, options: UtilButtonOptions & TextInRectOptions & polyOpts ) {
+    const { rad, fillc, tilt } = options;
+    super('O', { bgColor: fillc })
+    // const ps = new PolyShape({ rad, nsides: 3, fillc, tilt })
+    // super('O', options, ps.pscgf)
+    // this.setBounds = ps.setBounds
+    // this.getBounds = ps.getBounds
+  }
 }
 
 
@@ -474,7 +525,14 @@ export class ChaosTile extends MapTile {
   get harvest() { return this.prodToken.harvest }
 
   /** Details of Faction Presence on Tile; index by FactionId */
-  factions: FactionOnTile[] = [];
+  factions: (FactionOnTile | undefined)[] = [];
+
+  /** list of all FoT with actual Presence (isOccupied) on this Tile */
+  get factionsPresent() {
+    const present = [] as FactionOnTile[]
+    this.factions.forEach(fot => fot?.isOccupied && present.push(fot))
+    return present
+  }
 
   /** set if there is a Relic on this Tile; */
   relic?: Relic;
@@ -484,7 +542,7 @@ export class ChaosTile extends MapTile {
   get isLdr() {return this.terrain == "Ldr"}
   get isMtn() {return this.terrain == "Mtn"}
   get isLake() {return this.terrain == "Lake"}
-  get isHills() {return this.terrain == "Hills"}
+  get isCliffs() {return this.terrain == "Cliffs"}
   get isPlains() {return this.terrain == "Plains"}
   get isBase() {return this.terrain == "Base"}
   get isSwamp() {return this.terrain == "Swamp"}
@@ -633,7 +691,9 @@ export class ChaosTile extends MapTile {
 export class BaseTile extends ChaosTile {
   declare player: Player;    // Assert that player is defined in super constructor
   override get isBase() { return true }
-  override get isSwampCnx() { return this.player.facId == 3 && !!this.player.faction.attributes['expeditious']?.upgraded }
+  override get isSwampCnx() {
+    return this.player.facId == 3 && !!this.player.faction.attributes['expeditious']?.upgraded
+  }
   constructor(faction: Faction) {
     super(`${faction.name}Base`, 'Base', faction.bh, faction.player);
 
@@ -674,6 +734,7 @@ export class BaseTile extends ChaosTile {
   // Also drag Building (as meeps) to Build and self-drop
   override cantBeMovedBy(player: PlayerLib, ctx: DragContext): string | boolean | undefined {
     if (this.hex?.isOnMap && !ctx.lastShift) return 'Base is on map'; // TODO: disable Shift after PlaceBase phase
+    if (!this.player.gamePlay.isPhase('PlaceBase')) return 'not PlaceBase phase';
     return super.cantBeMovedBy(player, ctx);
   }
 
@@ -707,6 +768,7 @@ export class BaseTile extends ChaosTile {
     super.dropFunc(targetHex, ctx);     // this.placeTile(targetHex)
     if (!dragMoved) return;  // not dragged (cantbemoved/dragStop), do not reset foundations
     if (!targetHex) return;
+    if (!this.player.gamePlay.isPhase('PlaceBase')) return;
     this.addBaseFoundationsAndLink(targetHex, ctx);
   }
 
@@ -736,7 +798,7 @@ export class BaseTile extends ChaosTile {
     // cycle through hex.linkDirs[i], [i+1 % 6]
     const mapDirs = hex.map.linkDirs;  // assume length == 6; [N, EN, ES, S, WS, WN ]
     const pairs: HexPair[] = [];  // push [hex1, hex2]
-    const isRegion = (hex?: Hex2) => { return hex?.ctile && hex.ctile.terrain != 'Mtn' && hex.ctile.terrain != 'Lake'};
+    const isRegion = (hex?: Hex2) => { return hex?.ctile &&!hex.ctile.isMtn && !hex.ctile.isLake};
     const links = hex.links as Partial<Record<HexDir, Hex2>>; // avoid & Partial<Record<HexDir, any>>
     mapDirs.forEach((dir, ndx) => {
       const hex1 = links[dir];
