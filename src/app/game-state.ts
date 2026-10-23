@@ -483,7 +483,7 @@ export class GameState extends GameStateLib {
         const battleFoTs = this.state.battleFoTS = this.gamePlay.battleFoTs(confTiles, facId);
         if (battleFoTs.length > 0) {
           // curPlayer select a Battle; choose Tile & Opponent; then each Player selects Wheel & Card; resolve
-          this.curPlayer.chooseBattleFoT(battleFoTs, (bf: BattleFoTs) => this.phase('Battle', bf))
+          this.curPlayer.chooseBattleFoT(battleFoTs, (bf: BattleFoTs) => this.phase('Battle', this.gamePlay.newBattle(bf)))
         } else if (this.lastBattleInitiator == this.curPlayerNdx) {
           // all the way around and last player to initiate has no more battles;
           this.phase('Income');
@@ -495,11 +495,13 @@ export class GameState extends GameStateLib {
     // each Player choose their Tactic; then resolve: winner, casulaties, removal
     Battle: {
       // class Battle(ctile, stat1, stat2); stat: { plyr, wheel, card }
-      start: (bf: BattleFoTs, battle: Battle = this.gamePlay.newBattle(bf)) => {
-        // battle has { fots, tactics }
-        // select Tactic: wheel (w/Gem) & card
-        if (!battle.tactics[0]) battle.fots[0].player.setBattlePlan(battle, () => super.phase('Battle', bf, battle))
-        else if (!battle.tactics[1]) battle.fots[1].player.setBattlePlan(battle, () => super.phase('Battle', bf, battle))
+      start: (battle: Battle, i = 0) => {
+        // battle has { fots, result }
+        // Player selects fot.wheel (w/Gem) & fot.card;
+        // alternate checking: first 0 & 1; then 1 & 0;  (so Oachra can defer)
+        const cb = () => super.phase('Battle', battle, 1-i);  // no prevPhase/phaseLeader
+        if (!battle.fots[i].wheel) battle.fots[i].player.setBattlePlan(battle, cb);
+        else if (!battle.fots[1-i].wheel) cb();
         else this.state.done!(battle);
       },
       done: (battle: Battle) => {

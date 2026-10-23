@@ -14,13 +14,12 @@ import { ScenarioParser } from "./scenario-parser";
 import { priceNames, TP } from "./table-params";
 import type { TacticsCard } from "./tactics-card";
 
-type Wheel =   'ds0' | 'sa0' | 'aa4' |'asd' | 'sdd' | 'ddr';
-export type Tactic = { wheel: Wheel, card?: TacticsCard }
+export type Wheel =   'ds0' | 'sa0' | 'aa4' |'asd' | 'sdd' | 'ddr';
+type BattleSAD = {str: number, atk: number, def: number, die: number, wheel: Wheel, card?: TacticsCard}
 /** a Region in conflict and 2 contestant Player */
 export class Battle {
   fots!: BattleFoTs;
-  tactics: (Tactic | undefined)[] = [undefined, undefined];   // 2 elements
-
+  result?: { winner: 0|1, retreat: 0|1|undefined, wounds: number[], sad: BattleSAD[] }
   constructor(bf: BattleFoTs) {
     this.fots = bf;
   }
@@ -268,7 +267,8 @@ export class GamePlay extends GamePlayLib {
   }
 
   /** return { strength, damage, shields } */
-  resolveWheel(fot: FactionOnTile, wheel: Wheel, card: TacticsCard | undefined) {
+  resolveWheel(fot: FactionOnTile): BattleSAD {
+    const wheel = fot.wheel!, card = fot.card;
     let [str, txt] = fot.strength, atk = 0, def = 0, die = 0, cstr = 0;
     const nleft = card?.nLeft ?? 0, nright = card?.nRight ?? 0;
 
@@ -294,27 +294,31 @@ export class GamePlay extends GamePlayLib {
       if (die == 1) def += 1;
     }
     console.log(stime(this, `.Wheel: ${fot.facId}`), { wheel, str, atk, def, die, cstr, txt })
-    return { str, atk, def }
+    return { str, atk, def, die, wheel, card }
   }
 
   /** resolve strength, damage-shields, remove losing units/buildings */
   resolveBattle(battle: Battle) {
+    const sad = battle.fots.map((fot, n) => {
+      return this.resolveWheel(fot); // includes w: wheel & c: card
+    })
+    // TODO: Oachra
+    const maxStr = sad[0].str >= sad[1].str ? 0 : 1;
+    const retreat = (sad[0].wheel == 'ddr' && sad[1].wheel == 'ddr') ? maxStr
+                  : sad[0].wheel == 'ddr' ? 0 : sad[1].wheel == 'ddr' ? 1 : undefined;
     const [fot0, fot1] = battle.fots;
-    const [tac0, tac1] = battle.tactics;
-    const w0 = tac0?.wheel!, w1 = tac1?.wheel!;
-    const sad0 = this.resolveWheel(fot0, w0, tac0?.card);
-    const sad1 = this.resolveWheel(fot1, w1, tac1?.card);
-    const maxStr = sad0.str >= sad1.str ? 0 : 1;
-    const retreat = (w0 == 'ddr' && w1 == 'ddr') ? maxStr : w0 == 'ddr' ? 0 : w1 == 'ddr' ? 1 : undefined;
-    const winner = (retreat != undefined) ? (1 - retreat) : maxStr;
-    const wound0 = Math.min(4, fot0.fighters, Math.max(0, sad1.atk - sad0.def));
-    const wound1 = Math.min(4, fot1.fighters, Math.max(0, sad0.atk - sad1.def));
-    fot0.faction.woundOtherFighters(wound1, fot1);
+    const winner = (retreat != undefined ? (1 - retreat) : maxStr) as 0 | 1;
+    const wound0 = Math.min(4, fot0.fighters, Math.max(0, sad[1].atk - sad[0].def));
+    const wound1 = Math.min(4, fot1.fighters, Math.max(0, sad[0].atk - sad[1].def));
+    fot0.faction.woundOtherFighters(wound1, fot1); // AI may override/augment; Jrayek.aggressive
     fot1.faction.woundOtherFighters(wound0, fot0);
     // remove buildings of loser:
     const loserFoT = [fot1, fot0][winner];
     const loserBldgs = loserFoT.buildings.slice();
-    console.log(stime(this, `.Battle:`), { winner, retreat, wound0, wound1 });
+    battle.result = { winner, retreat, wounds: [wound0, wound1], sad }
+    console.log(stime(this, `.Battle: result =`), battle.result );
+    battle.fots.forEach(fot => fot.battleResult(battle));
+
     loserFoT.buildings.length = 0;
     loserBldgs.forEach(bldg => {
       bldg.sendHome();
@@ -324,7 +328,7 @@ export class GamePlay extends GamePlayLib {
     // remove Units of loser:
     if (retreat !== undefined) {
       // if loser Retreats, deal with that:
-      const rfot = [fot0, fot1][retreat];
+      const rfot = battle.fots[retreat];
       const leadersToBase = () => {
         // remaining Leaders go to baseTile (after Zoey decides)
         rfot.leaders.forEach(ldr => {

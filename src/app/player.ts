@@ -10,7 +10,7 @@ import { BaseTile, ChaosTile, FighterCounter, LeaderTile, PairTarget, type BONUS
 import { EdgeMark, Faction, factionColors, factionNeutral, type FactionId, type FactionName } from "./factions";
 import { BgFound, Foundation } from "./foundation";
 import { bonusIcon, dist, pentagon, pointsAtDistance } from "./functions";
-import { type Battle, type GamePlay, type Tactic } from "./game-play";
+import { type Battle, type GamePlay } from "./game-play";
 import { type BattleFoTs, type PlayerId } from "./game-state";
 import { baseProdTokenIds, buildingCbyName, ChaosBuilding, ChaosUnit, Factory, Leader, Outpost, PriceToken, ProdToken, PTokenShape, Rhyzu, type ChaosUnitType, type PriceId } from "./meeples";
 import { ResearchCell, ResearchLevel, ResGrid } from "./research-cell";
@@ -332,12 +332,10 @@ export class Player extends PlayerLib {
   /** select wheel & card for the given Battle */
   setBattlePlan(battle: Battle, cb: () => void) {
     // oh, sure: plyr2 can see the stat1.wheel & card...
-    const ndx = (battle.fots[0].player == this) ? 0 : 1;
-    const tactic: Tactic = battle.tactics[ndx] ?? { wheel: 'ddr' }; // retreat by default
+    const fot = (battle.fots[0].player == this) ? battle.fots[0] : battle.fots[1];
     // dummy reply:
-    tactic.wheel = (this.gems > 0) ? 'asd' : 'ds0';    // or whatever
-    tactic.card = this.cards[0]; // TODO: remove card from cardRack?
-    battle.tactics[ndx] = tactic;
+    fot.wheel = (this.gems > 0) ? 'asd' : 'ds0';    // or whatever
+    fot.card = this.cards[0]; // TODO: remove card from cardRack?
     setTimeout(cb, 50)
   }
 

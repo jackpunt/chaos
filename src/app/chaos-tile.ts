@@ -9,12 +9,13 @@ import { NumCounterHex } from "./counters";
 import { type Circadian, type Faction, type FactionId } from "./factions";
 import { Foundation } from "./foundation";
 import { dist } from "./functions";
-import type { GamePlay } from "./game-play";
+import type { Battle, GamePlay, Wheel } from "./game-play";
 import { type baseProdTokenIds, type ChaosBuilding, ChaosToken, type Factory, Leader, LeaderCard, type Outpost, ProdToken, type Relic, type Stronghold, type upgradeProdTokenIds } from "./meeples";
 import { superMethod } from "./mixins";
 import { type MoveInPlay, type Player } from "./player";
 import type { FactionOnTileState, Special } from "./scenario-parser";
 import { CO } from "./table-params";
+import type { TacticsCard } from "./tactics-card";
 
 declare module '@thegraid/easeljs-module' {
   interface Graphics {
@@ -261,6 +262,9 @@ export class FactionOnTile extends NamedContainer {
   moveIcon: MoveIcon;
   strIcon: TextInRect;
   strText: TextInRect;  // 'card' showing sources of strength
+  // when this FoT is engaged in combat:
+  wheel?: Wheel;
+  card?: TacticsCard;
 
   constructor(player: Player, tile: ChaosTile) {
     super(`FoT_${player.facId}-${tile.Aname}`);
@@ -483,6 +487,10 @@ export class FactionOnTile extends NamedContainer {
     butt.on(S.click, cbb, this, true);
     butt.activate(true);
     this.button = butt;
+  }
+
+  battleResult(battle: Battle) {
+    // override to collect Fame, or deal extra damage
   }
 }
 
