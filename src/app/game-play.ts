@@ -195,9 +195,11 @@ export class GamePlay extends GamePlayLib {
   // Move: Dropship on Mtn [10/12]
   // Move: Dropship (MP > 0); decrement MP; Load & Unload (MP or end of Move) [10/13]
   // Move: doImmediate('U')
-  // Combat: choose opponent; choose wheel, card; commit --> reveal, (Ochara!)
-  // Combat: auto resolve, remove casualties/buildings, assign Fame (AI, Zcharo, JReyak, Oxataya)
-  // Combat: GUI for Retreat/Redeploy
+  // Combat: choose opponent, (enable Ochara) [10/23]
+  // Combat: choose wheel, card; commit --> reveal
+  // Combat: auto resolve, remove casualties/buildings, [10/23]
+  // Combat: assign Fame (AI, Zcharo, JReyak, Oxataya)
+  // Combat: GUI for Retreat/Redeploy ~[10/23]
   // Income: choose E/C, E/%;
   // Income: compute/choose Region Count (AI, Circadian); enable Redeploy,
   // Income: Attribute Upgrade (various effects)

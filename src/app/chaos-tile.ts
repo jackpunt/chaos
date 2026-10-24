@@ -479,7 +479,8 @@ export class FactionOnTile extends NamedContainer {
   setButton(cb: (evt: Object) => void) {
     const rad = this.tile.radius * .4, tilt = this.invert * 90;
     const fillc = C.nameToRgbaString(this.player.color, .4);
-    const butt = new TriangleButton('', { rad, nsides: 3, fillc, tilt })
+    const butt = new TriangleButton('', { rad, nsides: 3, fillc, tilt, border: [.3, .3, -.0, .3] })
+    butt.scaleY = this.invert;
     butt.paint();
     butt.Aname = `TriangleButt${this.id}`;
     this.addChild(butt);
@@ -499,7 +500,7 @@ type polyOpts = { rad?: number, nsides?: number, pSize?: number, tilt?: number, 
 class TriangleButton extends UtilButton {
   constructor(label: string, options: UtilButtonOptions & TextInRectOptions & polyOpts ) {
     const { rad, fillc, tilt } = options;
-    super('O', { bgColor: fillc })
+    super('O', {...options, bgColor: fillc })
     // const ps = new PolyShape({ rad, nsides: 3, fillc, tilt })
     // super('O', options, ps.pscgf)
     // this.setBounds = ps.setBounds
