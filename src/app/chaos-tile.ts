@@ -265,6 +265,7 @@ export class FactionOnTile extends NamedContainer {
   // when this FoT is engaged in combat:
   wheel?: Wheel;
   card?: TacticsCard;
+  get clearWheel() { return (this.wheel = this.card = undefined, this) }
 
   constructor(player: Player, tile: ChaosTile) {
     super(`FoT_${player.facId}-${tile.Aname}`);

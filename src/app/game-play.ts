@@ -251,15 +251,15 @@ export class GamePlay extends GamePlayLib {
 
   /** Tiles with given Faction and another FoT */
   conflictTiles(facId: FactionId) {
-    return this.tilesInPlay.filter(tile => tile.hasFoT(facId) && tile.factionsPresent.length > 1)
+    return this.tilesInPlay.filter(tile => tile.hasFoT(facId)?.isOccupied && tile.factionsPresent.length > 1)
   }
 
   /** list each pair of [FoT(pid), FoT]; initiator is in slot[0] */
   battleFoTs(confTiles: ChaosTile[], facId: FactionId) {
     const battles = [] as [FactionOnTile, FactionOnTile][];
     confTiles.forEach(ctile => {
-      const pfot = ctile.hasFoT(facId)!;  // assert is non-null
-      ctile.factionsPresent.filter(fot => (fot !== pfot) && battles.push([pfot, fot]) )
+      const pfot = ctile.hasFoT(facId)!.clearWheel;  // assert pfot is non-null & isOccupied
+      ctile.factionsPresent.filter(fot => (fot !== pfot) && battles.push([pfot, fot.clearWheel]) )
     })
     return battles;
   }
@@ -271,7 +271,10 @@ export class GamePlay extends GamePlayLib {
   /** return { strength, damage, shields } */
   resolveWheel(fot: FactionOnTile): BattleSAD {
     const wheel = fot.wheel!, card = fot.card;
-    let [str, txt] = fot.strength, atk = 0, def = 0, die = 0, cstr = 0;
+    let [str, txt] = fot.strength;
+    let [atk, atxt] = fot.faction.attackInRegion(fot.tile);
+    let [def, dtxt] = fot.faction.defenceInRegion(fot.tile);
+    let die = 0, cstr = 0;
     const nleft = card?.nLeft ?? 0, nright = card?.nRight ?? 0;
 
     if (wheel == 'ddr') {
@@ -318,7 +321,7 @@ export class GamePlay extends GamePlayLib {
     const loserFoT = [fot1, fot0][winner];
     const loserBldgs = loserFoT.buildings.slice();
     battle.result = { winner, retreat, wounds: [wound0, wound1], sad }
-    console.log(stime(this, `.Battle: result =`), battle.result );
+    console.log(stime(this, `.Battle: result =`), { winner, retreat, w0: wound0, w1: wound1, sad } );
     battle.fots.forEach(fot => fot.battleResult(battle));
 
     loserFoT.buildings.length = 0;

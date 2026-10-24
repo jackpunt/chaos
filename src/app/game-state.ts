@@ -150,9 +150,8 @@ export class GameState extends GameStateLib {
 
   // Record phaseLeader: set phaseNdx before invoking super.phase()
   override phase(phase: string, ...args: any[]): void {
-    const prevPhase = phase as PhaseName;
+    this.phaseNdx = this.phaseLeader(phase as PhaseName)
     super.phase(phase, ...args);
-    this.phaseNdx = this.phaseLeader(prevPhase)
   }
 
   playerSaysDone = false;
@@ -487,6 +486,8 @@ export class GameState extends GameStateLib {
         } else if (this.lastBattleInitiator == this.curPlayerNdx) {
           // all the way around and last player to initiate has no more battles;
           this.phase('Income');
+        } else {
+          this.state.done!();    // curPlayer has no Battle
         }
        },
       done: () => this.startOrPhase('Income'),
@@ -521,7 +522,7 @@ export class GameState extends GameStateLib {
       }
     },
     Income: {
-      start: (ndx = this.gunPlayer) => {
+      start: (ndx = this.gunPlayer.index) => {
         this.setCurPlayerNdx(ndx);
         this.doneButton();
         // auto mostly? choice of E/G, G/%
@@ -534,7 +535,7 @@ export class GameState extends GameStateLib {
     Relics: {
       start: (ndx = this.phaseNdx) => {
         this.setCurPlayerNdx(ndx);
-        this.doneButton('Relics');
+        this.doneButton(`Relics ${this.roundNum}`);
         // AllRelics?
         // Zcharo?
         // Award Relic: move troops, award Fame points, choose Research
