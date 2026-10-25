@@ -186,8 +186,14 @@ export class TacticsCard extends Tile {
     // as if hexUnderPoint(py.x, pt.y, legalOnly) {
     const mark = mapCont.getObjectUnderPoint(pt.x, pt.y, 1); // find mark on PlayerPanel.cardPanel
     if (mark instanceof LegalMark) return mark.hex2;
-    // pro-forma:
-    return this.gamePlay.table.hexUnderObj(dragObj, legalOnly)
+    // check table.hexMap for discard (or other) suitable hex;
+    // hack: inject ptCont so hexUnderObj uses mouse ptr (dxy) rather that card.xy
+    // TODO: the 'card-shaped' CardHex display the 'Hex-shaped' mark.
+    const ptCont = new NamedContainer('pointer', pt.x, pt.y)
+    mapCont.markCont.addChild(ptCont);
+    const rv = this.gamePlay.table.hexUnderObj(ptCont, legalOnly);
+    ptCont.parent.removeChild(ptCont);
+    return rv
   }
 
   /** drag object curPlayer.panel.cardPanel */
@@ -224,7 +230,7 @@ export class TacticsCard extends Tile {
   //
   override dropFunc(targetHex: Hex2, ctx: DragContext): void {
     const cardHex = (targetHex as CardHex);
-    const card = cardHex.card;
+    const card = cardHex?.card;
     if (card && card !== this) card.moveCard(cardHex, ctx);
     super.dropFunc(targetHex ?? TacticsCard.discard.hex, ctx);
     if (this.hex === TacticsCard.discard.hex) {
@@ -430,6 +436,8 @@ export class CardHex extends Hex2 {
 // TODO: review how Ankh made hidden panels
 // TODO: move to player.ts (coresident with its parent ChaosPlayerPanel)
 export class CardPanel extends MapCont {
+  // QQQ: include panel in constructor?
+  get panel() { return (this.parent as Panel) }
 
   /**
    * A Container on table.map.mapCont.hexMap
@@ -453,6 +461,11 @@ export class CardPanel extends MapCont {
     table.hexMap.mapCont.addChild(this);
   }
 
+  // readonly cardRack: CardHex[] = [];
+  get cardRack() { return this.panel.cardRack }
+  get cards() { return this.cardRack.map(hex=> hex.card).filter(card => !!card) }
+
+  /** background shape, so one can see the panel and drag it. */
   disp!: RectShape;
 
   paint(colorn: string, force?: boolean): Graphics {
@@ -486,11 +499,6 @@ export class CardPanel extends MapCont {
   isCardHex(hex: Hex2): hex is CardHex {
     return (hex instanceof CardHex)
   }
-
-  get panel() { return (this.parent as Panel) }
-  // readonly cardRack: CardHex[] = [];
-  get cardRack() { return this.panel.cardRack }
-  get cards() { return this.cardRack.map(hex=> hex.card).filter(card => !!card) }
 
   /** make this CardPanel dragable. */
   makeDragable(table: HasDragger) {
