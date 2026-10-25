@@ -11,16 +11,17 @@ import { Panel, Player } from "./player";
 import { TacticsCard, type CardBack } from "./tactics-card";
 
 export class ChaosTable extends Table {
-  constructor(stage: Stage) {
-    stage.removeAllChildren();  // prior scaleCont...
-    super(stage);
-    this.initialVis = true;
-  }
   declare gamePlay: GamePlay;
   declare hexMap: HexMap2;
   // return type declaration:
   override hexUnderObj(dragObj: DisplayObject, legalOnly?: boolean) {
     return super.hexUnderObj(dragObj, legalOnly) as ChaosHex2 | undefined;
+  }
+
+  constructor(stage: Stage) {
+    stage.removeAllChildren();  // prior scaleCont...
+    super(stage);
+    this.initialVis = true;
   }
 
   // bgRect tall enough for 3 X 3.5 player panels
@@ -78,7 +79,7 @@ export class ChaosTable extends Table {
     this.cardSource = source;
     this.cardDiscard = discard;
 
-    TacticsCard.makeAllCards(); // populate PathCard.cardByName
+    TacticsCard.makeAllCards(this.gamePlay); // populate PathCard.cardByName
 
     this.addDoneButton();
     this.doneButton.label.font = F.fontSpec(this.sr(20));

@@ -12,10 +12,10 @@ import { Relic } from "./meeples";
 import type { Player } from "./player";
 import { ScenarioParser } from "./scenario-parser";
 import { priceNames, TP } from "./table-params";
-import type { TacticsCard } from "./tactics-card";
+import type { SpecGen, TacticsCard } from "./tactics-card";
 
 export type Wheel =   'ds0' | 'sa0' | 'aa4' |'asd' | 'sdd' | 'ddr';
-type BattleSAD = {str: number, atk: number, def: number, die: number, wheel: Wheel, card?: TacticsCard}
+export type BattleSAD = {str: number, atk: number, def: number, die: number, wheel: Wheel, card?: TacticsCard}
 /** a Region in conflict and 2 contestant Player */
 export class Battle {
   fots!: BattleFoTs;
@@ -40,6 +40,8 @@ export class GamePlay extends GamePlayLib {
 
   /** the generally accessible Tiles ['Swamp', 'Cliffs', 'Plains', 'Lake'], excluding Mtn, Base */
   tilesInPlay: ChaosTile[] = [];
+
+  specGen!: SpecGen
 
   /** Players in table order; the order they were created. */
   override get allPlayers() { return super.allPlayers as Player[] }
@@ -287,7 +289,7 @@ export class GamePlay extends GamePlayLib {
       atk = nright;
     } else if (wheel == 'aa4') {
       atk = nleft + nright;
-    } else if (wheel == 'asd') {
+    } else if (wheel == 'asd') { if (fot.player.gems < 1) debugger;
       fot.player.gems -= 1;
       atk = nleft;
       str += (cstr = nright) + (die = this.dieRoll);
@@ -298,6 +300,8 @@ export class GamePlay extends GamePlayLib {
       def = nright
       if (die == 1) def += 1;
     }
+    this;
+    card?.phaseEffect?.eFunc()
     console.log(stime(this, `.Wheel: ${fot.facId}`), { wheel, str, atk, def, die, cstr, txt })
     return { str, atk, def, die, wheel, card }
   }

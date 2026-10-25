@@ -6,7 +6,7 @@ import { H, LegalMark, MapCont, NumCounter, Tile, TileSource, TP, type DragConte
 import { CardShape } from "./card-shape";
 import { ChaosHex2 as Hex2, type ChaosHex as Hex1, type HexMap2 } from "./chaos-hex";
 import type { ChaosTable as Table } from "./chaos-table";
-import type { GamePlay } from "./game-play";
+import type { Battle, BattleSAD, GamePlay } from "./game-play";
 import type { GameState } from "./game-state";
 import type { Panel, Player } from "./player";
 
@@ -30,18 +30,29 @@ type CardSpec = {
   id: string, d: string, pE: PhaseEffect, cE?: CombatEffect, nL?: number, nR?: number,
 }
 
-class SpecGen {
+export class SpecGen {
+  constructor(gamePlay: GamePlay) {
+    this.gamePlay = gamePlay;
+  }
+
+  gamePlay!: GamePlay; // context for pE when Played during phase
+  setBattle(battle: Battle, sad: BattleSAD) {
+    this.battle = battle;
+    this.sad = sad;
+  }
+  sad!: BattleSAD;     // context for cE when Used during Combat
+  battle!: Battle;
   // helper methods that are in scope here:
   m1() {}
 
   cardSpecs: CardSpec[] = [
-    { id: "card1", d: "redeploy", pE: { phase: 'Move', text: '1 Redeploy before moving', eFunc: () => {}}, cE: { text: 'combat1', eFunc: () =>{}} },
-    { id: "card2", d: "5 Energy", nL: 1, nR: 3, pE: { phase: 'Harvest', text: 'Gain 5 energy if you do not act in this phase', eFunc: ()=>{}}, cE: { text: 'combat2', eFunc: () =>{}} },
-    { id: "card3", d: "Gain Fame", nL: 5, nR: 0, pE: { phase: 'Relic', text: 'Gain 1 Fame', eFunc: ()=>{}}, cE: { text: 'combat3', eFunc: () =>{}} },
+    { id: "card1", d: "redeploy", pE: { phase: 'Move', text: '1 Redeploy before moving', eFunc: () => {}}, cE: { text: 'def +1', eFunc: () =>{this.sad.def += 1}} },
+    { id: "card2", d: "5 Energy", nL: 1, nR: 3, pE: { phase: 'Harvest', text: 'Gain 5 energy if you do not act in this phase', eFunc: ()=>{}}, cE: { text: 'str + 2', eFunc: () =>{this.sad.atk += 2}} },
+    { id: "card3", d: "Gain Fame", nL: 5, nR: 0, pE: { phase: 'Relic', text: 'Gain 1 Fame', eFunc: ()=>{}} },
   ];
 
   /** new TacticsCard(cardSpec) for each cardSpec. */
-  allSpecs(specs = this.cardSpecs) {
+  newCards(specs = this.cardSpecs) {
     return specs.map(cs => new TacticsCard(cs));
   }
 }
@@ -49,6 +60,15 @@ class SpecGen {
 
 export class TacticsCard extends Tile {
   static get allCards() { return Array.from(this.cardByName.values()) }
+
+  static cardByName: Map<string,TacticsCard> = new Map();
+  static uniqueId(cs: CardSpec, pI = cs.pE.phase.substring(0, 1)) {
+    if (cs.pE.phase == 'Relic') pI = 'C'; // Check Relics (not Recruit)
+    const n = Array.from(this.cardByName.keys()).filter(key => key.startsWith(pI)).length + 1;
+    cs.id = `${pI}${n}_${cs.nL ?? 0}_${cs.nR ?? 0}`;
+    return cs.id;
+  }
+
   // map from phase to a color
 
   static colorMap: Partial<Record<ChaosPhase | 'back', string>> = {
@@ -81,7 +101,7 @@ export class TacticsCard extends Tile {
   constructor(cs: CardSpec, size?: number) {
     if (size !== undefined) TacticsCard.nextRadius = size; // set before super calls makeShape()
     if (!TacticsCard.cardMark) TacticsCard.makeCardMark();
-    super(TacticsCard.uniqueId(cs.id!))      // Note: may need to tweak cache/reCache algo
+    super(TacticsCard.uniqueId(cs));  // Tile with Aname = Pn_L_R
     this.nameText.y += this.radius * .12;    // = radius * (.5 + .12)
     // maybe paint() per phaseEffect:
     this.addChildren(cs)
@@ -92,7 +112,7 @@ export class TacticsCard extends Tile {
 
   // invoked by constructor.super()
   override makeShape() {
-    return new CardShape('lavender', C.BLACK, this.radius); // color reset by colorMap[phaseEffect.phase]
+    return new CardShape('lavender', C.BLACK, this.radius, true, .02); // color reset by colorMap[phaseEffect.phase]
   }
 
   override makeBleed(bleed: number): DisplayObject {
@@ -118,14 +138,14 @@ export class TacticsCard extends Tile {
       return ctext;
     }
     const xc = x + width/2;
-    const xn = width * .35;
+    const xn = width * .33;
     const xl = xc - xn;
     const xr = xc + xn;
     const ytop = y + fSize * .95;  // for numbers
     const ycom = y + height - fSize * 8.1;   // y for combat effect
     const ypha = y + height - fSize * 5.1;   // y for phase effect
     const ybot = y + height - 1 * fSize;
-    const itext = cs.d ?? cs.id ?? '??';
+    const itext = cs.id;
     const ctext = `${cs.cE?.text ?? ''}`;
     const ptext = `${cs.pE.phase}: ${cs.pE.text}`;
 
@@ -136,7 +156,7 @@ export class TacticsCard extends Tile {
 
     setText(ctext, xc, ycom);
     setText(ptext ?? '', xc, ypha);
-    this.dText = setText(itext, xc, ytop, fSize - 2); // describe/id the card; CardBack.dim()
+    this.dText = setText(itext, xc, ybot + fSize / 3, fSize / 2); // describe/id the card; CardBack.dim()
     this.phaseEffect = cs.pE;
     this.combatEffect = cs.cE;
   }
@@ -272,12 +292,6 @@ export class TacticsCard extends Tile {
     const specs = [] as CardSpec[];    // TODO: find all the CardSpec and iterate
     return specs.map(rs => [n, TacticsCard, rs, 525] as CountClaz)
   }
-  static cardByName: Map<string,TacticsCard> = new Map();
-  static uniqueId(rsid: string) {
-    let id = rsid, n = 1;
-    while (TacticsCard.cardByName.has(id)) { id = `${rsid}#${++n}` }
-    return id;
-  }
   /** make draw pile and discard pile for TacticsCard */
   static makeCardSources(table: Table, rowcol: { row?: number, col?: number }) {
     CardHex.allCardHex.length = 0; // clear before we make all the new CardHex.
@@ -302,11 +316,11 @@ export class TacticsCard extends Tile {
     return [cardDeck, discards];
   }
 
-  static makeAllCards(...specs: CardSpec[]) {
-    const specGen = new SpecGen();
-    if (specs.length === 0) specs = specGen.cardSpecs;
+  static makeAllCards(gamePlay: GamePlay, specs?: CardSpec[]) {
     TacticsCard.cardByName.clear();
-    const allCards = specGen.allSpecs(specs); // are injected into TacticsCard.allCards
+    const specGen = gamePlay.specGen = new SpecGen(gamePlay);
+    const allSpecs = specs ?? specGen.cardSpecs;
+    const allCards = specGen.newCards(allSpecs); // are injected into TacticsCard.allCards
     permute(allCards);
     // enqueue all the cards on source:
     const source = TacticsCard.cardDeck;

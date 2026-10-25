@@ -18,7 +18,7 @@ export class CardShape extends RectShape {
    */
   constructor(fillc = 'lavender', strokec = C.grey64, rad = CardShape.onScreenRadius, portrait = true, ss?: number, rr?: number) {
     if (rad <= 1) rad = rad * CardShape.onScreenRadius;
-    const s = ss ?? rad * .04, s2 = s * 2; // shrink so stroke is within rad
+    const s = (ss == undefined) ? rad * .04 : (ss < 1) ? rad * ss : ss, s2 = s * 2; // shrink so stroke is within rad
     const a = 3.5 / 2.5; // aspect: length of long side relative to short side = 1.4
     const w = (portrait ? rad : rad * a) - s2, h = (portrait ? rad * a : rad) - s2;
     const r = rr ?? Math.max(h, w) * .05;
