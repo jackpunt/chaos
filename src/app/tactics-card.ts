@@ -1,5 +1,5 @@
 import { C, permute, S, stime, type XY } from "@thegraid/common-lib";
-import { CenterText, NamedContainer, RectShape, type CountClaz, type DragInfo, type Paintable } from "@thegraid/easeljs-lib";
+import { CenterText, RectShape, type CountClaz, type DragInfo, type Paintable } from "@thegraid/easeljs-lib";
 import type { Text } from "@thegraid/easeljs-module";
 import { DisplayObject, Graphics, MouseEvent } from "@thegraid/easeljs-module";
 import { H, LegalMark, MapCont, NumCounter, Tile, TileSource, TP, type DragContext, type HasDragger, type IHex2 } from "@thegraid/hexlib";
@@ -87,7 +87,7 @@ export class TacticsCard extends Tile {
     this.addChildren(cs)
     this.paint(TacticsCard.colorMap[this.phaseEffect?.phase])
     TacticsCard.cardByName.set(this.Aname, this);  // Aname from CardSpec.id
-    this.homeHex = TacticsCard.discard.hex; // unitCollision will stack if necessary.
+    this.homeHex = TacticsCard.discards.hex; // unitCollision will stack if necessary.
   }
 
   // invoked by constructor.super()
@@ -143,7 +143,7 @@ export class TacticsCard extends Tile {
 
   // Identify il-legal sources of fromHex:
   override cantBeMovedBy(player: Player, ctx: DragContext): string | boolean | undefined {
-    if (this.fromHex === TacticsCard.source.hex) return undefined;
+    if (this.fromHex === TacticsCard.cardDeck.hex) return undefined;
     const table = (ctx.gameState as GameState).table;
     if (this.fromHex === table.cardDiscard.hex) return 'discarded';
     return undefined; // player.cardRack OR (discard && isDoneCard)
@@ -152,7 +152,7 @@ export class TacticsCard extends Tile {
   // TacticsCard.discard is Legal; here we add/include empty spots on curPlayer.cardRack
   override markLegal(table: Table, setLegal = (hex: Hex2) => { hex.setIsLegal(false); }, ctx?: DragContext): void {
     table.gamePlay.curPlayer.cardRack.forEach(setLegal)
-    setLegal(TacticsCard.discard.hex as Hex2)
+    setLegal(TacticsCard.discards.hex as Hex2)
   }
 
   // The only "card moves" are:
@@ -236,13 +236,13 @@ export class TacticsCard extends Tile {
     const cardHex = (targetHex as CardHex);
     const card = cardHex?.card;
     if (card && card !== this) card.moveCard(cardHex, ctx);
-    super.dropFunc(targetHex ?? TacticsCard.discard.hex, ctx);
-    if (this.hex === TacticsCard.discard.hex) {
-      TacticsCard.discard.availUnit(this);
+    super.dropFunc(targetHex ?? TacticsCard.discards.hex, ctx);
+    if (this.hex === TacticsCard.discards.hex) {
+      TacticsCard.discards.availUnit(this);
     }
-    if (!TacticsCard.discard.sourceHexUnit) TacticsCard.discard.nextUnit(); // reveal discard
-    TacticsCard.discard.updateCounter();
-    TacticsCard.source.updateCounter();
+    if (!TacticsCard.discards.sourceHexUnit) TacticsCard.discards.nextUnit(); // reveal discard
+    TacticsCard.discards.updateCounter();
+    TacticsCard.cardDeck.updateCounter();
     ctx.targetHex?.map.showMark(undefined); // if (this.fromHex === undefined)
   }
 
@@ -255,7 +255,7 @@ export class TacticsCard extends Tile {
     // if hex is 'discards' --> let unitCollision stack them on source.available
     // if hex in player.cardRack[]: card.sendHome()
     // if hex is table.cardRack[0]: shift all cards up
-    if (hex == TacticsCard.discard.hex) return;
+    if (hex == TacticsCard.discards.hex) return;
     const plyr = ctx.gameState?.curPlayer as Player | undefined;
     if (plyr?.cardRack.includes(hex)) {
       const alt = plyr.cardRack.findIndex(hex => !hex.card)
@@ -282,22 +282,24 @@ export class TacticsCard extends Tile {
   static makeCardSources(table: Table, rowcol: { row?: number, col?: number }) {
     CardHex.allCardHex.length = 0; // clear before we make all the new CardHex.
     const { row, col } = { row: 1.9, col: 1, ...rowcol }
-    table.makeSourceAtRowCol(TacticsCard.makeSource, 'discards', row + 0, col + 1.5, { x: .5, y: 1.0 }, CardHex)
-    TacticsCard.discard = TacticsCard.source;
-    // overwrite readonly Aname; else: class DiscardHex { that names itself... }
-    ;(TacticsCard.discard as any as NamedContainer).Aname = 'TacticsCardDiscard';
-    table.makeSourceAtRowCol(TacticsCard.makeSource, 'cardDeck', row + 0, col, { x: .5, y: 1.0 }, CardHex)
+    const cardDeck = table.makeSourceAtRowCol(TacticsCard.makeSource, 'cardDeck', row + 0, col - .75, { x: .5, y: 1.0 }, CardHex)
+    const discards = table.makeSourceAtRowCol(TacticsCard.makeSource, 'discards', row + 0, col + .75, { x: .5, y: 1.0 }, CardHex)
+    ;(discards.hex as Hex2).legalMark.setOnHex(discards.hex as Hex2);
+    discards.Aname = 'TacticsCardDiscards';
+    TacticsCard.cardDeck = cardDeck;
+    TacticsCard.discards = discards;
 
     const discback = new CardBack(table, 'discard', '', '#aabbcc59');
-    discback.moveTo(TacticsCard.discard.hex as Hex1); // set position above source.hex
+    discback.moveTo(discards.hex as Hex1); // set position above source.hex
     discback.moveTo(undefined);
     discback.removeAllChildren(); discback.addChild(discback.baseShape); // just the baseShape
 
     const cardback = table.cardBack = new CardBack(table, 'cardback'); // it a Button, mostly.
-    cardback.moveTo(TacticsCard.source.hex as Hex1); // set position above source.hex
+    cardback.moveTo(cardDeck.hex as Hex1); // set position above source.hex
     cardback.moveTo(undefined);
     cardback.on(S.click, (evt) => cardback.clicked(evt), cardback )
-    return [TacticsCard.source, TacticsCard.discard];
+
+    return [cardDeck, discards];
   }
 
   static makeAllCards(...specs: CardSpec[]) {
@@ -307,13 +309,13 @@ export class TacticsCard extends Tile {
     const allCards = specGen.allSpecs(specs); // are injected into TacticsCard.allCards
     permute(allCards);
     // enqueue all the cards on source:
-    const source = TacticsCard.source;
+    const source = TacticsCard.cardDeck;
     allCards.forEach(card => source.availUnit(card, true));
   }
 
   static reshuffle() {
     // assert: src.sourceHexUnit === undefined [else we would not be shuffling...]
-    const disc = TacticsCard.discard, src = TacticsCard.source;
+    const disc = TacticsCard.discards, src = TacticsCard.cardDeck;
     const discarded = disc.filterUnits() // extract all available units (with sourceHexUnit)
     discarded.forEach(card => {
       disc.deleteUnit(card);
@@ -323,13 +325,14 @@ export class TacticsCard extends Tile {
   }
 
   /** sendHome (or drop card) on discard to accumulate for later reshuffle. */
-  static discard: TileSource<TacticsCard>;
-  static source: TileSource<TacticsCard>;
+  static discards: TileSource<TacticsCard>;
+  static cardDeck: TileSource<TacticsCard>;
+  static source: TileSource<TacticsCard>;     // pro-forma 'source' for makeSource0
 
   // invoked by Table.makeSourceAtRowCol()
   static makeSource(hex: IHex2) {
     const src = TacticsCard.makeSource0(TacticsTileSource, TacticsCard, hex);
-    ;(src as any as NamedContainer).Aname = `${src.hex.Aname}Source`; // rename readonly Aname
+    src.Aname = `${src.hex.Aname}Source`; // rename 'readonly' Aname
     return src;
   }
 }
@@ -376,7 +379,7 @@ export class CardBack extends TacticsCard {
   }
   clicked(evt?: MouseEvent) {
     if (!this.table) return; // printable CardBack...
-    const source = TacticsCard.source;
+    const source = TacticsCard.cardDeck;
     if (source.numAvailable === 0) TacticsCard.reshuffle();
     const card = source.nextUnit();  // card.moveTo(srchex)
     console.log(stime(this, `.clicked`), `source.numAvailable: ${source.numAvailable}`)
@@ -417,7 +420,7 @@ export class CardHex extends Hex2 {
   // when sendHome() hits top of discard:
   // when dropFunc() hits C0
   override unitCollision(unitOnHex: Tile, unitToHex: Tile, isMeep?: boolean): void {
-    const disc = TacticsCard.discard;
+    const disc = TacticsCard.discards;
     if (this === disc.hex) {   // sendHome preempts to do this path:
       disc.availUnit(unitOnHex as TacticsCard);    // stack previous card; hexUnit.visible = false;
       disc.availUnit(unitToHex as TacticsCard);    // push new card (redundant: nextUnit() does it implicity)

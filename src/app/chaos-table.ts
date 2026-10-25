@@ -65,6 +65,7 @@ export class ChaosTable extends Table {
     source.counter.x = hex.cont.x + (x + dx * width);
     source.counter.y = hex.cont.y + (y + dy * height);
     hex.distText.y = 0;
+    source.Aname = name;
     return source;
   }
 
@@ -72,8 +73,7 @@ export class ChaosTable extends Table {
     this.initialVis = false;
     super.layoutTable2();            // toggleText
 
-    const row = 8.4, col = 1.8;       // position Panels on Neutral Panel
-
+    const row = 8.2, col = 1.8;      // position cardDeck (below clipping region of map)
     const [source, discard] = TacticsCard.makeCardSources(this, { row, col })
     this.cardSource = source;
     this.cardDiscard = discard;
