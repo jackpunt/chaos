@@ -170,7 +170,9 @@ export class TacticsCard extends Tile {
   }
 
   override showTargetMark(hex: IHex2 | undefined, ctx: DragContext) {
-    ctx.targetHex?.map.showMark(ctx.targetHex, TacticsCard.cardMark); // if no targetHex: leave prev mark still showing
+    const cardMark = TacticsCard.cardMark
+    ctx.targetHex?.map.showMark(ctx.targetHex, cardMark); // if no targetHex: leave prev mark still showing
+    cardMark.parent.addChildAt(cardMark, 0);              // do not occlude any LegalMark.hitArea
   }
 
   /**
@@ -185,20 +187,14 @@ export class TacticsCard extends Tile {
 
   /** look for LegalMark in curPlayer.panel.cardPanel */
   hexUnderObj(dragObj: DisplayObject, legalOnly = true) {
-    const mapCont = this.gamePlay.curPlayer.panel.mapCont;   // == panel.cardPanel
-    const data = this.gamePlay.table.dragger.getDragData(dragObj);
-    const dxy = data?.dragInfo?.dxy ?? { x: 0, y: 0 };
-    const pt = dragObj.parent.localToLocal(dragObj.x + dxy.x, dragObj.y + dxy.y, mapCont.markCont);
-    // as if hexUnderPoint(py.x, pt.y, legalOnly) {
-    const mark = mapCont.getObjectUnderPoint(pt.x, pt.y, 1); // find mark on PlayerPanel.cardPanel
+    const markCont = this.gamePlay.curPlayer.panel.mapCont.markCont;   // == panel.cardPanel
+    const dragCont = dragObj.parent; //= this.gamePlay.table.dragger.dragCont;
+    const pt = dragCont.parent.localToLocal(dragCont.x, dragCont.y, markCont); // mouse coords on markCont
+    // as if (panel as HexMap).hexUnderPoint(py.x, pt.y, legalOnly) {
+    const mark = markCont.getObjectUnderPoint(pt.x, pt.y, 1); // find mark on PlayerPanel.cardPanel
     if (mark instanceof LegalMark) return mark.hex2;
     // check table.hexMap for discard (or other) suitable hex;
-    // hack: inject ptCont so hexUnderObj uses mouse ptr (dxy) rather that card.xy
-    // TODO: the 'card-shaped' CardHex display the 'Hex-shaped' mark.
-    const ptCont = new NamedContainer('pointer', pt.x, pt.y)
-    mapCont.markCont.addChild(ptCont);
-    const rv = this.gamePlay.table.hexUnderObj(ptCont, legalOnly);
-    ptCont.parent.removeChild(ptCont);
+    const rv = this.gamePlay.table.hexUnderObj(dragCont, legalOnly);
     return rv
   }
 
