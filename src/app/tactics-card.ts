@@ -1,4 +1,4 @@
-import { C, permute, S, stime } from "@thegraid/common-lib";
+import { C, permute, S, stime, type XY } from "@thegraid/common-lib";
 import { CenterText, NamedContainer, RectShape, type CountClaz, type DragInfo, type Paintable } from "@thegraid/easeljs-lib";
 import type { Text } from "@thegraid/easeljs-module";
 import { DisplayObject, Graphics, MouseEvent } from "@thegraid/easeljs-module";
@@ -60,6 +60,12 @@ export class TacticsCard extends Tile {
   /** out-of-scope parameter to this.makeShape(); vs trying to tweak TP.hexRad for: get radius() */
   static nextRadius = TacticsCard.onScreenRadius; // when super() -> this.makeShape()
   _radius = TacticsCard.nextRadius;           // when ChaosCard.constructor eventually runs
+
+  static cardMark: CardShape; // wait for gameSetup to configure TP.hexRad
+  static makeCardMark() {
+    TacticsCard.cardMark = new CardShape('rgba(118, 118, 118, 0.5)', '', TacticsCard.onScreenRadius);
+  }
+
   override get radius() { return (this?._radius !== undefined) ? this._radius : TacticsCard.nextRadius }
   override get isMeep() { return true; }
   declare gamePlay: GamePlay;
@@ -74,6 +80,7 @@ export class TacticsCard extends Tile {
   // TileExporter supplies args = ...[rs, 750]
   constructor(cs: CardSpec, size?: number) {
     if (size !== undefined) TacticsCard.nextRadius = size; // set before super calls makeShape()
+    if (!TacticsCard.cardMark) TacticsCard.makeCardMark();
     super(TacticsCard.uniqueId(cs.id!))      // Note: may need to tweak cache/reCache algo
     this.nameText.y += this.radius * .12;    // = radius * (.5 + .12)
     // maybe paint() per phaseEffect:
@@ -162,9 +169,8 @@ export class TacticsCard extends Tile {
     return true;
   }
 
-  override showTargetMark(hex: IHex2 | undefined, ctx: DragContext): void {
-    if (ctx.targetHex == TacticsCard.source.hex) ctx.targetHex = TacticsCard.discard.hex as Hex2
-    super.showTargetMark(hex, ctx)
+  override showTargetMark(hex: IHex2 | undefined, ctx: DragContext) {
+    ctx.targetHex?.map.showMark(ctx.targetHex, TacticsCard.cardMark); // if no targetHex: leave prev mark still showing
   }
 
   /**
@@ -173,7 +179,7 @@ export class TacticsCard extends Tile {
    * gameStart: allTiles.makeDragable(table); CardBack.isDragable(ctx) -> false
    */
   override makeDragable(table: HasDragger): void {
-    table.dragger.makeDragable(this, this, this.tactics_dragFunc0, this.tactics_dropFunc)
+    table.dragger.makeDragable(this, this, this.tactics_dragFunc, this.tactics_dropFunc)
     table.dragger.clickToDrag(this, true); // also enable clickToDrag;
   }
 
@@ -197,13 +203,15 @@ export class TacticsCard extends Tile {
   }
 
   /** drag object curPlayer.panel.cardPanel */
-  tactics_dragFunc0(dragObj: DisplayObject, info?: DragInfo) {
+  tactics_dragFunc(dragObj: DisplayObject, info?: DragInfo) {
     const hex2 = this.hexUnderObj(dragObj); // find mark on PlayerPanel.cardPanel
     this.gamePlay.table.dragFunc0(this, info, hex2);
   }
   /** enlarge for click and drag */
-  scaleXY = 1.6;
+  scaleXY = 1.8;
   override dragStart(ctx: DragContext): void {
+    this.x *=  this.scaleXY;
+    this.y *=  this.scaleXY;
     this.scaleX = this.scaleY = this.scaleXY;
   }
 
@@ -228,7 +236,7 @@ export class TacticsCard extends Tile {
   // Player can drag it to discard pile during appropriate phase: eval effect
   // or drag it to combat wheel during Combat (discard after Combat)
   //
-  override dropFunc(targetHex: Hex2, ctx: DragContext): void {
+  override dropFunc(targetHex: IHex2, ctx: DragContext): void {
     const cardHex = (targetHex as CardHex);
     const card = cardHex?.card;
     if (card && card !== this) card.moveCard(cardHex, ctx);
@@ -365,12 +373,10 @@ export class CardBack extends TacticsCard {
     this.baseShape.paint(color)
     if (!CardBack._bounds) CardBack._bounds = this.getBounds(); // dubious optimization, only make 2 CardBacks
   }
-  // makeDragable(), but do not let it actually drag:
-  override isDragable(ctx?: DragContext): boolean {
-    return false;
-  }
-  override dropFunc(targetHex: Hex2, ctx: DragContext): void {
-    // do not move or place this card...
+
+  // CardBack is not dragable:
+  override makeDragable(table: HasDragger): void {
+    return;
   }
   clicked(evt?: MouseEvent) {
     if (!this.table) return; // printable CardBack...
@@ -382,15 +388,16 @@ export class CardBack extends TacticsCard {
       this.dim(true); // indicate stack is empty
     }
     if (card) {
-      const pt = { x: evt?.localX ?? 0, y: evt?.localY ?? 0 }
+      // card appears under mouse, no need for snap to dxy
+      // const pt = { x: evt?.localX ?? 0, y: evt?.localY ?? 0 }
       setTimeout(() => {
-        this.dragNextCard(card, pt)
-      }, 4);   // exit click context, new thread for dragging
+        this.dragNextCard(card)
+      }, 14);   // exit click context, new thread for dragging
     }
     return;
   }
 
-  dragNextCard(card: TacticsCard, dxy = { x: 10, y: 10 }) {
+  dragNextCard(card: TacticsCard, dxy?: XY) {
     // this.table.dragger.clickToDrag(card);
     this.table.dragTarget(card, dxy)
   }
