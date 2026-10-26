@@ -185,7 +185,7 @@ export class TacticsCard extends Tile {
     const { x, y, width, height } = this.getBounds()
     const dSize = Math.min(height, width) * .04;
     const fSize = dSize * 1.8;
-    const tmarg = .20;
+    const tmarg = .1;
     const setText = (txt: string, x = 0, y = 0, opts: { ta?: 'left' | 'center' | 'right', bl?: 'top' | 'middle' | 'bottom', fs?: number } = {}) => {
       const { ta, bl, fs } = { ta: 'center', bl: 'middle', fs: fSize, ...opts }
       const ctext = new CenterText(txt, fs);   // center & middle
@@ -205,7 +205,7 @@ export class TacticsCard extends Tile {
     const ycom = y + height * .3;    // y for combat text
     const ypha = y + height * .6;    // y for phase:
     const ypht = ypha + fSize;       // y for phase text
-    const ybot = y + height - 2 * dSize;
+    const ybot = y + height - 1.5 * dSize;
     const itext = cs.id!;
     const ctext = `${cs.ctext ?? ''}`;
     const ptext = cs.ptext;
@@ -443,7 +443,7 @@ export class CardBack extends TacticsCard {
 
     super({ id, phase: 'SetPrices', nL: 9, nR: 9, ptext: '' })
     this.phaseText.text = text;
-    this.phaseText.textBaseline = 'bottom'
+    this.phaseText.y = -this.phaseText.getMeasuredLineHeight(); // -nlines/2
     this.idText.text = id;
     this.baseShape.paint(color)
     if (!CardBack._bounds) CardBack._bounds = this.getBounds(); // dubious optimization, only make 2 CardBacks
