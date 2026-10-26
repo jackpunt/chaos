@@ -9,7 +9,7 @@ import { FactionId, FactionName, factionNames } from './factions';
 import { GamePlay } from './game-play';
 import { mixins } from './mixins';
 import { Panel, Player } from './player';
-import { TacticsCard } from './tactics-card';
+import { ChaosTweaker, TacticsCard } from './tactics-card';
 
 // TODO: you can run a tool like dpdm or madge from your terminal window
 // (npx madge --circular --extensions ts .) to map the dependency graph layout
@@ -78,7 +78,7 @@ class NullGameSetup extends GameSetupLib {
 
   override loadImagesThenStartup() {
     const fnames: string[] = [...factionNames];
-    AliasLoader.loader.fnames = [...fnames];
+    AliasLoader.loader.fnames = [...fnames, ...ChaosTweaker.fnames];
     super.loadImagesThenStartup();    // loader.loadImages(() => this.startup(qParams));
   }
 

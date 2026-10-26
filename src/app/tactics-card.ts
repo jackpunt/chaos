@@ -1,5 +1,5 @@
 import { C, permute, S, stime, type XY } from "@thegraid/common-lib";
-import { CenterText, RectShape, type CountClaz, type DragInfo, type Paintable } from "@thegraid/easeljs-lib";
+import { AliasLoader, CenterText, NamedContainer, RectShape, type CountClaz, type DragInfo, type Paintable } from "@thegraid/easeljs-lib";
 import type { Text } from "@thegraid/easeljs-module";
 import { DisplayObject, Graphics, MouseEvent } from "@thegraid/easeljs-module";
 import { H, LegalMark, MapCont, NumCounter, Tile, TileSource, TP, type DragContext, type HasDragger, type IHex2 } from "@thegraid/hexlib";
@@ -9,6 +9,9 @@ import type { ChaosTable as Table } from "./chaos-table";
 import type { Battle, BattleSAD, GamePlay } from "./game-play";
 import type { GameState } from "./game-state";
 import type { Panel, Player } from "./player";
+import { TextTweaks } from "./text-tweaks";
+import type { Container } from "@thegraid/easeljs-module";
+import type { Bitmap } from "@thegraid/easeljs-module";
 
 // Temporary, should be in GamePlay
 const phaseNames = ['SetPrices', 'Discovery', 'Build', 'Harvest', 'Recruit', 'Move', 'Combat', 'Income', 'Relic',] as const;
@@ -108,6 +111,73 @@ export class SpecGen {
   }
 }
 
+export class ChaosTweaker extends TextTweaks {
+  override glyphRE = /\$[=SADGEC]/g; // Str, Atk, Def, Gem, Energy, Card
+
+  static glyphImage: Record<string, string> = {
+    'S': 'Strength', 'A': 'Attack', 'D': 'Defence', 'E': 'Energy', 'G': 'Gem', 'C': 'TacticsCard',
+  }
+  // Note: our on-screen fSize = 8.78
+  /** suitable for 9 px textFont; noStencil: 1 retain image color (vs use text.color) */
+  glyphParams: Record<string, Partial<Record<'dx' | 'dy' | 'tx' | 'size' | 'noStencil', number | undefined>>> = {
+    Strength: { dx: 4, dy: 5, size: 15 },
+    Attack: { dx: 4, dy: 5, size: 15 },
+    Defence: { dx: 4, dy: 5, size: 15 },
+    Energy: { dx: 4, dy: 5, size: 15, noStencil: 1 },
+    Gem: { dx: 4, dy: 5, size: 15, noStencil: 1 },
+    TacticsCard: { dx: 4, dy: 5, size: 15, noStencil: 1, },
+  };
+  static get fnames() {
+    return  [... Object.values(ChaosTweaker.glyphImage)];
+  }
+  /**
+   * Implict tweaks.glyphFunc
+   * @param fragt text before the glyph (for metrics)
+   * @param trigger match from regex (typically: $<char>)
+   * @param linex where next text/char would go (from tweaks.dx)
+   * @param liney where next text/char would go (from tweaks.dy)
+   * @returns increment to dx
+   */
+  override setGlyph(cont: Container, fragt: Text, trigger: string, linex = 0, liney = 0): number {
+    const key = trigger[1];
+    const name = ChaosTweaker.glyphImage[key];
+    const params = this.glyphParams[name] ?? {};
+    const { dx, dy, size, tx } = { dx: 0, dy: 0, size: fragt.getMeasuredHeight(), ...params };
+    const aliasLoader = AliasLoader; // for debugger access
+    const bmi0 = aliasLoader.loader.getBitmap(name, size);
+    const color = fragt.color;
+    const bmi = (color.match(/white/i) || params.noStencil) ? bmi0 : new StencilImage(bmi0, color);
+    bmi.x += linex + dx;
+    bmi.y += liney + dy;
+    cont.addChild(bmi);
+    return tx ?? 2 * dx; // typically glyph is centered: [-dx...+dx]
+  }
+}
+
+class StencilImage extends NamedContainer {
+  colorRect!: RectShape
+  /** color bitmap with 'source-atop' */
+  constructor(public bitmap: Bitmap, public color: string, scale = 1) {
+    super('stencil')
+
+    const w = bitmap.image.width, h = bitmap.image.height;
+    bitmap.setBounds(0, 0, w, h)
+    this.addChild(bitmap);
+
+    const { x, y, width, height } = this.getBounds();
+    this.colorRect = new RectShape({x, y, w: width, h: height}, color,'')
+    this.colorRect.compositeOperation = "source-atop";
+    this.addChild(this.colorRect);
+    this.cache(x, y, width, height, scale); // merge layers and cache bitmap
+  }
+  // unused but this glyph could be re-colored if necessary.
+  paint(color: string) {
+    this.colorRect.paint(color)
+    this.updateCache();
+  }
+}
+
+
 
 export class TacticsCard extends Tile {
   static get allCards() { return Array.from(this.cardByName.values()) }
@@ -182,6 +252,7 @@ export class TacticsCard extends Tile {
    * build up image of TacticsCard in this Tile > NamedContainer.
    */
   addChildren(cs: CardSpec) {
+    const tweaker = new ChaosTweaker(this);
     const { x, y, width, height } = this.getBounds()
     const dSize = Math.min(height, width) * .04;
     const fSize = dSize * 1.8;
