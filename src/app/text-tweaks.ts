@@ -1,4 +1,5 @@
 import { C, F, type XY } from "@thegraid/common-lib";
+import { NamedContainer } from "@thegraid/easeljs-lib";
 import { Container, Text } from "@thegraid/easeljs-module";
 
 export type BASELINE = "top" | "hanging" | "middle" | "alphabetic" | "ideographic" | "bottom";
@@ -11,9 +12,11 @@ export type TWEAKS = {
 };
 
 /**
- * supply Container to hold the tweaked Text
+ * Create Text objects with various attributes; replace special characters with glyph.
  *
- * override setGlyph() for your glyphRE.
+ * Supply a Container to hold the tweaked Text.
+ *
+ * override glyphRE & setGlyph() for your glyphRE.
  */
 export class TextTweaks {
   /** override to detect and inject glyphs */
@@ -22,16 +25,22 @@ export class TextTweaks {
   fontFamily: string[] = ['Fishmonger CS', 'SF Compact Rounded', 'Helvetica Neue', 'Nunito'];
 
   cont: Container;
-
-  constructor(cont: Container) {
-    this.cont = cont;
+  /**
+   * Supply an initial Container for Text frags
+   *
+   * @param cont Container to hold the tweaked Text OR name of a new NamedContainer ['tweaks']
+   */
+  constructor(cont: Container | string = 'tweaks') {
+    this.cont = (typeof cont == 'string') ? new NamedContainer(cont) : cont;
   }
 
   /** setTextTweaks [Centered] with Tweaks: { color, dx, dy, baseline, align, nlh, glyphRE }
    *
-   * for each line: setLineMaybeItalic -> setLineWithGlyphs -> setGlyph|setTextFrag -> makeText
+   * for each line: setLineWithFontFrags -> setLineWithGlyphs -> setGlyph|setTextFrag -> makeText
    *
-   * @param text string | Text
+   * all the Text objects are added as children to this.cont
+   *
+   * @param text string | Text; raw text including glyphs and directives
    * @param fontStr is fed to makeText (resolve as fam_wght)
    * @param tweaks: dx, dy: initial x, y-coord, nlh: advance dy per newline; style, wght, size, font override fontStr
    * @returns the final Text child
@@ -58,10 +67,24 @@ export class TextTweaks {
   }
 
   /**
-   * italic weight family
+   * split line into fragments with same font: parseFontStr -> { style weight size family }
+   *
+   * Inline font change can be specified in text with \<:SPEC:text> (from cubitos)
+   *
+   * - SPEC: \<:iWGHTfn: text >
+   * - italic: \<:i: text >    (style = italic)
+   * - weight: \<:WGHT: text > (weight = WGHT)
+   * - family: \<:fn: text > (family = this.fontFamily[n])
+   * - token:  \<:TOKEN text > (weight = bold) [shortcut from cubitos]
+   *
+   * TODO: inline change of tweaks.size?
+   *
+   * Each frag is tweaked and added to this.cont
+   *
    * @returns the final Text child
    */
   setLineWithFontFrags(line: string, fontStr: string, tweaks: TWEAKS) {
+    // (n % nr) == 1: italic, 2:
     const fontRE = /<:(i?\d*f?\d?):(.+?)>|<:([A-Za-z]*)/;    // ASSERT: 3 capture groups (spec)(text)(bold)
     const frags = (fontRE && line.match(fontRE)) ? line.split(fontRE) : [line];
     let dx = tweaks.dx!;   // ASSERT: tweaks.dx set by caller
@@ -142,6 +165,7 @@ export class TextTweaks {
    * @param fontStr (recalculate size if xwide !== undefined)
    * @param tweaks override fontStr { style, weight, size, family }
    * @param xwide max width of Text, shrink fontSize fit. Leave [undefined] to use fontStr as is.
+   * @returns the new Text object
    */
   makeText(text: string, fontStr: string, tweaks: TWEAKS) {
     const { style, weight, size, family, color, xwide } = { ...this.parseFontStr(fontStr), ...tweaks };
@@ -189,7 +213,7 @@ export class TextTweaks {
 
   /**
    * reference implementation of a glyph function (set trigger text in italic bold).
-   * @param cont Container to hold glyph dispObj
+   * @param cont Container to hold glyph dispObj [generally this.cont]
    * @param fragt previous Text (to get size, height, alignment, etc)
    * @param trigger the matched text to be replaced with a glyph
    * @param dx x location for glyph (textAlign: left)
