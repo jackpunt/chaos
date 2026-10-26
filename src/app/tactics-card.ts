@@ -14,20 +14,12 @@ import type { Panel, Player } from "./player";
 const phaseNames = ['SetPrices', 'Discovery', 'Build', 'Harvest', 'Recruit', 'Move', 'Combat', 'Income', 'Relic',] as const;
 type ChaosPhase = typeof phaseNames[number];
 
-// TODO: define rectange 'Tiles' to hold the Rule/Constraint/Bonus items.
-type PhaseEffect = {
-  phase: ChaosPhase | 'back';   // one of ChaosPhase: SetPrices, Discovery, Build, Harvest, Recruit, Move, Combat, Income, Relics
-  text: string;    // presentation to Player
-  eFunc: Function; // TBD
-}
-type CombatEffect = {
-  text: string;    // presentation to Player
-  eFunc: Function; // executable to implement whatever (before, during, after combat...)
-}
-
 /** id: ident, d: description, pE: PhaseEffect, cE: combatEffect, nL: left#, nR: right#, */
 type CardSpec = {
-  id: string, d: string, pE: PhaseEffect, cE?: CombatEffect, nL?: number, nR?: number,
+  id?: string, phase: ChaosPhase, ptext: string, ctext?: string, nL: number, nR: number,
+  // Note: nL, nR code 'X' as 8;
+  pFunc?: Function; // TBD
+  cFunc?: Function; // executable to implement whatever (before, during, after combat...)
 }
 
 export class SpecGen {
@@ -46,10 +38,69 @@ export class SpecGen {
   m1() {}
 
   cardSpecs: CardSpec[] = [
-    { id: "card1", d: "redeploy", pE: { phase: 'Move', text: '1 Redeploy before moving', eFunc: () => {}}, cE: { text: 'def +1', eFunc: () =>{this.sad.def += 1}} },
-    { id: "card2", d: "5 Energy", nL: 1, nR: 3, pE: { phase: 'Harvest', text: 'Gain 5 energy if you do not act in this phase', eFunc: ()=>{}}, cE: { text: 'str + 2', eFunc: () =>{this.sad.atk += 2}} },
-    { id: "card3", d: "Gain Fame", nL: 5, nR: 0, pE: { phase: 'Relic', text: 'Gain 1 Fame', eFunc: ()=>{}} },
-  ];
+    { phase: 'Discovery', nL: 3, nR: 1, ptext: "*TAKE THE DISCOVER ACTION WITHOUT PAYING ANY ENERGY", ctext: "GAIN 2 TACTICS CARDS IF YOU LOSE WITHOUT RETREATING", },
+    { phase: 'Discovery', nL: 4, nR: 1, ptext: "*RESEARCH POINTS MAY BE SPENT TO DEPLOY OR UPGRADE LEADERS", ctext: "RETURN 1 OF YOUR LEADERS TO BASE IF THEY ARE DEFEATED", },
+    { phase: 'Discovery', nL: 5, nR: 0, ptext: "*GAIN 1 RESEARCH ON THE DISCOVER TRACK BEFORE ACTING OR PASSING", ctext: "", },
+    { phase: 'Discovery', nL: 0, nR: 4, ptext: "SPEND 2 ENERGY TO GAIN 2 GEMS IF YOU ACT IN THIS PHASE", ctext: "GAIN 1 TACTICS CARD IF YOU ROLL ANY $D", },
+    { phase: 'Discovery', nL: 0, nR: 3, ptext: "GAIN 2 TACTICS CARDS IF YOU DO NOT ACT IN THIS PHASE", ctext: "GAIN 1 RESEARCH IF VICTORIOUS AGAINST AN OPPOSING LEADER OR RHY-ZU", },
+    { phase: 'Discovery', nL: 1, nR: 3, ptext: "GAIN 4 ENERGY IF YOU DO NOT ACT IN THIS PHASE", ctext: "GAIN 3 ENERGY IF YOU LOSE WITHOUT RETREATING", },
+    { phase: 'Build', nL: 0, nR: 3, ptext: "*TAKE THE BUILD ACTION WITHOUT PAYING ANY ENERGY", ctext: "2 $S IF THERE IS AT LEAST 1 OPPOSING BUILDING IN THIS BATTLE", },
+    { phase: 'Build', nL: 2, nR: 2, ptext: "*CONSTRUCT 1 OUTPOST IF YOU DO NOT ACT IN THIS PHASE", ctext: "GAIN 1 ENERGY PER FIGHTER YOU WOUND", },
+    { phase: 'Build', nL: 2, nR: 2, ptext: "*GAIN 1 RESEARCH ON THE BUILD TRACK BEFORE ACTING OR PASSING THIS PHASE", ctext: "1 $S PER OPPOSING BUILDING IN THIS BATTLE", },
+    { phase: 'Build', nL: 3, nR: 1, ptext: "DOUBLE THE BUILDING LOCATION REWARD WHEN CONSTRUCTING A BUILDING", ctext: "2 $A IF YOU HAVE A BUILDING PRESENT", },
+    { phase: 'Build', nL: 3, nR: 0, ptext: "CONSTRUCT 1 FOUNDATION IF YOU DO NOT ACT IN THIS PHASE", ctext: "1 $S + 1 $A", },
+    { phase: 'Build', nL: 1, nR: 4, ptext: "GAIN 4 ENERGY IF YOU DO NOT ACT IN THIS PHASE", ctext: "", },
+    { phase: 'Build', nL: 3, nR: 0, ptext: "GAIN 1 GEM AND PAY 1 FEWER GEM WHEN CONSTRUCTING A BUILDING", ctext: "3 $D IF YOU HAVE A BUILDING PRESENT", },
+    { phase: 'Build', nL: 3, nR: 0, ptext: "PAY 3 FEWER ENERGY WHEN TAKING THE AUXILLARY ACTION", ctext: "GAIN 1 RESEARCH IF YOU RAZE 1 OR MORE BUILDINGS", },
+    { phase: 'Build', nL: 0, nR: 4, ptext: "YOU HAVE A TEMPORARY BOOST OF 2 RESEARCH ON THE BUILD TRACK FOR THIS ACTION", ctext: "2 $D IF YOU HAVE FEWER UNITS THAN YOUR OPPONENT", },
+    { phase: 'Harvest', nL: 2, nR: 2, ptext: "*TAKE THE HARVEST ACTION WITHOUT PAYING ANY ENERGY", ctext: "KEEP THIS TACTICS CARD IF YOU ARE VICTORIOUS", },
+    { phase: 'Harvest', nL: 0, nR: 4, ptext: "*UPGRADE 1 LEADER IF YOU DO NOT ACT IN THIS PHASE", ctext: "YOU MAY UPGRADE A LEADER WITH A 1-GEM DISCOUNT IF THEY ARE DEFEATED", },
+    { phase: 'Harvest', nL: 2, nR: 8, ptext: "*GAIN 1 RESEARCH ON THE BUILD HARVEST BEFORE ACTING OR PASSING THIS PHASE", ctext: "X = ROLLED $S\n(X = 1 IF FIGHTING WITHOUT A DIE)", },
+    { phase: 'Harvest', nL: 1, nR: 3, ptext: "GAIN 1 ENERGY AND 1 HARVEST POINT IF YOU ACT IN THIS PHASE", ctext: "GAIN 1 GEM IF YOU LOSE WITHOUT RETREATING", },
+    { phase: 'Harvest', nL: 0, nR: 3, ptext: "GAIN 2 GEMS AND 1 TACTICS CARDS IF YOU DO NOT ACT IN THIS PHASE", ctext: "IF ROLLING A DIE IN THIS BATTLE ALL ROLLED $S ALSO COUNT AS $D", },
+    { phase: 'Harvest', nL: 0, nR: 3, ptext: "GAIN 4 ENERGY IF YOU DO NOT ACT IN THIS PHASE", ctext: "IF ROLLING A DIE IN THIS BATTLE ALL ROLLED $S ALSO COUNT AS $A", },
+    { phase: 'Harvest', nL: 2, nR: 2, ptext: "GAIN 2 ENERGY AND 1 RECRUITMENT POINT IF YOU ACT IN THIS PHASE", ctext: "KEEP THIS TACTICS CARD IF YOU LOSE WITHOUT RETREATING", },
+    { phase: 'Harvest', nL: 1, nR: 3, ptext: "FOR EACH GEM YOU HARVEST FROM THE MAP, GAIN 1 MORE", ctext: "2 $A IF ROLLING A DIE IN THIS BATTLE", },
+    { phase: 'Recruit', nL: 2, nR: 2, ptext: "*TAKE THE RECRUIT ACTION WITHOUT PAYING ANY ENERGY", ctext: "2 $D", },
+    { phase: 'Recruit', nL: 1, nR: 3, ptext: "*GAIN 1 RESEARCH ON THE RECRUIT TRACK BEFORE ACTING OR PASSING THIS PHASE", ctext: "2 $A IF YOU COMMAND AT LEAST 1 LEADER OR RHY-ZU IN THIS BATTLE", },
+    { phase: 'Recruit', nL: 3, nR: 1, ptext: "GAIN 2 ADDITIONAL RECRUITMENT POINTS IF YOU ACT IN THIS PHASE", ctext: "GAIN 2 RECRUITMENT POINTS IF YOU LOSE WITHOUT RETREATING", },
+    { phase: 'Recruit', nL: 8, nR: 2, ptext: "RECRUIT A LEADER IF YOU DO NOT ACT IN THIS PHASE", ctext: "X = ROLLED $S\n(X = 1 IF FIGHTING WITHOUT A DIE)", },
+    { phase: 'Recruit', nL: 3, nR: 2, ptext: "GAIN 4 ENERGY IF YOU DO NOT ACT IN THIS PHASE", ctext: "GAIN 3 ENERGY IF FIGHTING WITHOUT A DIE", },
+    { phase: 'Recruit', nL: 3, nR: 1, ptext: "MAKE 1 REDEPLOYMENT IF YOU ACT IN THIS PHASE", ctext: "GAIN 1 RECRUITMENT POINT FOR EACH OF YOUR WOUNDED FIGHTERS", },
+    { phase: 'Recruit', nL: 3, nR: 0, ptext: "IMMEDIATELY GAIN 1 GEM AND PAY 1 FEWER GEM IF YOU RECRUIT A LEADER", ctext: "2 $S IF YOU HAVE NO FIGHTERS OR BUILDINGS PRESENT", },
+    { phase: 'Recruit', nL: 4, nR: 0, ptext: "PAY 3 FEWER ENERGY WHEN RECRUITING A LEADER", ctext: "2 $D IF YOU COMMAND AT LEAST 1 LEADER OR RHY-ZU IN THIS BATTLE", },
+    { phase: 'Recruit', nL: 2, nR: 2, ptext: "SWAP THE POSITION OF ANY OF YOUR LEADERS IF YOU ACT IN THIS PHASE", ctext: "2 $A IF YOUR OPPONENT HAS CHOSEN TO RETREAT", },
+    { phase: 'Recruit', nL: 1, nR: 3, ptext: "YOU MAY SPEND 3 RECRUITMENT POINTS TO GAIN 1 RESEARCH", ctext: "GAIN 1 RESEARCH IF YOU WOUND 2 OR MORE FIGHTERS", },
+    { phase: 'Recruit', nL: 2, nR: 3, ptext: "PAY 3 FEWER ENERGY WHEN FAST-TRACKING FIGHTERS", ctext: "", },
+    { phase: 'Move', nL: 2, nR: 2, ptext: "*TAKE THE MOVE ACTION WITHOUT PAYING ANY ENERGY", ctext: "GAIN 3 ENERGY IF YOU RETREAT", },
+    { phase: 'Move', nL: 0, nR: 2, ptext: "*GAIN 1 RESEARCH ON THE MOVE TRACK BEFORE ACTING OR PASSING THIS PHASE", ctext: "", },
+    { phase: 'Move', nL: 0, nR: 5, ptext: "GAN 1 ADDITIONAL MOVEMENT POINT IF YOU ACT IN THIS PHASE", ctext: "", },
+    { phase: 'Move', nL: 4, nR: 1, ptext: "GAIN 5 ENERGY IF YOU DO NOT ACT IN THIS PHASE", ctext: "", },
+    { phase: 'Move', nL: 3, nR: 0, ptext: "SEND ANY OF YOUR UNPINNED UNITS FROM UP TO 2 REGIONS TO YOUR BASE IF YOU ACT IN THIS PHASE", ctext: "GAIN 1 GEM IF YOU RETREAT", },
+    { phase: 'Move', nL: 3, nR: 1, ptext: "REDEPLOY FROM A REGION YOU CONTROL BEFORE ACTING OR PASSING", ctext: "GAIN 1 GEM OR 1 TACTICS CARD IF YOU LOSE 1 OR MORE BUILDINGS", },
+    { phase: 'Move', nL: 1, nR: 3, ptext: "PAY 3 FEWER ENERGY AND 1 FEW GEM WHEN UPGRADING A LEADER OR RHY-ZU", ctext: "", },
+    { phase: 'Move', nL: 2, nR: 3, ptext: "UPGRADE A LEADER OR RHY-ZU IF YOU DO NOT ACT IN THIS PHASE", ctext: "", },
+    { phase: 'Income', nL: 4, nR: 0, ptext: "*GAIN 3 ENERGY PER RELIC REGION YOU CONTROL", ctext: "2 $D IF ON A RELIC REGION", },
+    { phase: 'Income', nL: 5, nR: 0, ptext: "*ADD 1 TO YOUR REGION COUNT", ctext: "", },
+    { phase: 'Income', nL: 3, nR: 2, ptext: "*CONSTRUCT A FOUNDATION", ctext: "GAIN 1 GEM IF YOUR OPPONENT ROLLS A DIE", },
+    { phase: 'Income', nL: 3, nR: 2, ptext: "PAY 2 FEWER GEMS WHEN UPGRADING ATTRIBUTES", ctext: "", },
+    { phase: 'Income', nL: 2, nR: 2, ptext: "DEDUCT 2 FROM YOUR REGION COUNT", ctext: "KEEP THIS TACTICS CARD IF YOU ROLL 1 OR 2 $S", },
+    { phase: 'Income', nL: 3, nR: 1, ptext: "GAIN 4 ENERGY", ctext: "GAIN 1 TACTICS CARD IF YOU DO NOT COMMAND ANY LEADER OR RHY-ZU IN THIS BATTLE", },
+    { phase: 'Income', nL: 4, nR: 0, ptext: "GAIN 1 GEM PER PLAINS REGION YOU CONTROL", ctext: "GAIN 1 GEM IF FIGHTING WITHOUT A DIE", },
+    { phase: 'Income', nL: 2, nR: 2, ptext: "GAIN 1 GEM PER SWAMP REGION YOU CONTROL", ctext: "IGNORE THE GEM COST IF ROLLING A DIE IN THIS BATTLE", },
+    { phase: 'Income', nL: 1, nR: 3, ptext: "GAIN 1 GEM PER CLIFFS REGION YOU CONTROL", ctext: "2 $S IF YOU HAVE FEWER UNITS THAN YOUR OPPONENT", },
+    { phase: 'Income', nL: 1, nR: 3, ptext: "GAIN 1 GEM PER RELIC REGION YOU CONTROL", ctext: "2 $A IF ON A RELIC REGION", },
+    { phase: 'Income', nL: 2, nR: 2, ptext: "GAIN 1 TACTICS CARD PER PLAINS REGION YOU CONTROL", ctext: "2 $S ON PLAINS", },
+    { phase: 'Income', nL: 2, nR: 2, ptext: "GAIN 1 TACTICS CARD PER SWAMP REGION YOU CONTROL", ctext: "2 $S ON SWAMPS", },
+    { phase: 'Income', nL: 2, nR: 2, ptext: "GAIN 1 TACTICS CARD PER CLIFFS REGION YOU CONTROL", ctext: "2 $S ON CLIFFS", },
+    { phase: 'Income', nL: 2, nR: 2, ptext: "GAIN 1 TACTICS CARD PER RELIC REGION YOU CONTROL", ctext: "2 $S IF ON A RELIC REGION", },
+    { phase: 'Relic', nL: -1, nR: 3, ptext: "IF YOU HAVE 0-5 ENERGY, INCREASE THE ENERGY IN YOUR SUPPLY UP TO 6", ctext: "3 $A IF YOU HAVE NO LEADER PRESENT", },
+    { phase: 'Relic', nL: 3, nR: -1, ptext: "IF YOU HAVE 0-1 GEMS, INCREASE THE GEMS IN YOUR SUPPLY UP TO 2", ctext: "3 $A IF OPPOSING A LEADER", },
+    { phase: 'Relic', nL: 3, nR: 3, ptext: "MAKE 1 REDEPLOYMENT", ctext: "-2 $D IF YOU CHOOSE TO RETREAT", },
+    { phase: 'Relic', nL: 2, nR: 2, ptext: "GAIN 2 TACTICS CARDS", ctext: "GAIN 1 GEM FOR EACH BUILDING THAT YOU RAZE", },
+    { phase: 'Relic', nL: -1, nR: 6, ptext: "ALL YOUR UNITS REMAIN IN THE REGION WHEN COLLECTING A RELIC", ctext: "YOUR OPPONENT GAIN 2 $A + 1 $D", },
+    { phase: 'Relic', nL: 6, nR: -2, ptext: "GAIN 1 RESEARCH WHEN COLLECTING A RELIC", ctext: "YOUR OPPONENT GAIN 1 $A + 1 $D", },
+  ]
 
   /** new TacticsCard(cardSpec) for each cardSpec. */
   newCards(specs = this.cardSpecs) {
@@ -62,8 +113,8 @@ export class TacticsCard extends Tile {
   static get allCards() { return Array.from(this.cardByName.values()) }
 
   static cardByName: Map<string,TacticsCard> = new Map();
-  static uniqueId(cs: CardSpec, pI = cs.pE.phase.substring(0, 1)) {
-    if (cs.pE.phase == 'Relic') pI = 'C'; // Check Relics (not Recruit)
+  static uniqueId(cs: CardSpec, pI = cs.phase.substring(0, 1)) {
+    if (cs.phase == 'Relic') pI = 'C'; // Check Relics (not Recruit)
     const n = Array.from(this.cardByName.keys()).filter(key => key.startsWith(pI)).length + 1;
     cs.id = `${pI}${n}_${cs.nL ?? 0}_${cs.nR ?? 0}`;
     return cs.id;
@@ -72,8 +123,8 @@ export class TacticsCard extends Tile {
   // map from phase to a color
 
   static colorMap: Partial<Record<ChaosPhase | 'back', string>> = {
-    Discovery: 'lavender', Build: 'blue', Harvest: 'lightgreen', back: 'lightblue',
-    Recruit: 'orange', Move: 'yellow', Combat: 'pink', Income: 'green', Relic: C.grey224,
+    Discovery: 'rgb(246, 154, 254)', Build: 'rgb(163, 197, 255)', Harvest: 'rgb(174, 255, 221)', back: 'lightblue',
+    Recruit: 'rgb(253, 233, 123)', Move: 'rgb(255, 184, 114)', Combat: 'rgb(255, 164, 164)', Income: 'rgb(170, 255, 159)', Relic: C.grey224,
   };
   /** recompute if TP.hexRad has been changed */
   static get onScreenRadius() { return TP.hexRad * H.sqrt3 };
@@ -90,11 +141,15 @@ export class TacticsCard extends Tile {
   override get isMeep() { return true; }
   declare gamePlay: GamePlay;
 
-  dText!: Text;            // descriptive text, name? id?
+  idText!: Text;            // descriptive text, name? id?
+  phase!: ChaosPhase;
   nLeft!: number;          // set once: rs.nLeft
   nRight!: number;         // set once: rs.nRight
-  phaseEffect!: PhaseEffect;
-  combatEffect?: CombatEffect;
+  cText!: Text;
+  phaseText!: Text;
+  pText!: Text;
+  pFunc?: Function;
+  cFunc?: Function;
 
   // Tile { baseShape: RectShape , nameText, descr }
   // TileExporter supplies args = ...[rs, 750]
@@ -105,7 +160,7 @@ export class TacticsCard extends Tile {
     this.nameText.y += this.radius * .12;    // = radius * (.5 + .12)
     // maybe paint() per phaseEffect:
     this.addChildren(cs)
-    this.paint(TacticsCard.colorMap[this.phaseEffect?.phase])
+    this.paint(TacticsCard.colorMap[this.phase])
     TacticsCard.cardByName.set(this.Aname, this);  // Aname from CardSpec.id
     this.homeHex = TacticsCard.discards.hex; // unitCollision will stack if necessary.
   }
@@ -129,10 +184,14 @@ export class TacticsCard extends Tile {
   addChildren(cs: CardSpec) {
     const { x, y, width, height } = this.getBounds()
     const dSize = Math.min(height, width) * .04;
-    const fSize = dSize * 3;
-    const setText = (txt: string, x = 0, y = 0, fs = fSize) => {
+    const fSize = dSize * 1.8;
+    const tmarg = .20;
+    const setText = (txt: string, x = 0, y = 0, opts: { ta?: 'left' | 'center' | 'right', bl?: 'top' | 'middle' | 'bottom', fs?: number } = {}) => {
+      const { ta, bl, fs } = { ta: 'center', bl: 'middle', fs: fSize, ...opts }
       const ctext = new CenterText(txt, fs);   // center & middle
-      ctext.lineWidth = width * .9;   // wrap when needed; we may want textTweaks (citymap, hexcity, whist, cubitos, gambit)
+      ctext.textAlign = ta;
+      ctext.textBaseline = bl;
+      ctext.lineWidth = width * (.95-tmarg);   // wrap when needed; we may want textTweaks (citymap, hexcity, whist, cubitos, gambit)
       ctext.x = x; ctext.y = y;
       this.addChild(ctext);
       return ctext;
@@ -141,24 +200,28 @@ export class TacticsCard extends Tile {
     const xn = width * .33;
     const xl = xc - xn;
     const xr = xc + xn;
-    const ytop = y + fSize * .95;  // for numbers
-    const ycom = y + height - fSize * 8.1;   // y for combat effect
-    const ypha = y + height - fSize * 5.1;   // y for phase effect
-    const ybot = y + height - 1 * fSize;
-    const itext = cs.id;
-    const ctext = `${cs.cE?.text ?? ''}`;
-    const ptext = `${cs.pE.phase}: ${cs.pE.text}`;
+    const x0 = x + width * tmarg;
+    const ytop = y + dSize * 3 * .95;   // for numbers
+    const ycom = y + height * .3;    // y for combat text
+    const ypha = y + height * .6;    // y for phase:
+    const ypht = ypha + fSize;       // y for phase text
+    const ybot = y + height - 2 * dSize;
+    const itext = cs.id!;
+    const ctext = `${cs.ctext ?? ''}`;
+    const ptext = cs.ptext;
 
-    this.nLeft = cs.nL ?? 0;       // combat buff value
-    this.nRight = cs.nR ?? 0;      // combat buff value
-    setText(`${cs.nL ?? '0' }`, xl, ytop);
-    setText(`${cs.nR ?? '0' }`, xr, ytop);
+    this.phase = cs.phase;
+    this.nLeft = cs.nL;       // combat buff value
+    this.nRight = cs.nR;      // combat buff value
+    setText(cs.nL == 8 ? 'X' : cs.nL == 9 ? '' : `${cs.nL}`, xl, ytop, { fs: dSize * 3 });
+    setText(cs.nR == 8 ? 'X' : cs.nR == 9 ? '' : `${cs.nR}`, xr, ytop, { fs: dSize * 3 });
 
-    setText(ctext, xc, ycom);
-    setText(ptext ?? '', xc, ypha);
-    this.dText = setText(itext, xc, ybot + fSize / 3, fSize / 2); // describe/id the card; CardBack.dim()
-    this.phaseEffect = cs.pE;
-    this.combatEffect = cs.cE;
+    this.cText = setText(ctext, x0, ycom, { ta: 'left' });       // combat text
+    this.phaseText = setText(`${cs.phase}:`, xc, ypha);
+    this.pText = setText(ptext ?? '', x0, ypht, { ta: 'left' });
+    this.idText = setText(itext, xc, ybot, { fs: dSize * 1.5 }); // describe/id the card; CardBack.dim()
+    this.pFunc = cs.pFunc;
+    this.cFunc = cs.cFunc;
   }
 
   // Identify il-legal sources of fromHex:
@@ -372,17 +435,16 @@ export class CardBack extends TacticsCard {
   static oText = 'click\nto\ndraw';
   static nText = 'DIM\n';
   dim(dim = true) {
-    this.dText.text = dim ? CardBack.nText : CardBack.oText;
+    this.idText.text = dim ? CardBack.nText : CardBack.oText;
     this.stage?.update()
   }
 
   constructor(public table: Table, id = 'cardback', text = CardBack.oText, color = CardBack.bColor) {
-    const backEffect: PhaseEffect = {
-      phase: 'back',
-      text: CardBack.oText,
-      eFunc: () => {},
-    }
-    super({ id, d: text, pE: backEffect })
+
+    super({ id, phase: 'SetPrices', nL: 9, nR: 9, ptext: '' })
+    this.phaseText.text = text;
+    this.phaseText.textBaseline = 'bottom'
+    this.idText.text = id;
     this.baseShape.paint(color)
     if (!CardBack._bounds) CardBack._bounds = this.getBounds(); // dubious optimization, only make 2 CardBacks
   }
@@ -565,10 +627,5 @@ export class CardPanel extends MapCont {
   resetCards(cards: TacticsCard[]) {
       this.cards.forEach(card => (cards.includes(card) || card.sendHome())); // discard extra cards
 
-  }
-
-  /** get all the phaseEffects */  // TODO: change the name or maybe remove
-  get rules() {
-    return (this.cardRack.map(hex => hex.card).filter(card => !!card) as TacticsCard[]).map(card => card.phaseEffect)
   }
 }
