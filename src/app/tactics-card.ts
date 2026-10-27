@@ -1,6 +1,6 @@
-import { C, permute, S, stime, type XY } from "@thegraid/common-lib";
+import { C, F, permute, S, stime, type XY } from "@thegraid/common-lib";
 import { AliasLoader, CenterText, NamedContainer, RectShape, type CountClaz, type DragInfo, type Paintable } from "@thegraid/easeljs-lib";
-import type { Text } from "@thegraid/easeljs-module";
+import type { Bitmap, Container, Text } from "@thegraid/easeljs-module";
 import { DisplayObject, Graphics, MouseEvent } from "@thegraid/easeljs-module";
 import { H, LegalMark, MapCont, NumCounter, Tile, TileSource, TP, type DragContext, type HasDragger, type IHex2 } from "@thegraid/hexlib";
 import { CardShape } from "./card-shape";
@@ -9,9 +9,7 @@ import type { ChaosTable as Table } from "./chaos-table";
 import type { Battle, BattleSAD, GamePlay } from "./game-play";
 import type { GameState } from "./game-state";
 import type { Panel, Player } from "./player";
-import { TextTweaks } from "./text-tweaks";
-import type { Container } from "@thegraid/easeljs-module";
-import type { Bitmap } from "@thegraid/easeljs-module";
+import { TextTweaks, type TWEAKS } from "./text-tweaks";
 
 // Temporary, should be in GamePlay
 const phaseNames = ['SetPrices', 'Discovery', 'Build', 'Harvest', 'Recruit', 'Move', 'Combat', 'Income', 'Relic',] as const;
@@ -102,7 +100,7 @@ export class SpecGen {
     { phase: 'Relic', nL: 3, nR: 3, ptext: "MAKE 1 REDEPLOYMENT", ctext: "-2 $D IF YOU CHOOSE TO RETREAT", },
     { phase: 'Relic', nL: 2, nR: 2, ptext: "GAIN 2 TACTICS CARDS", ctext: "GAIN 1 GEM FOR EACH BUILDING THAT YOU RAZE", },
     { phase: 'Relic', nL: -1, nR: 6, ptext: "ALL YOUR UNITS REMAIN IN THE REGION WHEN COLLECTING A RELIC", ctext: "YOUR OPPONENT GAIN 2 $A + 1 $D", },
-    { phase: 'Relic', nL: 6, nR: -2, ptext: "GAIN 1 RESEARCH WHEN COLLECTING A RELIC", ctext: "YOUR OPPONENT GAIN 1 $A + 1 $D", },
+    { phase: 'Relic', nL: 6, nR: -2, ptext: "GAIN 1 RESEARCH WHEN COLLECTING A RELIC", ctext: "YOUR OPPONENT GAINS 1 $A + 1 $D", },
   ]
 
   /** new TacticsCard(cardSpec) for each cardSpec. */
@@ -112,21 +110,36 @@ export class SpecGen {
 }
 
 export class ChaosTweaker extends TextTweaks {
+  /** glyphRE must have no capture groups; used for frag.split(glyphRE) in base class */
   override glyphRE = /\$[=SADGEC]/g; // Str, Atk, Def, Gem, Energy, Card
 
   static glyphImage: Record<string, string> = {
     'S': 'Strength', 'A': 'Attack', 'D': 'Defence', 'E': 'Energy', 'G': 'Gem', 'C': 'TacticsCard',
   }
+
+  /**
+   *
+   * @param cont Container to hold text frags & glyphs
+   * @param fSize fontSize to size & position glyphs
+   */
+  constructor(cont: Container, fSize: number) {
+    super(cont)
+    this.glyphParams = this.defineGlyphParams(fSize)
+  }
+  defineGlyphParams(fs: number, dx = fs/2, dy = -1) {
+    return {
+      Strength: { dx, dy, size: fs, noStencil: 1 },
+      Attack:   { dx, dy, size: fs, noStencil: 1 },
+      Defence:  { dx, dy, size: fs, noStencil: 1 },
+      Energy:   { dx, dy, size: fs, noStencil: 1 },
+      Gem:      { dx, dy, size: fs, noStencil: 1 },
+      TacticsCard: { dx, dy, size: fs, noStencil: 1, },
+    };
+  }
   // Note: our on-screen fSize = 8.78
   /** suitable for 9 px textFont; noStencil: 1 retain image color (vs use text.color) */
-  glyphParams: Record<string, Partial<Record<'dx' | 'dy' | 'tx' | 'size' | 'noStencil', number | undefined>>> = {
-    Strength: { dx: 4, dy: 5, size: 15 },
-    Attack: { dx: 4, dy: 5, size: 15 },
-    Defence: { dx: 4, dy: 5, size: 15 },
-    Energy: { dx: 4, dy: 5, size: 15, noStencil: 1 },
-    Gem: { dx: 4, dy: 5, size: 15, noStencil: 1 },
-    TacticsCard: { dx: 4, dy: 5, size: 15, noStencil: 1, },
-  };
+  glyphParams: Record<string, Partial<Record<'dx' | 'dy' | 'tx' | 'size' | 'noStencil', number | undefined>>>
+
   static get fnames() {
     return  [... Object.values(ChaosTweaker.glyphImage)];
   }
@@ -138,14 +151,15 @@ export class ChaosTweaker extends TextTweaks {
    * @param liney where next text/char would go (from tweaks.dy)
    * @returns increment to dx
    */
-  override setGlyph(cont: Container, fragt: Text, trigger: string, linex = 0, liney = 0): number {
+  override setGlyph(cont: Container, fragt: Text, trigger: string, tweaks: TWEAKS): number {
+    const { dx: linex, dy: liney } = tweaks as { dx: number, dy: number }
     const key = trigger[1];
     const name = ChaosTweaker.glyphImage[key];
     const params = this.glyphParams[name] ?? {};
     const { dx, dy, size, tx } = { dx: 0, dy: 0, size: fragt.getMeasuredHeight(), ...params };
     const aliasLoader = AliasLoader; // for debugger access
     const bmi0 = aliasLoader.loader.getBitmap(name, size);
-    const color = fragt.color;
+    const color = fragt.color ?? C.BLACK;
     const bmi = (color.match(/white/i) || params.noStencil) ? bmi0 : new StencilImage(bmi0, color);
     bmi.x += linex + dx;
     bmi.y += liney + dy;
@@ -245,6 +259,7 @@ export class TacticsCard extends Tile {
     rv.paint(C.BLACK)
     return rv
   }
+  static family = '"Fishmonger CS"'; static fontLead = 13;
 
   /**
    * Put bits for CardSpec into this TacticsCard.
@@ -252,12 +267,18 @@ export class TacticsCard extends Tile {
    * build up image of TacticsCard in this Tile > NamedContainer.
    */
   addChildren(cs: CardSpec) {
-    const tweaker = new ChaosTweaker(this);
     const { x, y, width, height } = this.getBounds()
     const dSize = Math.min(height, width) * .04;
-    const fSize = dSize * 1.8;
-    const tmarg = .1;
-    const setText = (txt: string, x = 0, y = 0, opts: { ta?: 'left' | 'center' | 'right', bl?: 'top' | 'middle' | 'bottom', fs?: number } = {}) => {
+    const fSize = dSize * 1.8; // 4.88 * 1.8 = 8.78
+    const tmarg = .08 * width;
+    const tweaker = new ChaosTweaker(this, fSize);
+
+    const setText = (text: string, x = 0, y = 0, tw: (TWEAKS & { fs?: number }) = {}) => {
+      const tweaks: TWEAKS = { dx: x, dy: y, align: 'center', baseline: 'middle', ...tw }
+      const fSpec = F.fontSpec(tw.fs ?? fSize, TacticsCard.family); // QQQ: {size: fs} in tweaks?
+      return tweaker.setTextTweaks(text, fSpec, tweaks)
+    }
+    const setText0 = (txt: string, x = 0, y = 0, opts: { ta?: 'left' | 'center' | 'right', bl?: 'top' | 'middle' | 'bottom', fs?: number } = {}) => {
       const { ta, bl, fs } = { ta: 'center', bl: 'middle', fs: fSize, ...opts }
       const ctext = new CenterText(txt, fs);   // center & middle
       ctext.textAlign = ta;
@@ -271,7 +292,8 @@ export class TacticsCard extends Tile {
     const xn = width * .33;
     const xl = xc - xn;
     const xr = xc + xn;
-    const x0 = x + width * tmarg;
+    const x0 = x + tmarg;
+    const lineWidth = width - 1.75 * tmarg;   // limit to right side x-coords
     const ytop = y + dSize * 3 * .95;   // for numbers
     const ycom = y + height * .3;    // y for combat text
     const ypha = y + height * .6;    // y for phase:
@@ -279,17 +301,18 @@ export class TacticsCard extends Tile {
     const ybot = y + height - 1.5 * dSize;
     const itext = cs.id!;
     const ctext = `${cs.ctext ?? ''}`;
-    const ptext = cs.ptext;
+    const ptext = cs.ptext ?? '';    // ptext supplied (unless cardback)
 
     this.phase = cs.phase;
     this.nLeft = cs.nL;       // combat buff value
     this.nRight = cs.nR;      // combat buff value
-    setText(cs.nL == 8 ? 'X' : cs.nL == 9 ? '' : `${cs.nL}`, xl, ytop, { fs: dSize * 3 });
+    setText(cs.nL == 8 ? 'X' : cs.nL == 9 ? '' : `${cs.nL}`, xl, ytop, { fs: dSize * 3 } );
     setText(cs.nR == 8 ? 'X' : cs.nR == 9 ? '' : `${cs.nR}`, xr, ytop, { fs: dSize * 3 });
+    const leftTweaks = { align: 'left', x0, lineWidth } as TWEAKS;
 
-    this.cText = setText(ctext, x0, ycom, { ta: 'left' });       // combat text
+    this.cText = setText(ctext, x0, ycom, leftTweaks);       // Combat text
     this.phaseText = setText(`${cs.phase}:`, xc, ypha);
-    this.pText = setText(ptext ?? '', x0, ypht, { ta: 'left' });
+    this.pText = setText(ptext, x0, ypht, leftTweaks); // Play/Phase text
     this.idText = setText(itext, xc, ybot, { fs: dSize * 1.5 }); // describe/id the card; CardBack.dim()
     this.pFunc = cs.pFunc;
     this.cFunc = cs.cFunc;
@@ -513,8 +536,10 @@ export class CardBack extends TacticsCard {
   constructor(public table: Table, id = 'cardback', text = CardBack.oText, color = CardBack.bColor) {
 
     super({ id, phase: 'SetPrices', nL: 9, nR: 9, ptext: '' })
-    this.phaseText.text = text;
-    this.phaseText.y = -this.phaseText.getMeasuredLineHeight(); // -nlines/2
+    const pText = new CenterText(text, this.pText.font, this.pText.color)
+    this.addChildAt(pText, this.children.indexOf(this.phaseText))
+    this.removeChild(this.phaseText);
+    // this.pText.y = -this.pText.getMeasuredLineHeight(); // -nlines/2
     this.idText.text = id;
     this.baseShape.paint(color)
     if (!CardBack._bounds) CardBack._bounds = this.getBounds(); // dubious optimization, only make 2 CardBacks

@@ -6,6 +6,20 @@ import { type PriceBonus } from "./meeples";
 import { CO, TP, type PhaseName } from "./table-params";
 import type { DisplayObject } from "@thegraid/easeljs-module";
 
+/** return true if document resolves to a Font that is not '16px monospace' */
+export function isAvailable(fontName: string) {
+    const canvas = document.createElement('canvas');
+    const ctx = canvas.getContext('2d')!;
+    const text = "abcdefghijklmnopqrstuvwxyz0123456789";
+
+    ctx.font = '16px monospace';
+    const defaultWidth = ctx.measureText(text).width;
+
+    ctx.font = `16px "${fontName}", monospace`;
+    const testWidth = ctx.measureText(text).width;
+
+    return testWidth !== defaultWidth;
+}
 
 /** distance from origin (or given p0) */
 export function dist(pt: XY, p0 = { x: 0, y: 0 }) {
