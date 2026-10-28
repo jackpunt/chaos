@@ -107,13 +107,13 @@ export class TextTweaks {
     lineTweaks.cNdx = this.cont.children.length;  // record that all those children are aligned
   }
 
-  alignWrapLines(lineTweaks: TWEAKS) {
-    const { dx, align, cNdx, lineWidth } = lineTweaks;
+  alignWrapLines(lineTweaks: TWEAKSI) {
+    const { x0, align, cNdx, lineWidth } = {align: 'center', ... lineTweaks};
     // Assert: cNdx = numChildren - 1  (exactly 1 Text element at/after cNdx)
+    const offs = x0 + lineWidth! * (align == 'center' ? .5 : (align == 'right') ? 1 : 0);
     this.cont.children.slice(cNdx).forEach(txt => {
-      ;(txt as Text).textAlign = align ?? 'center'; // txt.x = x0;
-      const offs = lineWidth! * (align == 'center' ? 0 : (align == 'right') ? 1 : -1);
-      this.cont.children.slice(cNdx).forEach(dObj => dObj.x = offs);
+      ;(txt as Text).textAlign = align; // txt.x = x0;
+      txt.x = offs;
      })
     lineTweaks.cNdx = this.cont.children.length;  // record that all those children are aligned
   }
@@ -161,7 +161,8 @@ export class TextTweaks {
       else if (n % nr == 3) {
         itweaks.weight = 'bold';
       }
-      dx = this.setFragWithGlyphs(frag, fontStr, itweaks); // addChild @ tweaks.[dx, dy]
+      const fontStr2 = this.tweakFont(fontStr, itweaks);    // fontStr for these frags
+      dx = this.setFragWithGlyphs(frag, fontStr2, itweaks); // addChild @ tweaks.[dx, dy]
       tweaks.dx = dx;
     })
     // ASSERT: split always gives a final Text after any glyph; maybe just Text('')
@@ -188,17 +189,32 @@ export class TextTweaks {
           const gw = this.setGlyph(this.cont, fragT, fragn, tweaks); // there's a glyphRE, so set it:
           tweaks.dx += gw;              // update context in tweaks
           if (tweaks.dx - tweaks.x0 > tweaks.lineWidth!) {
-            // wrap to next line
-            // const glyph = this.cont.children.pop()!;
-            const glyph = this.cont.children[this.cont.numChildren-1];
-            this.cont.removeChild(glyph);
+            const cont = this.cont;
+            let digit: Text;
+            // wrap to next line; remove glyph from line:
+            const glyph = cont.children[cont.numChildren-1];
+            cont.removeChild(glyph);
+            tweaks.dx -= gw;
+            // maybe keep digit at end of fragT with glyph:
+            const keepDigit = frag.match(/(.*) (\d)$/), fw = fragT.getMeasuredWidth();
+            if (keepDigit) {
+              fragT.text = keepDigit[1];    // dx will still be near EOL
+              digit = new Text(keepDigit[2], fontStr);
+              tweaks.dx -= digit.getMeasuredWidth();
+            }
             this.alignLineFrags(tweaks);   // finish previous line
             // newline:
             tweaks.dy += (tweaks.nlh ?? fragT.getMeasuredLineHeight());
-            glyph.x = tweaks.x0 + gw/2;
+            if (keepDigit) {
+              digit = new Text(`${keepDigit[2].trimStart()} `, fontStr); // move space after fragT digit
+              digit.x = tweaks.x0; digit.y = tweaks.dy;
+              cont.addChild(digit);
+              tweaks.dx = digit.x + fw;
+            }
+            glyph.x = keepDigit ? tweaks.dx : (tweaks.x0 + gw/2);
             glyph.y = tweaks.dy;
-            tweaks.dx = glyph.x + gw;
             this.cont.addChild(glyph);
+            tweaks.dx = glyph.x + gw;
           }
         }
       })
@@ -230,6 +246,23 @@ export class TextTweaks {
     return this.cont.addChild(cText);
   }
 
+  /**
+   * tweaks the style, weight, size, family; (maybe shrink size with xwide)
+   *
+   * - TODO: use maxWidth instead of xwide
+   * @returns fontSpec
+   */
+  tweakFont(fontStr: string, tweaks: TWEAKSI) {
+    const fontParse = this.parseFontStr(fontStr);
+    const { style, weight, size, family, xwide } = { ...fontParse, ...tweaks };
+    const fontStr1 = F.fontSpec(size, family, weight, style);
+    return fontStr1;
+    // TODO: use Text.maxWidth to narrow glyphs
+    // const size1 = (xwide == undefined) ? size : this.shrinkFontForWidth(xwide, text, fontStr1);
+    // const fontStr2 = (xwide == undefined) ? fontStr1 : F.fontSpec(size1, family, weight, style);
+    // return fontStr2;
+  }
+
   /** make Text with fontStr & tweaks; optionally shrink size to fit xwide.
    * @param text string for Text
    * @param fontStr (recalculate size if xwide !== undefined)
@@ -242,19 +275,14 @@ export class TextTweaks {
    * @returns the new Text object
    */
   makeText(text: string, fontStr: string, tweaks: TWEAKSI) {
-    const fontParse = this.parseFontStr(fontStr);
-    const { style, weight, size, family, color, xwide, dx, x0, lineWidth, dy } = { ...fontParse, ...tweaks };
-    const fontStr1 = F.fontSpec(size, family, weight, style);
-    const size1 = (xwide == undefined) ? size : this.shrinkFontForWidth(xwide, text, fontStr1);
-    const fontStr2 = (xwide == undefined) ? fontStr1 : F.fontSpec(size1, family, weight, style);
-    const text0 = new Text(text, fontStr2, color);
+    const { color, dx, x0, lineWidth, dy } = tweaks;
+    const text0 = new Text(text, fontStr, color);
       text0.x = dx; text0.y = dy;
-      text0.textAlign = 'left';   // always start at dx
       tweaks.nlh && (text0.lineHeight = tweaks.nlh);
 
     const textW = text0.getMeasuredWidth();
     if (lineWidth !== undefined && (dx - x0 + textW) > lineWidth) {
-      this.wrapText(text0, fontStr2, tweaks)
+      this.wrapText(text0, fontStr, tweaks)
       return undefined;
     }
     return text0;
@@ -291,7 +319,7 @@ export class TextTweaks {
     text1.rotation = rotation ? rotation : 0;
     text1.lineWidth = lineWidth!;  // wrap the remaining text; find the end point
     this.alignWrapLines(tweaks);  // set textAlign and update cNdx
-    this.cont.addChild(text1);
+    line1 && this.cont.addChild(text1);  // do not insert empty Text; also .lines is empty, gMW==0
 
     const lines = text1.getMetrics().lines;
     const linen = lines.pop();
