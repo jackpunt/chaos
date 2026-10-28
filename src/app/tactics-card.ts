@@ -58,8 +58,8 @@ export class SpecGen {
     { phase: 'Harvest', nL: 0, nR: 4, ptext: "*UPGRADE 1 LEADER IF YOU DO NOT ACT IN THIS PHASE", ctext: "YOU MAY UPGRADE A LEADER WITH A 1-GEM DISCOUNT IF THEY ARE DEFEATED", },
     { phase: 'Harvest', nL: 2, nR: 8, ptext: "*GAIN 1 RESEARCH ON THE BUILD HARVEST BEFORE ACTING OR PASSING THIS PHASE", ctext: "X = ROLLED $S\n(X = 1 IF FIGHTING WITHOUT A DIE)", },
     { phase: 'Harvest', nL: 1, nR: 3, ptext: "GAIN 1 ENERGY AND 1 HARVEST POINT IF YOU ACT IN THIS PHASE", ctext: "GAIN 1 GEM IF YOU LOSE WITHOUT RETREATING", },
-    { phase: 'Harvest', nL: 0, nR: 3, ptext: "GAIN 2 GEMS AND 1 TACTICS CARDS IF YOU DO NOT ACT IN THIS PHASE", ctext: "IF ROLLING A DIE IN THIS BATTLE ALL ROLLED $S ALSO COUNT AS $D", },
-    { phase: 'Harvest', nL: 0, nR: 3, ptext: "GAIN 4 ENERGY IF YOU DO NOT ACT IN THIS PHASE", ctext: "IF ROLLING A DIE IN THIS BATTLE ALL ROLLED $S ALSO COUNT AS $A", },
+    { phase: 'Harvest', nL: 0, nR: 3, ptext: "GAIN 2 GEMS AND 1 TACTICS CARDS IF YOU DO NOT ACT IN THIS PHASE", ctext: "IF ROLLING A DIE IN THIS BATTLE, ALL ROLLED $S ALSO COUNT AS $D", },
+    { phase: 'Harvest', nL: 0, nR: 3, ptext: "GAIN 4 ENERGY IF YOU DO NOT ACT IN THIS PHASE", ctext: "IF ROLLING A DIE IN THIS BATTLE, ALL ROLLED $S ALSO COUNT AS $A", },
     { phase: 'Harvest', nL: 2, nR: 2, ptext: "GAIN 2 ENERGY AND 1 RECRUITMENT POINT IF YOU ACT IN THIS PHASE", ctext: "KEEP THIS TACTICS CARD IF YOU LOSE WITHOUT RETREATING", },
     { phase: 'Harvest', nL: 1, nR: 3, ptext: "FOR EACH GEM YOU HARVEST FROM THE MAP, GAIN 1 MORE", ctext: "2 $A IF ROLLING A DIE IN THIS BATTLE", },
     { phase: 'Recruit', nL: 2, nR: 2, ptext: "*TAKE THE RECRUIT ACTION WITHOUT PAYING ANY ENERGY", ctext: "2 $D", },
@@ -99,13 +99,13 @@ export class SpecGen {
     { phase: 'Relic', nL: 3, nR: -1, ptext: "IF YOU HAVE 0-1 GEMS, INCREASE THE GEMS IN YOUR SUPPLY UP TO 2", ctext: "3 $A IF OPPOSING A LEADER", },
     { phase: 'Relic', nL: 3, nR: 3, ptext: "MAKE 1 REDEPLOYMENT", ctext: "-2 $D IF YOU CHOOSE TO RETREAT", },
     { phase: 'Relic', nL: 2, nR: 2, ptext: "GAIN 2 TACTICS CARDS", ctext: "GAIN 1 GEM FOR EACH BUILDING THAT YOU RAZE", },
-    { phase: 'Relic', nL: -1, nR: 6, ptext: "ALL YOUR UNITS REMAIN IN THE REGION WHEN COLLECTING A RELIC", ctext: "YOUR OPPONENT GAIN 2 $A + 1 $D", },
+    { phase: 'Relic', nL: -1, nR: 6, ptext: "ALL YOUR UNITS REMAIN IN THE REGION WHEN COLLECTING A RELIC", ctext: "YOUR OPPONENT GAINS 2 $A + 1 $D", },
     { phase: 'Relic', nL: 6, nR: -2, ptext: "GAIN 1 RESEARCH WHEN COLLECTING A RELIC", ctext: "YOUR OPPONENT GAINS 1 $A + 1 $D", },
   ]
 
   /** new TacticsCard(cardSpec) for each cardSpec. */
   newCards(specs = this.cardSpecs) {
-    return specs.map(cs => new TacticsCard(cs));
+    return specs.map(cs => new TacticsCard(cs)).filter(tc => TextTweaks.trouble.includes(tc.Aname));
   }
 }
 
@@ -126,14 +126,22 @@ export class ChaosTweaker extends TextTweaks {
     super(cont)
     this.glyphParams = this.defineGlyphParams(fSize)
   }
-  defineGlyphParams(fs: number, dx = fs/2, dy = -1) {
+  /**
+   * alignment may also depend on the font familyy
+   * @param size fontSize
+   * @param dx offset [size * .4]
+   * @param dy offset [-2]
+   * @param tx [dx * 2]
+   * @returns
+   */
+  defineGlyphParams(size: number, dx = size *.4, dy = -1, tx = dx * 2) {
     return {
-      Strength: { dx, dy, size: fs, noStencil: 1 },
-      Attack:   { dx, dy, size: fs, noStencil: 1 },
-      Defence:  { dx, dy, size: fs, noStencil: 1 },
-      Energy:   { dx, dy, size: fs, noStencil: 1 },
-      Gem:      { dx, dy, size: fs, noStencil: 1 },
-      TacticsCard: { dx, dy, size: fs, noStencil: 1, },
+      Strength: { dx, tx, dy, size, noStencil: 1 },
+      Attack:   { dx, tx, dy, size, noStencil: 1 },
+      Defence:  { dx, tx, dy, size, noStencil: 1 },
+      Energy:   { dx, tx, dy, size, noStencil: 1 },
+      Gem:      { dx, tx, dy, size, noStencil: 1 },
+      TacticsCard: { dx, tx, dy, size: size, noStencil: 1, },
     };
   }
   // Note: our on-screen fSize = 8.78
@@ -259,7 +267,10 @@ export class TacticsCard extends Tile {
     rv.paint(C.BLACK)
     return rv
   }
-  static family = '"Fishmonger CS"'; static fontLead = 13;
+  // static family = '"Fishmonger CS"'; static fontLead = 0;
+  // static family = '"Arial Narrow"'; static fontLead = 0;
+  // static family = '"Arial"'; static fontLead = 0;
+  static family = '"Chakra Petch"'; static fontLead = 0;
 
   /**
    * Put bits for CardSpec into this TacticsCard.
@@ -270,12 +281,15 @@ export class TacticsCard extends Tile {
     const { x, y, width, height } = this.getBounds()
     const dSize = Math.min(height, width) * .04;
     const fSize = dSize * 1.8; // 4.88 * 1.8 = 8.78
-    const tmarg = .08 * width;
+    const margl = width * .10;
+    const margr = width * .05;
     const tweaker = new ChaosTweaker(this, fSize);
 
     const setText = (text: string, x = 0, y = 0, tw: (TWEAKS & { fs?: number }) = {}) => {
-      const tweaks: TWEAKS = { dx: x, dy: y, align: 'center', baseline: 'middle', ...tw }
-      const fSpec = F.fontSpec(tw.fs ?? fSize, TacticsCard.family); // QQQ: {size: fs} in tweaks?
+      const size0 = (tw.fs ?? fSize)
+      const nlh = size0 * 1.2 + TacticsCard.fontLead;
+      const tweaks: TWEAKS = { dx: x, dy: y, align: 'center', baseline: 'middle', nlh, ...tw }
+      const fSpec = F.fontSpec(size0, TacticsCard.family); // QQQ: {size: fs} in tweaks?
       return tweaker.setTextTweaks(text, fSpec, tweaks)
     }
     const setText0 = (txt: string, x = 0, y = 0, opts: { ta?: 'left' | 'center' | 'right', bl?: 'top' | 'middle' | 'bottom', fs?: number } = {}) => {
@@ -283,7 +297,7 @@ export class TacticsCard extends Tile {
       const ctext = new CenterText(txt, fs);   // center & middle
       ctext.textAlign = ta;
       ctext.textBaseline = bl;
-      ctext.lineWidth = width * (.95-tmarg);   // wrap when needed; we may want textTweaks (citymap, hexcity, whist, cubitos, gambit)
+      ctext.lineWidth = width * (.95-margl);   // wrap when needed; we may want textTweaks (citymap, hexcity, whist, cubitos, gambit)
       ctext.x = x; ctext.y = y;
       this.addChild(ctext);
       return ctext;
@@ -292,12 +306,11 @@ export class TacticsCard extends Tile {
     const xn = width * .33;
     const xl = xc - xn;
     const xr = xc + xn;
-    const x0 = x + tmarg;
-    const lineWidth = width - 1.75 * tmarg;   // limit to right side x-coords
+    const x0 = x + margl;
+    const lineWidth = Math.round((width -margl - margr)*100)/100;   // limit to right side x-coords
     const ytop = y + dSize * 3 * .95;   // for numbers
     const ycom = y + height * .3;    // y for combat text
     const ypha = y + height * .6;    // y for phase:
-    const ypht = ypha + fSize;       // y for phase text
     const ybot = y + height - 1.5 * dSize;
     const itext = cs.id!;
     const ctext = `${cs.ctext ?? ''}`;
@@ -312,6 +325,7 @@ export class TacticsCard extends Tile {
 
     this.cText = setText(ctext, x0, ycom, leftTweaks);       // Combat text
     this.phaseText = setText(`${cs.phase}:`, xc, ypha);
+    const ypht = this.phaseText.y + this.phaseText.lineHeight;
     this.pText = setText(ptext, x0, ypht, leftTweaks); // Play/Phase text
     this.idText = setText(itext, xc, ybot, { fs: dSize * 1.5 }); // describe/id the card; CardBack.dim()
     this.pFunc = cs.pFunc;
@@ -554,7 +568,7 @@ export class CardBack extends TacticsCard {
     const source = TacticsCard.cardDeck;
     if (source.numAvailable === 0) TacticsCard.reshuffle();
     const card = source.nextUnit();  // card.moveTo(srchex)
-    console.log(stime(this, `.clicked`), `source.numAvailable: ${source.numAvailable}`)
+    // console.log(stime(this, `.clicked`), `source.numAvailable: ${source.numAvailable}`)
     if (source.numAvailable === 0) {
       this.dim(true); // indicate stack is empty
     }

@@ -1,8 +1,14 @@
-import { C, F, type XY } from "@thegraid/common-lib";
+import { F } from "@thegraid/common-lib";
 import { NamedContainer } from "@thegraid/easeljs-lib";
 import { Container, Text } from "@thegraid/easeljs-module";
 
 export type BASELINE = "top" | "hanging" | "middle" | "alphabetic" | "ideographic" | "bottom";
+
+declare module '@thegraid/easeljs-module' {
+  interface Text {
+    getMetrics(): { width: number, height: number, lines: string[] };
+  }
+}
 /**
  * As used by setTextTweaks:
  *
@@ -81,9 +87,9 @@ export class TextTweaks {
       const lineTweaks: TWEAKSI = { x0, ...tweaks, dx, dy, cNdx };
       cText = this.setLineWithFontFrags(line, fontStr, lineTweaks);
       this.alignLineFrags(lineTweaks);
-      const mlh = cText.getMeasuredHeight();
-      const incy = (line ? (nlh ?? mlh) : mlh); // <-- suspicous...
-      dy += incy;
+      const mlh = cText.getMeasuredLineHeight();    // cText may be multi-line!
+      const incy = cText.lineHeight ?? mlh;
+      dy += incy;     // down to next line
     })
     return cText; // last Text added
   }
@@ -181,6 +187,19 @@ export class TextTweaks {
         if (fragn) {                     // ASSERT: a fragn between each fragt
           const gw = this.setGlyph(this.cont, fragT, fragn, tweaks); // there's a glyphRE, so set it:
           tweaks.dx += gw;              // update context in tweaks
+          if (tweaks.dx - tweaks.x0 > tweaks.lineWidth!) {
+            // wrap to next line
+            // const glyph = this.cont.children.pop()!;
+            const glyph = this.cont.children[this.cont.numChildren-1];
+            this.cont.removeChild(glyph);
+            this.alignLineFrags(tweaks);   // finish previous line
+            // newline:
+            tweaks.dy += (tweaks.nlh ?? fragT.getMeasuredLineHeight());
+            glyph.x = tweaks.x0 + gw/2;
+            glyph.y = tweaks.dy;
+            tweaks.dx = glyph.x + gw;
+            this.cont.addChild(glyph);
+          }
         }
       })
       return tweaks.dx;
@@ -234,34 +253,33 @@ export class TextTweaks {
       tweaks.nlh && (text0.lineHeight = tweaks.nlh);
 
     const textW = text0.getMeasuredWidth();
-    if (lineWidth !== undefined && (dx + textW) > lineWidth) {
+    if (lineWidth !== undefined && (dx - x0 + textW) > lineWidth) {
       this.wrapText(text0, fontStr2, tweaks)
       return undefined;
     }
     return text0;
   }
-
-  wrapText(textf: Text, fontStr: string, tweaks: TWEAKSI) {
-    const str = textf.text;
-    const Aname = (this.cont as NamedContainer).Aname, cwidth = this.cont.getBounds().width, trouble = [
+  static     trouble = [
       'B2_2_2', 'B4_3_1', 'B7_3_0',
       'C1_-1_3', 'C3_3_3', 'C5_-1_6', 'C6_6_-2',
       'D4_0_4', 'H5_0_3', '<--', 'H6_0_3', 'H8_1_3',
-      'I10_1_3', 'I14_2_2', 'I2_5_0', 'I3_3_2', 'I5_2_2', 'I7_4_0',
+      'I10_1_3', 'I2_5_0', 'I14_2_2', 'I2_5_0', 'I3_3_2', 'I5_2_2', 'I7_4_0',
       'R4_8_2']
+
+  wrapText(textf: Text, fontStr: string, tweaks: TWEAKSI) {
+    const str = textf.text;
+    const Aname = (this.cont as NamedContainer).Aname, trouble = TextTweaks.trouble;
     const { lineWidth, baseline, rotation, x0, nlh } = tweaks;
     const mlh = nlh ? (textf.lineHeight = nlh) : textf.getMeasuredLineHeight();
     textf.lineWidth = lineWidth! - (tweaks.dx - x0);
-    const { width, height, lines} = textf.getMetrics() as { width: number, height: number, lines: string[] }
-    const line0 = lines[0];     // the 'short' line
+
+    const line0 = textf.getMetrics().lines[0];     // the 'short' line
     const text0 = new Text(line0, fontStr)
     text0.x = tweaks.dx; text0.y = tweaks.dy;
-    text0.textAlign = 'left';   // always start at dx
     text0.textBaseline = baseline!
     text0.rotation = rotation ? rotation : 0;
     tweaks.dx = text0.x + text0.getMeasuredWidth(); // Assert: < lineWidth
     tweaks.dy = text0.y + mlh;
-    if (tweaks.dx > cwidth) debugger;
     this.cont.addChild(text0);
     this.alignLineFrags(tweaks);
 
@@ -269,16 +287,18 @@ export class TextTweaks {
     const text1 = new Text(line1, fontStr);
     text1.x = x0; text1.y = tweaks.dy;
     nlh && (text1.lineHeight = mlh);
-    text1.textBaseline = baseline!
+    text1.textBaseline = baseline!;
     text1.rotation = rotation ? rotation : 0;
     text1.lineWidth = lineWidth!;  // wrap the remaining text; find the end point
     this.alignWrapLines(tweaks);  // set textAlign and update cNdx
     this.cont.addChild(text1);
 
-    tweaks.dy = text1.y;
-    const lineN = new Text(lines[lines.length-1], fontStr);
+    const lines = text1.getMetrics().lines;
+    const linen = lines.pop();
+    const lineN = new Text(linen, fontStr);
+    tweaks.dy = text1.y + mlh * lines.length;
     tweaks.dx = x0 + lineN.getMeasuredWidth();
-    return [text0, text1]
+    return;
   }
 
   /** <style>? <weight|attribute* >?<size>px <family> */
@@ -292,7 +312,7 @@ export class TextTweaks {
     const style = match?.[1] ?? F.defaultStyle; // normal
     const weight = match?.[2] ?? F.defaultWght; // 410
     const sizen = match?.[3] ?? F.defaultSize;  // 32px
-    const size = (typeof sizen == 'number') ? sizen : Number.parseFloat(sizen);
+    const size = (typeof sizen == 'number') ? sizen : Math.round(Number.parseFloat(sizen)*10)/10;
     const family = match?.[4] ?? F.defaultFont;  // 'SF Compact Rounded' or 'Times New Roman'
     return { style, weight, size, family }
   }
