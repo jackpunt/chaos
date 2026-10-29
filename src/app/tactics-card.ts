@@ -134,7 +134,7 @@ export class ChaosTweaker extends TextTweaks {
    * @param tx [dx * 2]
    * @returns
    */
-  defineGlyphParams(size: number, dx = size *.4, dy = -1, tx = dx * 2) {
+  defineGlyphParams(size: number, dx = 0, dy = -1, tx = size * .8) {
     return {
       Strength: { dx, tx, dy, size, noStencil: 1 },
       Attack:   { dx, tx, dy, size, noStencil: 1 },
@@ -168,13 +168,18 @@ export class ChaosTweaker extends TextTweaks {
     const { dx, dy, size, tx } = { dx: 0, dy: 0, size: fragt.getMeasuredHeight(), ...params };
     const aliasLoader = AliasLoader; // for debugger access
     const bmi0 = aliasLoader.loader.getBitmap(name, size);
+    const { width, height } = bmi0.getBounds()
+    const baseline = tweaks.baseline;
+    const ya = (baseline == 'middle') ? 0 : (baseline == 'bottom') ? 0 : -1;
+    const dya = ya * height * bmi0.scaleY;   // offset to edge of glyph (tweaks.dy textAlign: 'middle')
+    const dxa = width * bmi0.scaleX / 2;   // offset to edge of glyph
     const color = fragt.color ?? C.BLACK;
     const bmi = (color.match(/white/i) || params.noStencil) ? bmi0 : new StencilImage(bmi0, color);
-    bmi.x += tweaks.dx + dx;
-    bmi.y += tweaks.dy + dy;
-    ;(bmi as NamedObject).Aname = `${key}`;
+    bmi.x += tweaks.dx + dxa + dx;
+    bmi.y += tweaks.dy + dya + dy;;
+    ;(bmi as any as { text: string }).text = `${name}`;
     cont.addChild(bmi);
-    tweaks.dx += (tx ?? 2 * dx); // typically glyph is centered: [-dx...+dx]
+    tweaks.dx += (2 * dxa); // typically glyph is centered: [-dx...+dx]
     return bmi
   }
 }
@@ -294,16 +299,6 @@ export class TacticsCard extends Tile {
       const tweaks: TWEAKS = { dx: x, dy: y, align: 'center', baseline: 'middle', nlh, ...tw }
       const fSpec = F.fontSpec(size0, TacticsCard.family); // QQQ: {size: fs} in tweaks?
       return tweaker.setTextTweaks(text, fSpec, tweaks)
-    }
-    const setText0 = (txt: string, x = 0, y = 0, opts: { ta?: 'left' | 'center' | 'right', bl?: 'top' | 'middle' | 'bottom', fs?: number } = {}) => {
-      const { ta, bl, fs } = { ta: 'center', bl: 'middle', fs: fSize, ...opts }
-      const ctext = new CenterText(txt, fs);   // center & middle
-      ctext.textAlign = ta;
-      ctext.textBaseline = bl;
-      ctext.lineWidth = width * (.95-margl);   // wrap when needed; we may want textTweaks (citymap, hexcity, whist, cubitos, gambit)
-      ctext.x = x; ctext.y = y;
-      this.addChild(ctext);
-      return ctext;
     }
     const xc = x + width/2;
     const xn = width * .33;

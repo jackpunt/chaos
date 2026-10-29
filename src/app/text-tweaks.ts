@@ -4,6 +4,7 @@ import type { DisplayObject } from "@thegraid/easeljs-module";
 import { Container, Text } from "@thegraid/easeljs-module";
 
 export type BASELINE = "top" | "hanging" | "middle" | "alphabetic" | "ideographic" | "bottom";
+export type TEXTALIGN = "left" | "center" | "right";
 
 declare module '@thegraid/easeljs-module' {
   interface Text {
@@ -33,7 +34,7 @@ export type TWEAKS = {
 };
 
 /** internal TWEAKS with numbers set */
-export type TWEAKSI = TWEAKS & { dx: number, dy: number, x0: number, cNdx: number }
+export type TWEAKSI = TWEAKS & { dx: number, dy: number, x0: number, baseline: BASELINE, cNdx: number }
 
 /**
  * Create Text objects with various attributes; replace special characters with glyph.
@@ -85,7 +86,7 @@ export class TextTweaks {
     let cText!: Text, dy = dy0, maxW = 0, x0 = tweaks?.x0 ?? dx;
     lines.split('\n').forEach(line => {
       const cNdx = this.cont.children.length;  // index to find new frags
-      const lineTweaks: TWEAKSI = { x0, ...tweaks, dx, dy, cNdx };
+      const lineTweaks: TWEAKSI = { x0, baseline: 'middle', ...tweaks, dx, dy, cNdx };
       cText = this.setLineWithFontFrags(line, fontStr, lineTweaks);
       this.alignLineFrags(lineTweaks);
       const mlh = cText.getMeasuredLineHeight();    // cText may be multi-line!
@@ -192,7 +193,7 @@ export class TextTweaks {
           const glyphWrap = tweaks.dx - tweaks.x0 > tweaks.lineWidth!;
           // check: fragT triggered wrap || glyph triggered wrap
           if (fragWrap || glyphWrap) {
-            this.tryKeep(fragT, glyph, fontStr, tweaks)
+            this.tryKeep(fragWrap, fragT, glyph, fontStr, tweaks)
           }
         }
       })
@@ -202,33 +203,39 @@ export class TextTweaks {
     return tweaks.dx;      // at end of fragT
   }
 
-  tryKeep(fragT: Text, glyph: DisplayObject, fontStr: string, tweaks: TWEAKSI) {
+  // glyph was set when tweaks.dx = fragWrap ? x0 : frat.x+gMW (and > lineWidth)
+  tryKeep(fragWrap: boolean, fragT: Text, glyph: DisplayObject, fontStr: string, tweaks: TWEAKSI) {
     const cont = this.cont; // fragT = cont.children[-2], glyph = cont.children[-1]
-    const tx = tweaks.dx - glyph.x;
+    const tx = tweaks.dx - (fragWrap ? tweaks.x0 : fragT.x + fragT.getMeasuredWidth());
+    const dx = glyph.x - (tweaks.dx - tx);
+    const dy = glyph.y - (tweaks.dy);
     // wrap to next line; remove glyph from line:
     cont.removeChild(glyph);
     tweaks.dx -= tx;         // either x0 or (fragT.x + fragT.gMW())
     // maybe keep digit at end of fragT with glyph:
-    const keepDigit = fragT.text.match(/(.*)( \d)$/); // [whole, (frag) ( digit)]
+    const keepDigit = fragT.text.match(/(.*)(\s+\d)$/); // [whole, (frag) ( digit)]
     if (keepDigit) {
       fragT.text = keepDigit[1];    // make fragT shorter; dx will still be near EOL
       const digiX = new Text(keepDigit[2], fontStr); // temp digiT to subtract width
-      tweaks.dx = fragT.x + digiX.getMeasuredWidth(); // exact length so align: 'center' & 'right' will work
+      tweaks.dx = fragT.x + fragT.getMeasuredWidth(); // exact length so align: 'center' & 'right' will work
       tweaks.dy = fragT.y;
     }
     this.alignLineFrags(tweaks);   // finish previous line
     // newline:
     tweaks.dy = fragT.y + (tweaks.nlh ?? fragT.getMeasuredLineHeight());
+    tweaks.dx = tweaks.x0;
     if (keepDigit) {
-      const digiT = new Text(`${keepDigit[2].trimStart()} `, fontStr); // move space after fragT digit
-      digiT.x = tweaks.x0; digiT.y = tweaks.dy;
+      const digiT = fragT.clone();
+      digiT.text = `${keepDigit[2].trimStart()} `; // move space after fragT digit
+      digiT.x = tweaks.dx;
+      digiT.y = tweaks.dy;
       cont.addChild(digiT);
-      tweaks.dx = digiT.x + digiT.getMeasuredWidth();
+      tweaks.dx += digiT.getMeasuredWidth();
     }
-    glyph.x = keepDigit ? (tweaks.dx + tx) : (tweaks.x0 + tx/2);
-    glyph.y = tweaks.dy;
+    glyph.x = tweaks.dx + dx;
+    glyph.y = tweaks.dy + dy;
     this.cont.addChild(glyph);
-    tweaks.dx = glyph.x + tx;
+    tweaks.dx += tx;
   }
 
   /**
@@ -244,7 +251,7 @@ export class TextTweaks {
       return this.cont.children[this.cont.numChildren-1] as Text;   // makeText/wrapText did it all...
     }
 
-    const { dx, dy, baseline, rotation } = { baseline: 'top', ...tweaks }
+    const { dx, dy, baseline, rotation } = { ...tweaks }
     cText.textBaseline = baseline; // 'top' | 'middle' | 'bottom'
     cText.rotation = rotation ?? 0; // TODO: trig to rotate around a point
     cText.x = dx;
@@ -282,7 +289,7 @@ export class TextTweaks {
    * @returns the new Text object
    */
   makeText(text: string, fontStr: string, tweaks: TWEAKSI) {
-    const { color, dx, x0, lineWidth, dy } = tweaks;
+    const { color, dx, x0, lineWidth, dy, } = tweaks;
     const text0 = new Text(text, fontStr, color);
       text0.x = dx; text0.y = dy;
       tweaks.nlh && (text0.lineHeight = tweaks.nlh);
@@ -294,12 +301,13 @@ export class TextTweaks {
     }
     return text0;
   }
-  static     trouble = [
-      'B2_2_2', 'B4_3_1', 'B7_3_0',
+  static trouble = [
+      // 'B2_2_2', 'B4_3_1', 'B7_3_0',
       'C1_-1_3', 'C3_3_3', 'C5_-1_6', 'C6_6_-2',
-      'D4_0_4', 'H5_0_3', '<--', 'H6_0_3', 'H8_1_3',
-      'I10_1_3', 'I2_5_0', 'I14_2_2', 'I2_5_0', 'I3_3_2', 'I5_2_2', 'I7_4_0',
-      'R4_8_2']
+      // 'D4_0_4', 'H5_0_3', '<--', 'H6_0_3', 'H8_1_3',
+      // 'I10_1_3', 'I2_5_0', 'I14_2_2', 'I2_5_0', 'I3_3_2', 'I5_2_2', 'I7_4_0',
+      // 'R4_8_2'
+    ]
 
   wrapText(textf: Text, fontStr: string, tweaks: TWEAKSI) {
     const str = textf.text;
