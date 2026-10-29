@@ -1,5 +1,5 @@
-import { C, F, permute, S, stime, type XY } from "@thegraid/common-lib";
-import { AliasLoader, CenterText, NamedContainer, RectShape, type CountClaz, type DragInfo, type Paintable } from "@thegraid/easeljs-lib";
+import { C, F, permute, S, type XY } from "@thegraid/common-lib";
+import { AliasLoader, CenterText, NamedContainer, RectShape, type CountClaz, type DragInfo, type NamedObject, type Paintable } from "@thegraid/easeljs-lib";
 import type { Bitmap, Container, Text } from "@thegraid/easeljs-module";
 import { DisplayObject, Graphics, MouseEvent } from "@thegraid/easeljs-module";
 import { H, LegalMark, MapCont, NumCounter, Tile, TileSource, TP, type DragContext, type HasDragger, type IHex2 } from "@thegraid/hexlib";
@@ -9,7 +9,7 @@ import type { ChaosTable as Table } from "./chaos-table";
 import type { Battle, BattleSAD, GamePlay } from "./game-play";
 import type { GameState } from "./game-state";
 import type { Panel, Player } from "./player";
-import { TextTweaks, type TWEAKS } from "./text-tweaks";
+import { TextTweaks, type TWEAKS, type TWEAKSI } from "./text-tweaks";
 
 // Temporary, should be in GamePlay
 const phaseNames = ['SetPrices', 'Discovery', 'Build', 'Harvest', 'Recruit', 'Move', 'Combat', 'Income', 'Relic',] as const;
@@ -152,15 +152,16 @@ export class ChaosTweaker extends TextTweaks {
     return  [... Object.values(ChaosTweaker.glyphImage)];
   }
   /**
-   * Implict tweaks.glyphFunc
+   * addChild(glyph); advance tweaks.dx
+   *
+   * @param cont Container for text/glyph
    * @param fragt text before the glyph (for metrics)
    * @param trigger match from regex (typically: $<char>)
-   * @param linex where next text/char would go (from tweaks.dx)
-   * @param liney where next text/char would go (from tweaks.dy)
-   * @returns increment to dx
+   * @param tweaks
+   * - dx, dy where next text/char would go
+   * @returns glyph placed at (linex, liney)
    */
-  override setGlyph(cont: Container, fragt: Text, trigger: string, tweaks: TWEAKS): number {
-    const { dx: linex, dy: liney } = tweaks as { dx: number, dy: number }
+  override setGlyph(cont: Container, fragt: Text, trigger: string, tweaks: TWEAKSI) {
     const key = trigger[1];
     const name = ChaosTweaker.glyphImage[key];
     const params = this.glyphParams[name] ?? {};
@@ -169,10 +170,12 @@ export class ChaosTweaker extends TextTweaks {
     const bmi0 = aliasLoader.loader.getBitmap(name, size);
     const color = fragt.color ?? C.BLACK;
     const bmi = (color.match(/white/i) || params.noStencil) ? bmi0 : new StencilImage(bmi0, color);
-    bmi.x += linex + dx;
-    bmi.y += liney + dy;
+    bmi.x += tweaks.dx + dx;
+    bmi.y += tweaks.dy + dy;
+    ;(bmi as NamedObject).Aname = `${key}`;
     cont.addChild(bmi);
-    return tx ?? 2 * dx; // typically glyph is centered: [-dx...+dx]
+    tweaks.dx += (tx ?? 2 * dx); // typically glyph is centered: [-dx...+dx]
+    return bmi
   }
 }
 

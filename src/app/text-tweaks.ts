@@ -1,5 +1,6 @@
 import { F } from "@thegraid/common-lib";
 import { NamedContainer } from "@thegraid/easeljs-lib";
+import type { DisplayObject } from "@thegraid/easeljs-module";
 import { Container, Text } from "@thegraid/easeljs-module";
 
 export type BASELINE = "top" | "hanging" | "middle" | "alphabetic" | "ideographic" | "bottom";
@@ -32,7 +33,7 @@ export type TWEAKS = {
 };
 
 /** internal TWEAKS with numbers set */
-type TWEAKSI = TWEAKS & { dx: number, dy: number, x0: number, cNdx: number }
+export type TWEAKSI = TWEAKS & { dx: number, dy: number, x0: number, cNdx: number }
 
 /**
  * Create Text objects with various attributes; replace special characters with glyph.
@@ -71,7 +72,7 @@ export class TextTweaks {
    * - dy: [0] start text at dy; updates for each line (nlh ?? mlh(fontStr))
    * - x0: [dx] newline starts at (x0, dy + lh)
    * - lineWidth: [undefined] trigger wrap if (dx - x0 > linewidth)
-   * - xwide: [undefined] shrink font instead of wrapping
+   * - xwide: [undefined] shrink font instead of wrapping (see also: Text.maxWidth)
    * @returns the final Text child (with font, y, color)
    */
   setTextTweaks(text: string | Text, fontStr: string, tweaks?: TWEAKS): Text {
@@ -184,37 +185,14 @@ export class TextTweaks {
       const matches = frag.match(glyphRE)!; // the 'glyph's that separate the frags
       frags?.forEach(frag => {              // ASSERT: frag has no newline and no glyph
         fragT = this.setTextFrag(frag, fontStr, tweaks);  // may do multi-line: update dx, dy
+        const fragWrap = (tweaks.dx == tweaks.x0);  // setFrag wrapped, putting '' on new line (trimmed a space)
         const fragn = matches?.shift();  // the portion of line that matched glyphRE (eg: '$2')
         if (fragn) {                     // ASSERT: a fragn between each fragt
-          const gw = this.setGlyph(this.cont, fragT, fragn, tweaks); // there's a glyphRE, so set it:
-          tweaks.dx += gw;              // update context in tweaks
-          if (tweaks.dx - tweaks.x0 > tweaks.lineWidth!) {
-            const cont = this.cont;
-            let digit: Text;
-            // wrap to next line; remove glyph from line:
-            const glyph = cont.children[cont.numChildren-1];
-            cont.removeChild(glyph);
-            tweaks.dx -= gw;
-            // maybe keep digit at end of fragT with glyph:
-            const keepDigit = frag.match(/(.*) (\d)$/), fw = fragT.getMeasuredWidth();
-            if (keepDigit) {
-              fragT.text = keepDigit[1];    // dx will still be near EOL
-              digit = new Text(keepDigit[2], fontStr);
-              tweaks.dx -= digit.getMeasuredWidth();
-            }
-            this.alignLineFrags(tweaks);   // finish previous line
-            // newline:
-            tweaks.dy += (tweaks.nlh ?? fragT.getMeasuredLineHeight());
-            if (keepDigit) {
-              digit = new Text(`${keepDigit[2].trimStart()} `, fontStr); // move space after fragT digit
-              digit.x = tweaks.x0; digit.y = tweaks.dy;
-              cont.addChild(digit);
-              tweaks.dx = digit.x + fw;
-            }
-            glyph.x = keepDigit ? tweaks.dx : (tweaks.x0 + gw/2);
-            glyph.y = tweaks.dy;
-            this.cont.addChild(glyph);
-            tweaks.dx = glyph.x + gw;
+          const glyph = this.setGlyph(this.cont, fragT, fragn, tweaks); // there's a glyphRE, so set it:
+          const glyphWrap = tweaks.dx - tweaks.x0 > tweaks.lineWidth!;
+          // check: fragT triggered wrap || glyph triggered wrap
+          if (fragWrap || glyphWrap) {
+            this.tryKeep(fragT, glyph, fontStr, tweaks)
           }
         }
       })
@@ -222,6 +200,35 @@ export class TextTweaks {
     }
     fragT = this.setTextFrag(frag, fontStr, tweaks); // @ tweaks[dx, dy]
     return tweaks.dx;      // at end of fragT
+  }
+
+  tryKeep(fragT: Text, glyph: DisplayObject, fontStr: string, tweaks: TWEAKSI) {
+    const cont = this.cont; // fragT = cont.children[-2], glyph = cont.children[-1]
+    const tx = tweaks.dx - glyph.x;
+    // wrap to next line; remove glyph from line:
+    cont.removeChild(glyph);
+    tweaks.dx -= tx;         // either x0 or (fragT.x + fragT.gMW())
+    // maybe keep digit at end of fragT with glyph:
+    const keepDigit = fragT.text.match(/(.*)( \d)$/); // [whole, (frag) ( digit)]
+    if (keepDigit) {
+      fragT.text = keepDigit[1];    // make fragT shorter; dx will still be near EOL
+      const digiX = new Text(keepDigit[2], fontStr); // temp digiT to subtract width
+      tweaks.dx = fragT.x + digiX.getMeasuredWidth(); // exact length so align: 'center' & 'right' will work
+      tweaks.dy = fragT.y;
+    }
+    this.alignLineFrags(tweaks);   // finish previous line
+    // newline:
+    tweaks.dy = fragT.y + (tweaks.nlh ?? fragT.getMeasuredLineHeight());
+    if (keepDigit) {
+      const digiT = new Text(`${keepDigit[2].trimStart()} `, fontStr); // move space after fragT digit
+      digiT.x = tweaks.x0; digiT.y = tweaks.dy;
+      cont.addChild(digiT);
+      tweaks.dx = digiT.x + digiT.getMeasuredWidth();
+    }
+    glyph.x = keepDigit ? (tweaks.dx + tx) : (tweaks.x0 + tx/2);
+    glyph.y = tweaks.dy;
+    this.cont.addChild(glyph);
+    tweaks.dx = glyph.x + tx;
   }
 
   /**
@@ -255,8 +262,8 @@ export class TextTweaks {
   tweakFont(fontStr: string, tweaks: TWEAKSI) {
     const fontParse = this.parseFontStr(fontStr);
     const { style, weight, size, family, xwide } = { ...fontParse, ...tweaks };
-    const fontStr1 = F.fontSpec(size, family, weight, style);
-    return fontStr1;
+    const fontSpec = F.fontSpec(size, family, weight, style);
+    return fontSpec;
     // TODO: use Text.maxWidth to narrow glyphs
     // const size1 = (xwide == undefined) ? size : this.shrinkFontForWidth(xwide, text, fontStr1);
     // const fontStr2 = (xwide == undefined) ? fontStr1 : F.fontSpec(size1, family, weight, style);
@@ -367,17 +374,22 @@ export class TextTweaks {
 
   /**
    * reference implementation of a glyph function (set trigger text in italic bold).
+   *
+   * addChild(glyph); set glyph (dx, dy); advance tweaks.dy by glyph width.
    * @param cont Container to hold glyph dispObj [generally this.cont]
    * @param fragt previous Text (to get size, height, alignment, etc)
    * @param trigger the matched text to be replaced with a glyph
    * @param dx x location for glyph (textAlign: left)
    * @param dy y location for glyph (textBaseline: 'top' |middle|bottom)
-   * @return width consumed by glyph (pre- and post- space)
+   * @return the glyph (Bitmap)
    */
-  setGlyph(cont: Container, fragt: Text, trigger: string, tweaks: TWEAKSI) {
+  setGlyph(cont: Container, fragt: Text, trigger: string, tweaks: TWEAKSI): DisplayObject {
     // simply insert trigger text: (in italic bold)
     const gText = this.setTextFrag(trigger, fragt.font, { ...tweaks, style: 'italic', weight: 'bold' });
     cont.addChild(gText); // move to proper container
-    return gText.getMeasuredWidth();
+    gText.x = tweaks.dx;
+    gText.y = tweaks.dy;
+    tweaks.dx += gText.getMeasuredWidth();
+    return gText;
   }
 }
