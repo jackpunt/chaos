@@ -235,6 +235,7 @@ export class Player extends PlayerLib {
   /** put cardRack on a movable CardPanel; PlayerPanel ISA HexMap, and cardPanel is its mapCont. */
   makeCardRack(table: Table, row?: number, ncols = 6) {
   }
+  /** take Card from deck and add to hand.  TODO: enforce hand limit */
   gainCard() {
     const card = this.gamePlay.table.takeCard();
     this.panel.cardPanel.addCard(card);
@@ -247,14 +248,17 @@ export class Player extends PlayerLib {
     card?.placeTile(hex2);
     return card;
   }
+  /** remove the indicated TacticsCard from cardRack */
+  rmCard(ndx: number) {
+    const hex = this.cardRack[ndx], card = hex?.card;
+    if (!card) return undefined;
+    card.moveTo(undefined);   // vacate the hex
+    return card;
+  }
 
   /** for ScenarioParser.saveState() */ // TODO: code cards with index, or string->card
   get cards() { return this.cardRack.map(hex => hex.card).filter(card => !!card) }
 
-  /** rules in Player's cardRack */
-  get cardRules() {
-    return this.cardRack.filter(h => h.card).map(h => h.card!.phaseEffect);
-  }
   addNewMove(newMove: MoveInPlay) {
     this.movesInPlay.push(newMove);   // moveInPlay.length is "MovePoints consumed".
     this.panel.baseTile.moveCounter.incValue(-1);
@@ -335,7 +339,7 @@ export class Player extends PlayerLib {
     const fot = (battle.fots[0].player == this) ? battle.fots[0] : battle.fots[1];
     // dummy reply:
     fot.wheel = (this.gems > 0) ? 'asd' : 'ds0';    // or whatever
-    fot.card = this.cards[0]; // TODO: remove card from cardRack?
+    fot.card = this.rmCard(0);   // take random-ish Card if available
     setTimeout(cb, 50)
   }
 
@@ -715,7 +719,7 @@ export class Panel extends PlayerPanel {
         const bonus = [bText, bText, F0_btext, 'E3'][ftype] as BONUS;
         const Aname = `${bid}${this.player.facId}.${ndx}`;  // F, P, S identifies type of Building!
         const bgf = homeAry[ndx] = new BgFound(Aname, bonus, fs); // background Foundation on Panel
-        if (ftype == 1) bgf.addGemLock(-.25, .65);
+        if (ftype == 1) bgf.addGemLock(-.29, -.41);
         this.addChild(bgf); bgf.x = x; bgf.y = y;
         if (ftype == 2 || ftype == 3) {
           bgf.reCache(0);
@@ -916,7 +920,7 @@ export class Panel extends PlayerPanel {
       const name = `${ldr.Aname.substring(0,2)}_home`;
       const cn = ldr.isRhyzu ? n + 1 : n;
       const hx = x0 + (9 + cn % 3) * wh;
-      const hy = y0 + (2.8 * wh + Math.floor(cn / 3) * leaderRad * 1.4);
+      const hy = y0 + (2.4 * wh + Math.floor(cn / 3) * leaderRad * 1.4);
       const homeHex = ldr.homeHex = this.table.newHex2(0, 0, name, LeaderHex, );
       this.localToLocal(hx, hy, homeHex.cont.parent, homeHex.cont);
       homeHex.legalMark.setOnHex(homeHex);
@@ -958,6 +962,8 @@ export class Panel extends PlayerPanel {
     this.addChild(cardPanel);
     cardPanel.fillAryWithCardHex(this, this.cardRack, high/2, ncols)
     cardPanel.visible = false;
+    this.battleCardHex = cardPanel.fillAryWithCardHex(this, [], -1, 1)[0];
+    this.battleCardHex.Aname = 'battleCardHex';
     // a Button to toggle visibility:
     const cButton = this.cButton = new UtilButton('Cards', { active: true, corner: .1, fontSize: dxdc * .2, border: [.1, .1, .2, 0] });
     cButton.x = x0 + s1 * 1;
@@ -966,6 +972,10 @@ export class Panel extends PlayerPanel {
     cButton.on('click', () => this.toggleCards());
     return cardPanel;
   }
+
+  battleCardHex!: CardHex;
+
+
   /** button to show/hide CardPanel */
   cButton!: UtilButton;
   toggleCards(vis = !this.cardPanel.visible) {
