@@ -116,7 +116,7 @@ class OutpostShape extends PathShapeMeeple {
 }
 class StrongholdShape extends PathShapeMeeple {
   /** larget, w/tower */
-  static override pointAry = [[-1, 1], [-1, -1], [-.8, -1], [-.8, -.5], [0, -1], [1, -.5], [1, 1]] as XYp[];
+  static override pointAry = [[-1, 1], [-1, -1], [-.8, -1], [-.8, -.4], [-.6, -.4], [.15, -1], [1, -.5], [1, 1]] as XYp[];
 }
 
 
@@ -703,7 +703,7 @@ export class LeaderCard extends PaintableCont {
     const card = baseSide.visible ? baseSide : otherSide;
     card.on(S.click, () => { card.visible = false; card.stage.update()}, this, true)
     rightClickable(card, (evt: MouseEvent) => this.doRightClick(evt));
-    card.stage.update();
+    card.stage?.update();
   }
 
   /** add Stats text to Shape/Back */
