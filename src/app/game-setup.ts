@@ -77,7 +77,7 @@ class NullGameSetup extends GameSetupLib {
   }
 
   override loadImagesThenStartup() {
-    const fnames: string[] = [...factionNames];
+    const fnames: string[] = ['Gemlock', ...factionNames];
     AliasLoader.loader.fnames = [...fnames, ...ChaosTweaker.fnames];
     super.loadImagesThenStartup();    // loader.loadImages(() => this.startup(qParams));
   }

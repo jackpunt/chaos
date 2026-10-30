@@ -1,5 +1,5 @@
 import { arrayN, C, F, type XY } from "@thegraid/common-lib";
-import { CenterText, CircleShape, EllipseShape, NamedContainer, PathShape, RectShape, TextInRect, type RectWithDispOptions, type TextInRectOptions } from "@thegraid/easeljs-lib";
+import { AliasLoader, CenterText, CircleShape, EllipseShape, NamedContainer, PathShape, RectShape, TextInRect, type RectWithDispOptions, type TextInRectOptions } from "@thegraid/easeljs-lib";
 import { Container } from "@thegraid/easeljs-module";
 import type { HARVEST } from "./chaos-tile";
 import { type PriceBonus } from "./meeples";
@@ -162,6 +162,10 @@ export function bonusIcon(harv: HARVEST | PriceBonus, fs = TP.hexRad * .15, tc?:
 /** generic icon to represent a Gem Lock */
 export function gemlockIcon(dx = .35, dy = 0) {
   const rad = TP.hexRad * .1;
+  const glimg = AliasLoader.loader.getBitmap('Gemlock', rad * 3.5);
+  glimg.x = dx;
+  glimg.y = dy;
+  return glimg;
   const bi = bonusIcon('.' as HARVEST, rad, CO.gColor)!; // grey dot
   const gem = new EllipseShape(CO.gColor, rad * .5, rad * .7, ''); // elongated gem
   gem.x += rad * .45;
