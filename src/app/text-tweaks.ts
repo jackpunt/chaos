@@ -34,7 +34,80 @@ export type TWEAKS = {
 };
 
 /** internal TWEAKS with numbers set */
-export type TWEAKSI = TWEAKS & { dx: number, dy: number, x0: number, baseline: BASELINE, cNdx: number }
+export type TWEAKSI = TWEAKS & { dx: number, dy: number, x0: number, baseline: BASELINE, cNdx: number, maxLH: number }
+
+// don't break & wrap for &nbsp;
+class Text2 extends Text {
+  // copy DisplayObject and Text properties
+  override clone(): Text2 {
+    return (this as any)._cloneProps(new Text2(this.text, this.font, this.color))
+  }
+
+  /**
+	 * Draws multiline text.
+	 * @method _drawText
+	 * @param {CanvasRenderingContext2D} ctx
+	 * @param {Object} o
+	 * @param {Array} lines
+	 * @return {Object}
+	 * @protected
+	 **/
+  _drawText(ctx: CanvasRenderingContext2D, o: any, lines: string[]) {
+    const TextA = Text as any;
+    const thisA = (this as any);
+		var paint = !!ctx;
+		if (!paint) {
+			ctx = TextA._workingContext;
+			ctx.save();
+			thisA._prepContext(ctx);
+		}
+		var lineHeight = this.lineHeight||this.getMeasuredLineHeight();
+
+		var maxW = 0, count = 0;
+		var hardLines = String(this.text).split(/(?:\r\n|\r|\n)/);
+		for (var i=0, l=hardLines.length; i<l; i++) {
+			var str = hardLines[i];
+			var w = null;
+
+			if (this.lineWidth != null && (w = ctx.measureText(str).width) > this.lineWidth) {
+				// text wrapping: (without nbsp = \u0160)
+				var words = str.split(/([\t\n\v\f\r \u1680\u2000-\u200a\u2028\u2029\u202f\u205f\u3000\ufeff])/); // /([\s--\xa0])/v
+				// var words = str.split(/([\s--\xA0])/)v; // ECMAScript-2024
+				str = words[0];
+				w = ctx.measureText(str).width;
+
+				for (var j=1, jl=words.length; j<jl; j+=2) {
+					// Line needs to wrap:
+					var wordW = ctx.measureText(words[j] + words[j+1]).width;
+					if (w + wordW > this.lineWidth) {
+						if (paint) { thisA._drawTextLine(ctx, str, count*lineHeight); }
+						if (lines) { lines.push(str); }
+						if (w > maxW) { maxW = w; }
+						str = words[j+1];
+						w = ctx.measureText(str).width;
+						count++;
+					} else {
+						str += words[j] + words[j+1];
+						w += wordW;
+					}
+				}
+			}
+
+			if (paint) { thisA._drawTextLine(ctx, str, count*lineHeight); }
+			if (lines) { lines.push(str); }
+			if (o && w == null) { w = ctx.measureText(str).width; }
+			if (w! > maxW) { maxW = w!; }
+			count++;
+		}
+
+		if (o) {
+			o.width = maxW;
+			o.height = count*lineHeight;
+		}
+		if (!paint) { ctx.restore(); }
+		return o;
+	};
+}
 
 /**
  * Create Text objects with various attributes; replace special characters with glyph.
@@ -80,20 +153,23 @@ export class TextTweaks {
     fontStr = (text instanceof Text) ? text.font : fontStr; // use font from given Text
     const lines = (text instanceof Text) ? text.text : text;
     // Note: dx, dy, lineno are wrt this.cont (parent of the Text objects)
-    const { dx, dy: dy0, align, nlh } = { dx: 0, dy: 0, align: 'center', ...tweaks }
+    const { dx, dy: dy0, } = { dx: 0, dy: 0, ...tweaks }
 
     // Do each line:
-    let cText!: Text, dy = dy0, maxW = 0, x0 = tweaks?.x0 ?? dx;
+    let cText!: Text, dy = dy0, x0 = tweaks?.x0 ?? dx;
     lines.split('\n').forEach(line => {
       const cNdx = this.cont.children.length;  // index to find new frags
-      const lineTweaks: TWEAKSI = { x0, baseline: 'middle', ...tweaks, dx, dy, cNdx };
+      const lineTweaks: TWEAKSI = { x0, baseline: 'middle', ...tweaks, dx, dy, cNdx, maxLH: 0 }; // TODO: use 'top' or 'hanging'
       cText = this.setLineWithFontFrags(line, fontStr, lineTweaks);
       this.alignLineFrags(lineTweaks);
-      const mlh = cText.getMeasuredLineHeight();    // cText may be multi-line!
-      const incy = cText.lineHeight ?? mlh;
-      dy += incy;     // down to next line
+      const mlh = lineTweaks.maxLH;    // cText may be multi-line! (wrapped); maxLH of all frags of 'line'
+      dy += mlh;     // down to next line; TODO: for different maxLH: half at EOL, half at BOL
+      if (tweaks) {
+        tweaks.dx = lineTweaks.dx;
+        tweaks.dy = lineTweaks.dy;
+      }
     })
-    return cText; // last Text added
+    return cText; // last Text added (useful for lines with no glyphs)
   }
 
   // initially compose everything with textAlign = 'left', x=x0..,
@@ -164,7 +240,7 @@ export class TextTweaks {
         itweaks.weight = 'bold';
       }
       const fontStr2 = this.tweakFont(fontStr, itweaks);    // fontStr for these frags
-      dx = this.setFragWithGlyphs(frag, fontStr2, itweaks); // addChild @ tweaks.[dx, dy]
+      dx = this.setFragWithGlyphs(frag, fontStr2, itweaks); // addChild @ tweaks.[dx, dy], dx += gMW
       tweaks.dx = dx;
     })
     // ASSERT: split always gives a final Text after any glyph; maybe just Text('')
@@ -180,14 +256,14 @@ export class TextTweaks {
    */
   setFragWithGlyphs(frag: string, fontStr: string, tweaks: TWEAKSI) {
     const glyphRE = this.glyphRE
-    let fragT: Text;
-    if (glyphRE && frag.match(glyphRE)) {
+    let fragT: Text, glyphs: RegExpMatchArray;
+    if (glyphRE && (glyphs = frag.match(glyphRE)!)) {
       const frags = frag.split(glyphRE);    // ASSERT: this line has a regex match
-      const matches = frag.match(glyphRE)!; // the 'glyph's that separate the frags
       frags?.forEach(frag => {              // ASSERT: frag has no newline and no glyph
         fragT = this.setTextFrag(frag, fontStr, tweaks);  // may do multi-line: update dx, dy
+        tweaks.maxLH = Math.max(tweaks.maxLH, fragT.getMeasuredHeight());   // record maxLH
         const fragWrap = (tweaks.dx == tweaks.x0);  // setFrag wrapped, putting '' on new line (trimmed a space)
-        const fragn = matches?.shift();  // the portion of line that matched glyphRE (eg: '$2')
+        const fragn = glyphs?.shift();  // the portion of line that matched glyphRE (eg: '$2')
         if (fragn) {                     // ASSERT: a fragn between each fragt
           const glyph = this.setGlyph(this.cont, fragT, fragn, tweaks); // there's a glyphRE, so set it:
           const glyphWrap = tweaks.dx - tweaks.x0 > tweaks.lineWidth!;
@@ -216,13 +292,12 @@ export class TextTweaks {
     const keepDigit = fragT.text.match(/(.*)(\s+\d)$/); // [whole, (frag) ( digit)]
     if (keepDigit) {
       fragT.text = keepDigit[1];    // make fragT shorter; dx will still be near EOL
-      const digiX = new Text(keepDigit[2], fontStr); // temp digiT to subtract width
       tweaks.dx = fragT.x + fragT.getMeasuredWidth(); // exact length so align: 'center' & 'right' will work
       tweaks.dy = fragT.y;
     }
     this.alignLineFrags(tweaks);   // finish previous line
     // newline:
-    tweaks.dy = fragT.y + (tweaks.nlh ?? fragT.getMeasuredLineHeight());
+    tweaks.dy = fragT.y + (tweaks.nlh ?? tweaks.maxLH);
     tweaks.dx = tweaks.x0;
     if (keepDigit) {
       const digiT = fragT.clone();
@@ -251,11 +326,9 @@ export class TextTweaks {
       return this.cont.children[this.cont.numChildren-1] as Text;   // makeText/wrapText did it all...
     }
 
-    const { dx, dy, baseline, rotation } = { ...tweaks }
-    cText.textBaseline = baseline; // 'top' | 'middle' | 'bottom'
-    cText.rotation = rotation ?? 0; // TODO: trig to rotate around a point
-    cText.x = dx;
-    cText.y = dy;
+    const { dx, rotation } = { ...tweaks }
+    // for simple string only! for compound text: put it on a cont and rotate that.
+    if (rotation !== undefined) cText.rotation = rotation;
     tweaks.dx = dx + cText.getMeasuredWidth();
     return this.cont.addChild(cText);
   }
@@ -289,10 +362,16 @@ export class TextTweaks {
    * @returns the new Text object
    */
   makeText(text: string, fontStr: string, tweaks: TWEAKSI) {
-    const { color, dx, x0, lineWidth, dy, } = tweaks;
-    const text0 = new Text(text, fontStr, color);
+    const { color, dx, x0, lineWidth, dy, rotation } = tweaks;
+    const text0 = new Text2(text, fontStr, color); // Text2 with nbsp wrapping
       text0.x = dx; text0.y = dy;
-      tweaks.nlh && (text0.lineHeight = tweaks.nlh);
+      text0.textBaseline = tweaks.baseline;
+      if (rotation) text0.rotation = rotation;
+      if (tweaks.nlh) {
+        (text0.lineHeight = tweaks.nlh);
+      } else {
+        tweaks.maxLH = Math.max(tweaks.maxLH, text0.getMeasuredHeight());
+      }
 
     const textW = text0.getMeasuredWidth();
     if (lineWidth !== undefined && (dx - x0 + textW) > lineWidth) {
@@ -311,35 +390,29 @@ export class TextTweaks {
 
   wrapText(textf: Text, fontStr: string, tweaks: TWEAKSI) {
     const str = textf.text;
-    const Aname = (this.cont as NamedContainer).Aname, trouble = TextTweaks.trouble;
-    const { lineWidth, baseline, rotation, x0, nlh } = tweaks;
-    const mlh = nlh ? (textf.lineHeight = nlh) : textf.getMeasuredLineHeight();
-    textf.lineWidth = lineWidth! - (tweaks.dx - x0);
+    const { lineWidth, x0, nlh } = tweaks;
+    const mlh = nlh ? (textf.lineHeight = nlh) : (tweaks.maxLH = Math.max(tweaks.maxLH, textf.getMeasuredLineHeight()));
+    textf.lineWidth = lineWidth! - (tweaks.dx - x0);  // length remaining on line for textf
 
     const line0 = textf.getMetrics().lines[0];     // the 'short' line
-    const text0 = new Text(line0, fontStr)
-    text0.x = tweaks.dx; text0.y = tweaks.dy;
-    text0.textBaseline = baseline!
-    text0.rotation = rotation ? rotation : 0;
-    tweaks.dx = text0.x + text0.getMeasuredWidth(); // Assert: < lineWidth
-    tweaks.dy = text0.y + mlh;
-    this.cont.addChild(text0);
+    const text0 = textf.clone(); text0.text = line0; // new Text2(line0) with all the same attributes
+      text0.x = tweaks.dx; text0.y = tweaks.dy;
+      tweaks.dx = text0.x + text0.getMeasuredWidth(); // Assert: < lineWidth
+      tweaks.dy = text0.y + mlh;
+      this.cont.addChild(text0);
     this.alignLineFrags(tweaks);
 
     const line1 = str.slice(line0.length).trimStart()
-    const text1 = new Text(line1, fontStr);
-    text1.x = x0; text1.y = tweaks.dy;
-    nlh && (text1.lineHeight = mlh);
-    text1.textBaseline = baseline!;
-    text1.rotation = rotation ? rotation : 0;
-    text1.lineWidth = lineWidth!;  // wrap the remaining text; find the end point
+    const text1 = textf.clone(); text1.text = line1;  // new Text2(line1) with all the attrs
+      text1.x = x0; text1.y = tweaks.dy;
+      text1.lineWidth = lineWidth!;  // wrap the remaining text; find the end point (uni-font!)
     this.alignWrapLines(tweaks);  // set textAlign and update cNdx
     line1 && this.cont.addChild(text1);  // do not insert empty Text; also .lines is empty, gMW==0
 
     const lines = text1.getMetrics().lines;
     const linen = lines.pop();
-    const lineN = new Text(linen, fontStr);
-    tweaks.dy = text1.y + mlh * lines.length;
+    const lineN = new Text(linen ?? '', fontStr);
+    tweaks.dy = tweaks.dy + mlh * lines.length; // using same LH as text0... (even tho lines are all fontStr)
     tweaks.dx = x0 + lineN.getMeasuredWidth();
     return;
   }

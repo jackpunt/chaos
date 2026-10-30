@@ -170,7 +170,7 @@ export class ChaosTweaker extends TextTweaks {
     const bmi0 = aliasLoader.loader.getBitmap(name, size);
     const { width, height } = bmi0.getBounds()
     const baseline = tweaks.baseline;
-    const ya = (baseline == 'middle') ? 0 : (baseline == 'bottom') ? 0 : -1;
+    const ya = (baseline == 'middle') ? 0 : (baseline == 'bottom') ? .5 : -.5;
     const dya = ya * height * bmi0.scaleY;   // offset to edge of glyph (tweaks.dy textAlign: 'middle')
     const dxa = width * bmi0.scaleX / 2;   // offset to edge of glyph
     const color = fragt.color ?? C.BLACK;
@@ -242,6 +242,7 @@ export class TacticsCard extends Tile {
   declare gamePlay: GamePlay;
 
   idText!: Text;            // descriptive text, name? id?
+  cardSpec: CardSpec;
   phase!: ChaosPhase;
   nLeft!: number;          // set once: rs.nLeft
   nRight!: number;         // set once: rs.nRight
@@ -259,6 +260,7 @@ export class TacticsCard extends Tile {
     super(TacticsCard.uniqueId(cs));  // Tile with Aname = Pn_L_R
     this.nameText.y += this.radius * .12;    // = radius * (.5 + .12)
     // maybe paint() per phaseEffect:
+    this.cardSpec = cs;
     this.addChildren(cs)
     this.paint(TacticsCard.colorMap[this.phase])
     TacticsCard.cardByName.set(this.Aname, this);  // Aname from CardSpec.id
@@ -540,19 +542,16 @@ export class CardBack extends TacticsCard {
   static bColor = TacticsCard.colorMap.back;
   static oText = 'click\nto\ndraw';
   static nText = 'DIM\n';
-  dim(dim = true) {
-    this.idText.text = dim ? CardBack.nText : CardBack.oText;
-    this.stage?.update()
-  }
 
   constructor(public table: Table, id = 'cardback', text = CardBack.oText, color = CardBack.bColor) {
-
-    super({ id, phase: 'SetPrices', nL: 9, nR: 9, ptext: '' })
-    const pText = new CenterText(text, this.pText.font, this.pText.color)
-    this.addChildAt(pText, this.children.indexOf(this.phaseText))
-    this.removeChild(this.phaseText);
-    // this.pText.y = -this.pText.getMeasuredLineHeight(); // -nlines/2
-    this.idText.text = id;
+    const noPhase = 'SetPrices'
+    super({ id, phase: noPhase, nL: 9, nR: 9, ptext: '' })
+    const phaseText = this.children.find(c => (c as Text).text?.startsWith(noPhase)) as Text;
+    const fSize = this.radius * .1, font = F.fontSpec(fSize, TacticsCard.family)
+    const pText = new CenterText(text, font); // x,y = [0,0]
+    pText.y -= fSize;
+    this.addChildAt(pText, this.children.indexOf(phaseText))
+    this.removeChild(phaseText);
     this.baseShape.paint(color)
     if (!CardBack._bounds) CardBack._bounds = this.getBounds(); // dubious optimization, only make 2 CardBacks
   }
@@ -568,7 +567,7 @@ export class CardBack extends TacticsCard {
     const card = source.nextUnit();  // card.moveTo(srchex)
     // console.log(stime(this, `.clicked`), `source.numAvailable: ${source.numAvailable}`)
     if (source.numAvailable === 0) {
-      this.dim(true); // indicate stack is empty
+      // this.dim(true); // indicate stack is empty
     }
     if (card) {
       // card appears under mouse, no need for snap to dxy
