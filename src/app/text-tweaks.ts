@@ -241,6 +241,7 @@ export class TextTweaks {
       }
       const fontStr2 = this.tweakFont(fontStr, itweaks);    // fontStr for these frags
       dx = this.setFragWithGlyphs(frag, fontStr2, itweaks); // addChild @ tweaks.[dx, dy], dx += gMW
+      tweaks.dy = itweaks.dy;
       tweaks.dx = dx;
     })
     // ASSERT: split always gives a final Text after any glyph; maybe just Text('')

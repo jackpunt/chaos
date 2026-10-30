@@ -134,11 +134,11 @@ export class ChaosTweaker extends TextTweaks {
    * @param tx [dx * 2]
    * @returns
    */
-  defineGlyphParams(size: number, dx = 0, dy = -1, tx = size * .8) {
+  defineGlyphParams(size: number, dx = 0, dy = 0, tx = size * .8) {
     return {
       Strength: { dx, tx, dy, size, noStencil: 1 },
-      Attack:   { dx, tx, dy, size, noStencil: 1 },
-      Defence:  { dx, tx, dy, size, noStencil: 1 },
+      Attack:   { dx, tx, dy: dy - 1, size, noStencil: 1 },
+      Defence:  { dx, tx, dy: dy - 1 , size, noStencil: 1 },
       Energy:   { dx, tx, dy, size, noStencil: 1 },
       Gem:      { dx, tx, dy, size, noStencil: 1 },
       TacticsCard: { dx, tx, dy, size: size, noStencil: 1, },
@@ -170,7 +170,7 @@ export class ChaosTweaker extends TextTweaks {
     const bmi0 = aliasLoader.loader.getBitmap(name, size);
     const { width, height } = bmi0.getBounds()
     const baseline = tweaks.baseline;
-    const ya = (baseline == 'middle') ? 0 : (baseline == 'bottom') ? .5 : -.5;
+    const ya = (baseline == 'middle') ? 0 : (baseline == 'bottom') ? -.5 : .5;
     const dya = ya * height * bmi0.scaleY;   // offset to edge of glyph (tweaks.dy textAlign: 'middle')
     const dxa = width * bmi0.scaleX / 2;   // offset to edge of glyph
     const color = fragt.color ?? C.BLACK;
@@ -303,7 +303,7 @@ export class TacticsCard extends Tile {
       return tweaker.setTextTweaks(text, fSpec, tweaks)
     }
     const xc = x + width/2;
-    const xn = width * .33;
+    const xn = width * .67;
     const xl = xc - xn;
     const xr = xc + xn;
     const x0 = x + margl;
@@ -343,6 +343,7 @@ export class TacticsCard extends Tile {
   // TacticsCard.discard is Legal; here we add/include empty spots on curPlayer.cardRack
   override markLegal(table: Table, setLegal = (hex: Hex2) => { hex.setIsLegal(false); }, ctx?: DragContext): void {
     table.gamePlay.curPlayer.cardRack.forEach(setLegal)
+    setLegal(table.gamePlay.curPlayer.panel.battleCardHex);
     setLegal(TacticsCard.discards.hex as Hex2)
   }
 
@@ -683,6 +684,7 @@ export class CardPanel extends MapCont {
     const gap = .1 + (width / w) - 1;  // allocate space to fill
     const hexes = panel.hexesOnMapCont(row, ncols, CardHex, { gap }); // was hexesOnPanel()
     hexAry.splice(0, hexAry.length, ...hexes);
+    return hexes as CardHex[];
   }
 
   isCardHex(hex: Hex2): hex is CardHex {
@@ -715,8 +717,10 @@ export class CardPanel extends MapCont {
 
   }
 
-  /** drag & drop the whole panel: */
-  dropFunc(dobj: DisplayObject, ctx?: DragInfo) {
+  /** drag & drop the whole panel: (from Dragger directly; not a Tile) */
+  dropFunc(dobj: DisplayObject, info?: DragInfo) {
+    this.x -= info!.dxy.x * this.scaleX;
+    this.y -= info!.dxy.y * this.scaleY;
     this.scaleX = this.scaleY = 1.0;  // return to original scale
   }
 

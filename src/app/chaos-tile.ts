@@ -1,5 +1,5 @@
 import { C, permute, removeEltFromArray, S, stime } from "@thegraid/common-lib";
-import { AliasLoader, NamedContainer, type Paintable, PolyShape, RectShape, TextInRect, type TextInRectOptions, UtilButton, type UtilButtonOptions, type ValueEvent } from "@thegraid/easeljs-lib";
+import { AliasLoader, NamedContainer, type NamedObject, type Paintable, PolyShape, RectShape, TextInRect, type TextInRectOptions, UtilButton, type UtilButtonOptions, type ValueEvent } from "@thegraid/easeljs-lib";
 import type { DisplayObject, MouseEvent } from "@thegraid/easeljs-module";
 import { Graphics, PolyStar } from "@thegraid/easeljs-module";
 import { type DragContext, type DragFuncs, H, type HasDragger, type HexDir, HexShape, type IHex2, MapTile, NumCounter, Player as PlayerLib, rightClickable, type Table, Tile, TP } from "@thegraid/hexlib";
@@ -923,6 +923,7 @@ export class LeaderTile extends ChaosTile {
     // (name, terrain, harvest, player)
     super(Aname, 'Ldr', '-', player); // isBase: paints (baseShape) { 'Ldr': C.WHITE }
     this.baseShape.setLeader(ldr, true);
+    (this.baseShape as NamedObject).Aname = `${Aname}_shape`; // clarify baseShape is not a functional LeaderCard
 
     this.paint(pColor)
     const fot = this.getFoT(player);
