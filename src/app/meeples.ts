@@ -13,6 +13,8 @@ import type { GameState } from "./game-state";
 import type { MoveInPlay, Player } from "./player";
 import type { Special } from "./scenario-parser";
 import { CO, priceNames, TP, type PhaseName, type PriceName } from "./table-params";
+import { ChaosTweaker } from "./tactics-card";
+import { type TWEAKS } from "./text-tweaks";
 
 
 type BackSide = ChaosUnit['baseShape']['backSide'];
@@ -331,26 +333,26 @@ export class Leader extends ChaosUnit implements LeaderSpec {
     { facId: 0, name: 'Zoey',  stats0: [2, 2, 0], stats2: [3, 3, 0],
       t1: "MAY STAY WITH FIGHTERS IF RETREATING. THIS MAY BE TO NON-ADJACENT REGIONS", },
     { facId: 0, name: 'Melvan', stats0: [2, 0, 0], stats2: [3, 1, 1],
-      t1: "2 F IF NOT ADJACENT TO THE DROP SHIP",
-      t2: "3 F IF NOT ADJACENT TO THE DROP SHIP", },
+      t1: "2 $S IF NOT ADJACENT TO THE DROP SHIP",
+      t2: "3 $S IF NOT ADJACENT TO THE DROP SHIP", },
     // AI: 1
     { facId: 1, name: 'Adecai', stats0: [3, 0, 0], stats2: [5, 0, 0], plGem: 1,
       t1: "WOUND 1 OPPOSING FIGHTER AFTER EACH VICTORY", }, // (limit 4) },
     { facId: 1, name: 'Injura', stats0: [-2, 3, 0], stats2: [2, 4, 0], plGem: 1, upGem: 1,
-      t1: "1 * AFTER EACH VICTORY", }, // (Shieldable, limit 4)
+      t1: "1 $A AFTER EACH VICTORY", }, // (Shieldable, limit 4)
     { facId: 1, name: 'Xiao',   stats0: [2, 1, 1], stats2: [3, 3, 1], upGem: 1,
       t1: "GAIN 1 RESEARCH IF NO OPPOSING FIGHTERS ARE WOUNDED IN BATTLE",
       t2: "GAIN 2 RESEARCH IF NO OPPOSING FIGHTERS ARE WOUNDED IN BATTLE", },
     { facId: 1, name: 'Phoros', stats0: [-2, 3, 0], stats2: [2, 4, 0], plGem: 1,
-      t1: "MAY USE * * SECTION OF THE WHEEL OR PAY NO GEM IF ROLLING A DIE", },
+      t1: "MAY USE $A $A SECTION OF THE WHEEL OR PAY NO GEM IF ROLLING A DIE", },
     { facId: 1, name: 'Demo', stats0: [2, 1, 0], stats2: [4, 2, 0], upGem: 2,
       t1: "RETURN TO BASE IF DEFEATED", },
     // Zcharo: 2
     { facId: 2, name: 'Oachra', stats0: [2, 2, 0], stats2: [3, 3, 0], plGem: 1,
       t1: "ZCHARO ATTACKS ARE RESOLVED BEFORE RESOLVING STRENGTH", },
     { facId: 2, name: 'Cahzor', stats0: [2, 0, 0], stats2: [4, 0, 0],
-      t1: "1 F IF IN A REGION WITH 1 OR MORE OPPOSING BUILDINGS",
-      t2: "1 F PER OPPOSING BUILDING", },
+      t1: "1 $S IF IN A REGION WITH 1 OR MORE OPPOSING BUILDINGS",
+      t2: "1 $S PER OPPOSING BUILDING", },
     { facId: 2, name: 'Zucalah', stats0: [3, 0, 0], stats2: [6, 0, 0], P: 'Harvest',
       t1: "MAY SPEND 1 ENERGY TO GAIN 1 TACTICS CARD",
       t2: "GAIN 1 TACTICS CARD", },
@@ -376,10 +378,10 @@ export class Leader extends ChaosUnit implements LeaderSpec {
     { facId: 4, name: 'Ikryla', stats0: [2, 0, 0], stats2: [4, 2, 0], P: "Income",
       t1: "GAIN 1 TACTICS CARD OR 1 GEM IF IN A RELIC REGION",  },
     { facId: 4, name: 'Lynke', stats0: [1, 2, 0], stats2: [3, 4, 0], upGem: 1,
-      t1: "1 F PER 2 *", }, // 1 str per 2 atk
+      t1: "1 $D PER 2 $A", }, // 1 str per 2 atk
     { facId: 4, name: 'Vahla', stats0: [2, 0, 0], stats2: [2, 0, 2], upGem: 2,
-      t1: "4 F IF FIGHTING AN OPPOSING RHY-ZU",
-      t2: "4 F IF FIGHTING WITH 1 OR MORE ALLIED OR OPPOSING RHY-ZU", },  // +4 str against, (or with) a Rhyzu
+      t1: "4 $S IF FIGHTING AN OPPOSING RHY-ZU",
+      t2: "4 $S IF FIGHTING WITH 1 OR MORE ALLIED OR OPPOSING RHY-ZU", },  // +4 str against, (or with) a Rhyzu
     { facId: 4, name: 'Kajali', stats0: [2, 1, 0], stats2: [4, 2, 0], plGem: 1,
       t1: "OPPONENT CANNOT SELECT ANY BATTLES IN THIS REGION", },
     // Rhyzu: 4
@@ -391,15 +393,15 @@ export class Leader extends ChaosUnit implements LeaderSpec {
       t1: "CANNOT ENTER LAKES BATTLE VICTOR GAINS CONTROL OF KATARIN", },
     // Oxataya: 5
     { facId: 5, name: 'Tovati', stats0: [1, 2, 0], stats2: [3, 3, 0], upGem: 1,
-      t1: "2 F IF FIGHTING WITHOUT ALLIED LEADERS OR RHY-ZU", },
+      t1: "2 $S IF FIGHTING WITHOUT ALLIED LEADERS OR RHY-ZU", },
     { facId: 5, name: 'Azaru', stats0: [2, 0, 0], stats2: [3, 0, 0], plGem: 1,
       t1: "GAIN 1 TACTICS CARD BEFORE EACH BATTLE", t2: "GAIN 1 TACTICS CARD AND 1 GEM BEFORE EACH BATTLE"},
     { facId: 5, name: 'Xanya', stats0: [2, 0, 1], stats2: [4, 0, 2], P: 'Recruit',
       t1: "MAY MAKE A FREE MOVE WITHOUT OTHER UNITS [END OF PHASE]",
       t2: "MAY MAKE A FREE MOVE WITH ANY NUMBER OF FIGHTERS [END OF PHASE]", },
     { facId: 5, name: 'Rhan', stats0: [2, 0, 2], stats2: [3, 0, 2], plGem: 1, upGem: 1,
-      t1: "2 F FOR EACH OTHER OXATAYA LEADER",
-      t2: "3 F FOR EACH OTHER OXATAYA LEADER", },
+      t1: "2 $S FOR EACH OTHER OXATAYA LEADER",
+      t2: "3 $S FOR EACH OTHER OXATAYA LEADER", },
     { facId: 5, name: 'Onari', stats0: [1, 1, 0], stats2: [3, 2, 1], plGem: 1, P: 'Move',
       t1: "MOVING OFF LAKES WITH ANY NUMBER OF UNITS IS A FREE MOVE", },
     { facId: 5, name: 'Latanja', stats0: [2, 0, 0], stats2: [3, 1, 0], upGem: 1,
@@ -461,7 +463,7 @@ export class Leader extends ChaosUnit implements LeaderSpec {
     return this.inFoT?.tile.chex.isOnMap ? this.inFoT?.tile : undefined;
   }
 
-  // make card visible, and scale up:
+  // make [current state of] card visible, and scale up:
   override onRightClick(evt: MouseEvent) {
     evt.stopImmediatePropagation();
     const tile = this.inFoT!.tile;
@@ -680,7 +682,7 @@ export class LeaderCard extends PaintableCont {
     cardShape.paint(color, true);
     this.addChild(cardShape);
     this.addChild(nText);
-    this.addStats(leader, fontSize, 2 * fontSize + top, upgraded);
+    this.addStats(leader, fontSize, 1.25 * fontSize + top, upgraded);
     const plGem = upgraded ? leader.upPlace : leader.plGem;
     if (plGem) this.addChild(plGemIcon(plGem, fontSize, top, left))
     if (upgraded ? false : leader.upGem) this.addChild(upGemIcon(leader.upGem, fontSize, top, left))
@@ -692,10 +694,15 @@ export class LeaderCard extends PaintableCont {
 
   doRightClick(evt: MouseEvent) {
     evt.stopImmediatePropagation();
-    this.switchSides();
+    this.switchSides(evt);
   }
 
-  switchSides(setBase = false) {
+  switchSides(evt: MouseEvent, setBase = false) {
+    if (this.parent == this.leader.homeTile) {
+      // this is the home tile.baseShape, not a real LeaderCard:
+      this.leader.onRightClick(evt);  // retarget click to the LeaderIcon; put card on stage
+      return;
+    }
     const baseSide = this.leader.leaderCard.visible ? this.leader.leaderCard : this.leader.leaderCard.otherSide;
     const otherSide = baseSide.otherSide;
     baseSide.visible = setBase ? true : false;
@@ -709,23 +716,31 @@ export class LeaderCard extends PaintableCont {
   /** add Stats text to Shape/Back */
   addStats(ldr: Leader, fontSize = ldr.radius * .3, y = 0, upgraded = false ) {
     const [str, atk, shld] = upgraded ? ldr.stats2 : ldr.stats0;
-    const stats1 = new CenterText(`S     A     D`, fontSize*.7, C.WHITE);
-    const stats2 = new CenterText(`\n${str}   ${atk}   ${shld}`, fontSize, C.WHITE) ;
-    stats1.y = stats2.y = y;
-    this.addChild(stats1, stats2);
+    const stats1 = new CenterText(`$S  $A  $D`, fontSize * .84, C.WHITE);
+    const stats2 = new CenterText(`${str}   ${atk}   ${shld}`, fontSize, C.WHITE) ;
+    const tweaker = new ChaosTweaker(this, fontSize);
+    const tweaks: TWEAKS = { dy: y, align: 'center', baseline: 'middle', color: C.WHITE }
+    tweaker.setTextTweaks(stats1, 'ignore', tweaks);
+    tweaks.dx = 0;
+    tweaks.dy! += fontSize;
+    tweaker.setTextTweaks(stats2, 'ingore', tweaks );
+    // stats1.y = stats2.y = y;
+    // this.addChild(stats1, stats2);
   }
 
   addText(ldr: Leader, fontSize = 16, top = -80, left = -55, upgraded = false) {
     const tt = upgraded ? ldr.t2 : ldr.t1;
-    const t1 = new CenterText(tt || 'Leader text', fontSize * .5, C.WHITE);
-    t1.lineWidth = -left * 1.8;
-    t1.textAlign = 'left';
-    const { width, height } = t1.getBounds(), mlh = t1.getMeasuredLineHeight();
-    t1.x = left + .3 * fontSize;
-    t1.y = -top - Math.max(height, 3 * mlh);
-    this.addChild(t1);
+    const t0 = new CenterText(tt || 'Leader text', fontSize * .5, C.WHITE);
+    const lineWidth = -left * 1.8;
+    const tcont = new Container()
+    const tweaker = new ChaosTweaker(tcont, fontSize * .5);
+    const dx = left + fontSize * .3, dy = 0;
+    const tweaks: TWEAKS = { dx, dy, baseline: "bottom", align: 'left', lineWidth, color: C.WHITE };
+    const t1 = tweaker.setTextTweaks(t0, 'ignore', tweaks);
+    tcont.y = - top - Math.max(t1.getMeasuredLineHeight() * 3.3, tweaks.dy!);
+    this.addChild(tcont);
     const tpIcon = phaseIcon(ldr.tp, ldr.radius * .3);
-    tpIcon.y = t1.y - tpIcon.label.getMeasuredLineHeight() * 1.1;
+    tpIcon.y = tcont.y - tpIcon.label.getMeasuredLineHeight() * 1.1;
     this.addChild(tpIcon);
   }
 }
