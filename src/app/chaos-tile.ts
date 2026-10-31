@@ -434,12 +434,15 @@ export class FactionOnTile extends NamedContainer {
         this.addChildOver(ldr, xl + n * gap, yl); // to overCont or this depending on this.isBase
       })
     }
+    this.showStrength(yl)
+    this.stage.update();
+  }
+  showStrength(yl: number) {
     const [str, txt] = this.player.faction.strengthInRegion(this.tile);
     this.strIcon.label_text = `${str}`;
     this.strIcon.y = -yl * .81;
     this.strIcon.visible = (str > 0);
     this.strText.label_text = txt;
-    this.stage.update();
   }
 
   preLeaders: Leader[] = [];
@@ -687,8 +690,12 @@ export class ChaosTile extends MapTile {
   /** get FoT(player) creating it if mecessary. */
   getFoT(plyr: Player) {
     const facId = plyr.facId;
-    const fot = this.factions[facId] ?? (this.factions[facId] = new FactionOnTile(plyr, this));
+    const fot = this.factions[facId] ?? (this.factions[facId] = this.newFoT(plyr, this));
     return fot;
+  }
+  // interposition point so LeaderTile can subclass its FactionOnTile
+  newFoT(plyr: Player, tile: ChaosTile) {
+    return new FactionOnTile(plyr, tile);
   }
   // Delegate FoT actions to the associated FoT.
   /** add or remove Leader on FoT */
@@ -928,6 +935,12 @@ export class LeaderTile extends ChaosTile {
     this.paint(pColor)
     const fot = this.getFoT(player);
     fot.setXY(-this.radius * .66);    // Note: fot.isBase == true; --> x = 0; set y to place Icon btw stats & PhaseIcon
+  }
+
+  override newFoT(plyr: Player): FactionOnTile {
+    return new class extends FactionOnTile {
+      override showStrength(yl: number): void { }
+    } (plyr, this)
   }
 
   // disable cache, need full zoom/resolution
