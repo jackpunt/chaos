@@ -111,10 +111,10 @@ export class SpecGen {
 
 export class ChaosTweaker extends TextTweaks {
   /** glyphRE must have no capture groups; used for frag.split(glyphRE) in base class */
-  override glyphRE = /\$[=SADGEC]/g; // Str, Atk, Def, Gem, Energy, Card
+  override glyphRE = /\$[=SADELGC]/g; // Str, Atk, Def, Gem, Energy, Card
 
   static glyphImage: Record<string, string> = {
-    'S': 'Strength', 'A': 'Attack', 'D': 'Defence', 'E': 'Energy', 'G': 'Gem', 'C': 'TacticsCard',
+    S: 'Strength', A: 'Attack', D: 'Defence', E: 'Energy', L: 'Gemlock', G: 'Gem', C: 'TacticsCard',
   }
 
   /**
@@ -142,6 +142,7 @@ export class ChaosTweaker extends TextTweaks {
       Energy:   { dx, tx, dy, size, noStencil: 1 },
       Gem:      { dx, tx, dy, size, noStencil: 1 },
       TacticsCard: { dx, tx, dy, size: size, noStencil: 1, },
+      Gemlock:  { dx, tx, dy: dy - .7, size, noStencil: 1 },
     };
   }
   // Note: our on-screen fSize = 8.78
@@ -283,6 +284,8 @@ export class TacticsCard extends Tile {
   // static family = '"Arial"'; static fontLead = 0;
   static family = '"Chakra Petch"'; static fontLead = 0;
 
+  get phaseLocked() { return this.cardSpec.ptext.startsWith('*') }
+
   /**
    * Put bits for CardSpec into this TacticsCard.
    *
@@ -314,18 +317,19 @@ export class TacticsCard extends Tile {
     const ypha = y + height * .6;    // y for phase:
     const ybot = y + height - 1.5 * dSize;
     const itext = cs.id!;
-    const ctext = `${cs.ctext ?? ''}`;
-    const ptext = cs.ptext ?? '';    // ptext supplied (unless cardback)
+    const ctext = cs.ctext ?? '';
+    const phase = this.phaseLocked ? `$L${cs.phase}:` : `${cs.phase}:`;
+    const ptext = this.phaseLocked ? cs.ptext.substring(1) : cs.ptext;
 
     this.phase = cs.phase;
     this.nLeft = cs.nL;       // combat buff value
     this.nRight = cs.nR;      // combat buff value
     setText(cs.nL == 8 ? 'X' : cs.nL == 9 ? '' : `${cs.nL}`, xl, ytop, { fs: dSize * 3 } );
     setText(cs.nR == 8 ? 'X' : cs.nR == 9 ? '' : `${cs.nR}`, xr, ytop, { fs: dSize * 3 });
-    const leftTweaks = { align: 'left', x0, lineWidth } as TWEAKS;
+    const leftTweaks: TWEAKS = { align: 'left', x0, lineWidth };
 
     this.cText = setText(ctext, x0, ycom, leftTweaks);       // Combat text
-    this.phaseText = setText(`${cs.phase}:`, xc, ypha);
+    this.phaseText = setText(phase, xc, ypha, { weight: 'bold' });
     const ypht = this.phaseText.y + this.phaseText.lineHeight;
     this.pText = setText(ptext, x0, ypht, leftTweaks); // Play/Phase text
     this.idText = setText(itext, xc, ybot, { fs: dSize * 1.5 }); // describe/id the card; CardBack.dim()
