@@ -290,7 +290,7 @@ export class TextTweaks {
     cont.removeChild(glyph);
     tweaks.dx -= tx;         // either x0 or (fragT.x + fragT.gMW())
     // maybe keep digit at end of fragT with glyph:
-    const keepDigit = fragT.text.match(/(.*)(\s+\d)$/); // [whole, (frag) ( digit)]
+    const keepDigit = fragT.text.match(/(.*)(\s+\d)\s*$/); // [whole, (frag) ( digit)]
     if (keepDigit) {
       fragT.text = keepDigit[1];    // make fragT shorter; dx will still be near EOL
       tweaks.dx = fragT.x + fragT.getMeasuredWidth(); // exact length so align: 'center' & 'right' will work
