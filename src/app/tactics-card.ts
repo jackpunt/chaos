@@ -136,7 +136,7 @@ export class ChaosTweaker extends TextTweaks {
    */
   defineGlyphParams(size: number, dx = 0, dy = 0, tx = size * .8) {
     return {
-      Strength: { dx: dx + 0, tx, dy: dy + 0, size, noStencil: 1 },
+      Strength: { dx: dx + 0, tx, dy: dy - 1, size, noStencil: 1 },
       Attack:   { dx: dx + 0, tx, dy: dy - 1, size, noStencil: 1 },
       Defence:  { dx: dx + 0, tx, dy: dy - 1, size, noStencil: 1 },
       Energy:   { dx, tx, dy, size, noStencil: 1 },
@@ -258,6 +258,7 @@ export class TacticsCard extends Tile {
     if (size !== undefined) TacticsCard.nextRadius = size; // set before super calls makeShape()
     if (!TacticsCard.cardMark) TacticsCard.makeCardMark();
     super(TacticsCard.uniqueId(cs));  // Tile with Aname = Pn_L_R
+    this.uncache();    // Use S-C to toggle cache
     this.nameText.y += this.radius * .12;    // = radius * (.5 + .12)
     // maybe paint() per phaseEffect:
     this.cardSpec = cs;

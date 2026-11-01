@@ -151,13 +151,14 @@ export class TextTweaks {
    */
   setTextTweaks(text: string | Text, fontStr: string, tweaks?: TWEAKS): Text {
     fontStr = (text instanceof Text) ? text.font : fontStr; // use font from given Text
-    const lines = (text instanceof Text) ? text.text : text;
+    const fulltext = (text instanceof Text) ? text.text : text;
     // Note: dx, dy, lineno are wrt this.cont (parent of the Text objects)
     const { dx, dy: dy0, } = { dx: 0, dy: 0, ...tweaks }
 
     // Do each line:
     let cText!: Text, dy = dy0, x0 = tweaks?.x0 ?? dx;
-    lines.split('\n').forEach(line => {
+    const lines = fulltext.split('\n');
+    lines.forEach((line, ln) => {
       const cNdx = this.cont.children.length;  // index to find new frags
       const lineTweaks: TWEAKSI = { x0, baseline: 'middle', ...tweaks, dx, dy, cNdx, maxLH: 0 }; // TODO: use 'top' or 'hanging'
       cText = this.setLineWithFontFrags(line, fontStr, lineTweaks);
@@ -241,6 +242,7 @@ export class TextTweaks {
       }
       const fontStr2 = this.tweakFont(fontStr, itweaks);    // fontStr for these frags
       dx = this.setFragWithGlyphs(frag, fontStr2, itweaks); // addChild @ tweaks.[dx, dy], dx += gMW
+      tweaks.maxLH = itweaks.maxLH;
       tweaks.dy = itweaks.dy;
       tweaks.dx = dx;
     })
@@ -382,11 +384,11 @@ export class TextTweaks {
     return text0;
   }
   static trouble = [
-      // 'B2_2_2', 'B4_3_1', 'B7_3_0',
+      'B2_2_2', 'B4_3_1', 'B7_3_0',
       'C1_-1_3', 'C3_3_3', 'C5_-1_6', 'C6_6_-2',
-      // 'D4_0_4', 'H5_0_3', '<--', 'H6_0_3', 'H8_1_3',
-      // 'I10_1_3', 'I2_5_0', 'I14_2_2', 'I2_5_0', 'I3_3_2', 'I5_2_2', 'I7_4_0',
-      // 'R4_8_2'
+      'D4_0_4', 'H5_0_3', '<--', 'H6_0_3', 'H8_1_3',
+      'I10_1_3', 'I2_5_0', 'I14_2_2', 'I2_5_0', 'I3_3_2', 'I5_2_2', 'I7_4_0',
+      'R4_8_2'
     ]
 
   wrapText(textf: Text, fontStr: string, tweaks: TWEAKSI) {

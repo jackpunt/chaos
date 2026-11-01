@@ -21,7 +21,7 @@ export class TP extends TPLib {
     tp.useEwTopo = false;    // Use NS Topo
     tp.maxPlayers = 6;       // allows space for CardPanel
     tp.numPlayers = 4;
-    tp.cacheTiles = 2.5;
+    tp.cacheTiles = 4;
     PaintableShape.defaultRadius = tp.hexRad;
   }
   /** reset each round */
