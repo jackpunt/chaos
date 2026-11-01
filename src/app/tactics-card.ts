@@ -137,8 +137,8 @@ export class ChaosTweaker extends TextTweaks {
   defineGlyphParams(size: number, dx = 0, dy = 0, tx = size * .8) {
     return {
       Strength: { dx: dx + 0, tx, dy: dy - 1, size, noStencil: 1 },
-      Attack:   { dx: dx + 0, tx, dy: dy - 1, size, noStencil: 1 },
-      Defence:  { dx: dx + 0, tx, dy: dy - 1, size, noStencil: 1 },
+      Attack:   { dx: dx + 0, tx, dy: dy - .8, size, noStencil: 1 },
+      Defence:  { dx: dx + 0, tx, dy: dy - .8, size, noStencil: 1 },
       Energy:   { dx, tx, dy, size, noStencil: 1 },
       Gem:      { dx, tx, dy, size, noStencil: 1 },
       TacticsCard: { dx, tx, dy, size: size, noStencil: 1, },
