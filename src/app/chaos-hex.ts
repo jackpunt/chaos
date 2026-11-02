@@ -111,7 +111,7 @@ export class ChaosHex2 extends ChaosHex2Lib {
   override makeLegalMark(): LegalMark {
     return new class ChaosLegalMark extends LegalMark {
       override doGraphics(): void {
-        const color = 'rgba(220, 220, 250, 0.9)';
+        const color = 'rgba(212, 217, 253, 0.43)';
         this.removeAllChildren();
         this.addChild(new CircleShape(color, this.hex2.radius * .3, '')); // @(0, 0)
       }

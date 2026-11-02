@@ -413,6 +413,7 @@ export class Leader extends ChaosUnit implements LeaderSpec {
   static allLeaders: Leader[] = [];
   static allLeadersByName = new Map<LeaderName, Leader>();
 
+  declare fromHex: Hex2;
   /** records location of Leader: src & dst for D&D */
   inFoT?: FactionOnTile;
 
@@ -574,14 +575,8 @@ export class Leader extends ChaosUnit implements LeaderSpec {
     return super.cantBeMovedBy(player, ctx);
   }
 
-  /** the ChaosTile that was holding Leader before dragStart. */
-  ctxCtile(ctx?: DragContext) {
-    // I expect: this.factOnTile.tile is always the source of a Leader. (Leader is always on a Tile)
-    return this.inFoT?.tile ?? (ctx?.info.srcCont as FactionOnTile).tile;
-  }
-
   override isLegalTarget(toHex: Hex2, ctx?: DragContext): boolean {
-    if (toHex == this.ctxCtile(ctx).hex) return true;
+    if (toHex == this.fromHex) return true;
     if (!toHex.ctile || toHex.ctile.isMtn) return false;
     if (toHex.ctile.isLake && this.facId !== 5) return false;
     if (toHex == this.homeHex) return true;
@@ -592,27 +587,33 @@ export class Leader extends ChaosUnit implements LeaderSpec {
       if (!this.player.panel.baseTile?.baseRegions!.includes(toHex)) return false;
     }
     // from Panel (any phase, but intentionally for: SetPrices and Recruit)
-    if (!this.isOnMap) return this.isaRhyzu() ? true : (toHex.ctile == this.player.panel.baseTile);
+    if (!this.fromHex.isOnMap ) return this.isaRhyzu() ? true : (toHex.ctile == this.player.panel.baseTile);
     // Move: [Combat retreat for special Leader]
     if (gameState.gamePlay.movePlayer == this.player) {
       if (ctx!.lastShift) return true;
       if (this.movesThisRound.slice(0, -1).find(mip => mip.from.chex == toHex)) return false; // no looping back
-      const fromTile = this.inFoT?.tile!, toTile = toHex.ctile;
+      const fromTile = this.fromHex.ctile!, toTile = toHex.ctile;
       if (this.player.movesInPlay.find(mip => mip.matches(fromTile, toTile))) return true;
       if (this.movesThisRound.at(-1)?.matches(toTile, fromTile)) return true;
     }
     return false;
   }
 
+  /** the ChaosTile that is/was holding Leader before dragStart. */
+  inFoTile(ctx?: DragContext) {
+    // Assert: Leader always comes from a FoT; (ctx.info.srcCont is overCont)
+    return this.inFoT!.tile;
+  }
+
   override dragStart(ctx: DragContext): void {
     super.dragStart(ctx);
-    ctx.targetHex = this.fromHex = this.ctxCtile(ctx).chex;  // how to find ldr.fromHex
+    ctx.targetHex = this.fromHex = this.inFoTile(ctx).chex;  // how to find ldr.fromHex
     // remove leaderIcon from ctile:
-    this.ctxCtile(ctx).addLeader(this, false);
+    this.inFoTile(ctx).addLeader(this, false);
   }
 
   override dropFunc(targetHex: Hex2, ctx: DragContext): void {
-    const ctile = targetHex?.ctile ?? this.ctxCtile(ctx);
+    const ctile = targetHex?.ctile ?? this.inFoTile(ctx);
     this.recordMove(ctile, ctx);
     // place leaderIcon on ctile:
     ctile.getFoT(this.player).addLeader(this);

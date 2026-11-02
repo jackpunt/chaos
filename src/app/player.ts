@@ -968,7 +968,7 @@ export class NeutralPanel extends Panel {
       const tokenShape = (dy = 0, label4 = (i == 4) ? 'FIRST' : '') => {
         const isLast = (label4 == 'LAST');   // as given parametar
         const tShape = new PTokenShape(wh, C.white);
-        tShape.paint(C.grey224);
+        tShape.paint('rgb(155, 139, 161)');
         slot.addChild(tShape);
         const cx = tShape.x = x0;
         const cy = tShape.y = y0 + dy; // 'LAST' is moved down on slot
