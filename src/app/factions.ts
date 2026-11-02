@@ -418,6 +418,7 @@ export class Faction {
       console.log(stime(this, `.doImmediateBonus: this.offerProdToken(cb)`));
       this.allowProdTokenPoolCB = cb;
       // TODO: activate panelReset/Done(cb)
+      cb(); // temp
     } else if (bs == 'UT') {
       console.log(stime(this, `.doImmediateBonus: this.offerPTokenUpgrade(cb)`));
       // Generally a Faction has access to only one ProdToken, if so flip it.
