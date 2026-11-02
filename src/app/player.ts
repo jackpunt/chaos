@@ -4,7 +4,7 @@ import type { DisplayObject } from "@thegraid/easeljs-module";
 import { Graphics } from "@thegraid/easeljs-module";
 import { H, HexMap, LegalMark, newPlanner, NumCounter, Player as PlayerLib, PlayerPanel, TP, type HexDir, type IHex2, type MapCont } from "@thegraid/hexlib";
 import { CardShape } from "./card-shape";
-import { ChaosHex2 as Hex2 } from "./chaos-hex";
+import { ChaosHex2 as Hex2, HexMap2, type ChaosHex2 } from "./chaos-hex";
 import { type ChaosTable, type ChaosTable as Table } from "./chaos-table";
 import { BaseTile, ChaosTile, FighterCounter, LeaderTile, PairTarget, type BONUS, type FactionOnTile, type HARVEST, type HexPair } from "./chaos-tile";
 import { EdgeMark, Faction, factionColors, factionNeutral, type FactionId, type FactionName } from "./factions";
@@ -16,6 +16,7 @@ import { baseProdTokenIds, buildingCbyName, ChaosBuilding, ChaosUnit, Factory, L
 import { ResearchCell, ResearchLevel, ResGrid } from "./research-cell";
 import { CO, pricePhases, type CB, type PhaseName } from "./table-params";
 import { CardBack, CardHex, CardPanel, TacticsCard } from "./tactics-card";
+import type { Container } from "@thegraid/easeljs-module";
 
 /** Canonical Faction colors, aligned with gameSetup.factionNames.
  *
@@ -388,6 +389,9 @@ export class Panel extends PlayerPanel {
   readonly unitHomes: Partial<Record<ChaosUnitType, Hex2[]>> = {};
   readonly bgFoundHomes: Hex2[][] = [];  // fill per spec -> Building.homeAry [TBD...]
 
+  /** place to put Hex2 drag targets on this Panel (or cardPanel) */
+  panelMap: HexMap2 & { mapCont: MapCont }; // ChoasHexMap<ChaosHex2>
+
   /** the 'hand' of TacticsCards */
   readonly cardRack: CardHex[] = [];
   cardPanel!: CardPanel;
@@ -400,7 +404,7 @@ export class Panel extends PlayerPanel {
   constructor(table: Table, player: Player, high: number, wide: number, row: number, col: number, dir?: number) {
     const hexMap = table.hexMap;
     super(table, player, high, wide, row, col, dir); // make a PlayerPanel
-    Object.assign(this, hexMap);       // assign hexMap instance variables
+    // Object.assign(this, hexMap);       // assign hexMap instance variables
     this.Aname = player.Aname;         // reset Aname
     // this.player.color = Player.playerColor(this.player.cname!); // override Player.colorScheme
     const faction = this.faction = this.player.faction;
@@ -410,6 +414,7 @@ export class Panel extends PlayerPanel {
     this.addChild(this.avail)
     this.vault = table.tokenVault[faction.facId];// place to show 'invault' PriceToken (faction.image)
     this.vault.visible = true;
+    this.panelMap = table.gamePlay.gameSetup.makeHexMap();
   }
 
   popupChoice(ltext: string, rtext: string, lf: CB, rf: CB, qtext = 'Choose') {
@@ -829,16 +834,16 @@ export class Panel extends PlayerPanel {
   addCardPanel(table: Table, row = 0, ncols = 6) {
     // ChaosPlayerPanel { this.mapCont = new CardPanel(table); this.addChild(this.mapCont); }
     const wh = this.wh, x0 = wh * .55, y0 = wh * .55, s1 = wh * 1.1;
-    const { dydr, dxdc } = table.hexMap.xywh();
+    const { dydr, dxdc } = this.panelMap.xywh();
     const cardH = CardBack.bounds.height;
     const { width, height } = this.getBounds();
     const high = cardH * 1.05 / dydr;  // units of hex.dydr
     const wide = table.panelWidth;
-    const cardPanel = new CardPanel(table, high, wide, row, 0); // directly on table.mapCont! (so localToLocal works?)
+    const cardPanel = new CardPanel(this.panelMap, high, wide, row, 0); // directly on table.mapCont! (so localToLocal works?)
     row = (row !== 0) ? row : - high * 1.045;   // up by high, align CardPanel bottom to Panel bottom
     cardPanel.y = (row < 0 ? row + height/dydr : row) * dydr;
     cardPanel.makeDragable(table);
-    this.mapCont = cardPanel;
+    this.panelMap.mapCont = cardPanel;  // replace panelMap.mapCont
     this.addChild(cardPanel);
     cardPanel.fillAryWithCardHex(this, this.cardRack, high/2, ncols)
     cardPanel.visible = false;
@@ -896,7 +901,7 @@ export class Panel extends PlayerPanel {
    *
    * Uses mapCont.getBounds(), so that must be set.
    *
-   * cPanel: panel to hold the row of hexes (this as HexMap).mapCont
+   * cPanel: panel to hold the row of hexes (this.panelMap).mapCont
    *
    * @param row0 y coordinate of the row of hexes
    * @param colN number of hexes in the row
@@ -909,8 +914,8 @@ export class Panel extends PlayerPanel {
   hexesOnMapCont(row0 = .75, colN = 4, hexC: Constructor<IHex2>, opts?: { vis?: boolean, gap?: number }) {
     const { vis, gap } = { vis: false, gap: 0, ...opts };
     const rv = [];
-    const map = this as any as Panel & HexMap<Hex2>; // put hexes here
-    const cPanel = map.mapCont;
+    const map = this.panelMap;// this as any as Panel & HexMap<Hex2>; // put hexes here
+    const cPanel = map.mapCont; // this.cardPanel as MapCont
     const table = this.player.gamePlay.table;
 
     const { width: panelw } = cPanel.getBounds();
@@ -1040,7 +1045,7 @@ export class NeutralPanel extends Panel {
   addProdTokenPool(x = 40, y = 20) {
     const cont = new NamedContainer('ProdTokenPool', x, y)
     this.addChild(cont); // show pool on Panel
-    this.table.newHex2(-.5, 5.9, 'ProdTokenPool', Hex2, this); // allow return to pool
+    this.table.newHex2(-.5, 5.9, 'ProdTokenPool', Hex2, this.panelMap); // allow return to pool
 
     const dx = this.wh * .67, dy = dx;
     const table = this.table;

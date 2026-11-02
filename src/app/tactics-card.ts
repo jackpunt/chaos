@@ -384,7 +384,7 @@ export class TacticsCard extends Tile {
 
   /** look for LegalMark in curPlayer.panel.cardPanel */
   hexUnderObj(dragObj: DisplayObject, legalOnly = true) {
-    const markCont = this.gamePlay.curPlayer.panel.mapCont.markCont;   // == panel.cardPanel
+    const markCont = this.gamePlay.curPlayer.panel.panelMap.mapCont.markCont;   // == panel.cardPanel
     const dragCont = dragObj.parent; //= this.gamePlay.table.dragger.dragCont;
     const pt = dragCont.parent.localToLocal(dragCont.x, dragCont.y, markCont); // mouse coords on markCont
     // as if (panel as HexMap).hexUnderPoint(py.x, pt.y, legalOnly) {
@@ -636,24 +636,24 @@ export class CardPanel extends MapCont {
 
   /**
    * A Container on table.map.mapCont.hexMap
-   * @param table
+   * @param hexMap
    * @param high rows high
    * @param wide columns wide
    * @param row place panel at [row, col]
    * @param col
    */
-  constructor(public table: Table, public high: number, public wide: number, row = 0, col = 0) {
+  constructor( hexMap: HexMap2, public high: number, public wide: number, row = 0, col = 0) {
     super(`CardPanel`)
     this.addContainers(['hexCont', 'tileCont', 'markCont']);
 
-    const { dxdc, dydr } = table.hexMap.xywh()
+    const { dxdc, dydr } = hexMap.xywh()
     const w = dxdc * wide, h = dydr * high;
     this.disp = new RectShape({ w, h }, 'rgba(224,224,224,.5)', ''); // handle to grab and drag this CardPanel
     this.disp.name = 'dragCardPanel';
     this.addChildAt(this.disp, 0);
     this.y = row * dydr;
     this.x = col * dxdc;
-    table.hexMap.mapCont.addChild(this);
+    hexMap.mapCont.addChild(this);
   }
 
   // readonly cardRack: CardHex[] = [];

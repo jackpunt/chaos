@@ -40,7 +40,7 @@ class NullGameSetup extends GameSetupLib {
   declare hexMap: HexMap2;
 
   static {
-    mixins.alsoExtend(Panel, HexMap2); // before Panel is instantiated!
+    // mixins.alsoExtend(Panel, HexMap2); // before Panel is instantiated!
   }
 
   constructor(canvasId?: string, qParam?: Params) {
