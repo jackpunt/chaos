@@ -1,13 +1,13 @@
 import { arrayN, C, F, stime, type Constructor, type XY, type XYWH } from "@thegraid/common-lib";
 import { AliasLoader, NamedContainer, ParamGUI, type NamedObject, type ParamItem, type RectShape } from "@thegraid/easeljs-lib";
 import { Stage, type Container, type DisplayObject } from "@thegraid/easeljs-module";
-import { Hex2, Table, Tile, TileSource, TP, type DragContext, type IHex2, type MapCont, type Player as PlayerLib } from "@thegraid/hexlib";
+import { Hex2, Table, Tile, TileSource, TP, type DragContext, type IHex2, type MapCont } from "@thegraid/hexlib";
 import { TokenHex, type ChaosHex2, type HexMap2 } from "./chaos-hex";
 import { ChaosTile } from "./chaos-tile";
 import { factionColors, factionNeutral, type FactionId } from "./factions";
 import type { GamePlay } from "./game-play";
 import { PTokenShape, Relic } from "./meeples";
-import { Panel, Player } from "./player";
+import { NeutralPanel, Panel, Player } from "./player";
 import { TacticsCard, type CardBack } from "./tactics-card";
 
 export class ChaosTable extends Table {
@@ -124,7 +124,7 @@ export class ChaosTable extends Table {
     const nPlayer = this.gamePlay.neutralPlayer;
     const neutralPanel = this.neutralPanel = this.makePlayerPanel(this, nPlayer, this.panelHeight, this.panelWidth-.6, row, col+.5, dir)
     neutralPanel.vault.visible = false;
-    neutralPanel.layoutNeutralPanel(this)
+    neutralPanel.layoutPanel(this)
 }
 
   // established by Panel.addPriceSlots()
@@ -132,12 +132,13 @@ export class ChaosTable extends Table {
   priceHex = [] as TokenHex[];
 
   // constructor does: { mapCont.backCont.addChild(playerPanel); setToRowCol(this, row, col); ... }
-  override makePlayerPanel(table: Table, player: PlayerLib, high: number, wide: number, row: number, col: number, dir = -1) {
+  override makePlayerPanel(table: Table, player: Player, high: number, wide: number, row: number, col: number, dir = -1) {
     if (player.index === undefined) debugger;
     if (col > 0) col -= 1;  // inset Panels on the right-hand side
-    const playerPanel = new Panel(table as ChaosTable, player as Player, high, wide, row - high / 2, col - wide / 2, dir);
+    const PanelC = (player.faction.facId !== 6 as FactionId) ? Panel : NeutralPanel;
+    const playerPanel = new PanelC(table as ChaosTable, player as Player, high, wide, row - high / 2, col - wide / 2, dir);
     playerPanel.showPlayer(false); // trigger repaint with background and other content
-    if (playerPanel.factionId !== 6 as FactionId) playerPanel.layoutPanel(this);
+    playerPanel.layoutPanel(this);
     return playerPanel;
   }
 

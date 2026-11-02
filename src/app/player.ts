@@ -417,27 +417,6 @@ export class Panel extends PlayerPanel {
     this.areYouSure(qtext, lf, rf, () => {}, cStrings);
   }
 
-  /** special Panel with Pricing & ResearchCell matrix */
-  layoutNeutralPanel(table: ChaosTable) {
-    this.setOutline(4, 'rgba(241, 226, 165, 0.3)');
-    const np = table.gamePlay.allPlayers.length, wh = this.wh;
-    const ptIds = [[],[], [5, 3], [5, 4, 3, 2], [5, 3], [], []][np];
-    this.addPriceTokens(table, -1.16, ptIds); // make the row, then stack them on the edge:
-    const y = wh * (.55 - 1.16); // row = -1.16
-    const x = wh * .55;  // stack the Neutral tiles above phase pricing slots
-    // stack in order (TODO: two stacks for 3-player)
-    ptIds.forEach(pid => {
-      const pt = this.priceTokens[pid];
-      pt.homeXY = { ...pt.homeXY, x };
-      pt.sendHome()
-    });
-    this.addPriceSlots()
-    this.addResearchLines()
-    this.localToLocal(wh * 2.93, y, table.vault.parent, table.vault); // position vault above Panel
-    this.addProdTokenPool(wh * 10, wh * .5)
-    return;
-  }
-
   /** set disp on this.parent @ panel's wh grid(xy)
    * disp: DisplayObject with parent (on stage)
    * x, y: offsets in units of this.wh (TP.meepleRad)
@@ -447,60 +426,10 @@ export class Panel extends PlayerPanel {
     this.localToLocal(x0 + x * s1, y0 + y * s1, disp.parent, disp);
   }
 
-  rowh = 1.35;    // includes space for PhaseName label
-  /** NeutralPanel: column of TokenHex to hold 'inplay' PriceToken */
-  addPriceSlots() {
-    const wh = this.wh, fs = wh * .15, x0 = wh * .5, y0 = wh * .5, rowh = this.rowh * wh;
-    pricePhases.forEach((pName, i) => {
-      // place a tokenShape suitable for PricingToken
-      const tokenShape = (dy = 0, label4 = (i == 4) ? 'FIRST' : '') => {
-        const isLast = (label4 == 'LAST');   // as given parametar
-        const tShape = new PTokenShape(wh, C.white);
-        tShape.paint(C.grey224);
-        slot.addChild(tShape);
-        const cx = tShape.x = x0;
-        const cy = tShape.y = y0 + dy; // 'LAST' is moved down on slot
-        const bonusTxt = PriceBonus[i];
-        if (bonusTxt && !isLast) {
-          const bonus = bonusIcon(bonusTxt as HARVEST, fs);
-          bonus.x = cx;
-          bonus.y = cy - wh * .2;
-          slot.addChild(bonus)
-        }
-        if (label4) {   // 'FIRST' or 'LAST' aka: (i == 4)
-          const mtext = new CenterText(label4, fs);
-          mtext.x = cx;
-          mtext.y = cy + wh * .2;
-          slot.addChild(mtext)
-        }
-        const thex = this.table.makeTokenHexForObj(tShape, `${label4 ?? pName}`);
-        const di = (isLast ? i + 1 : i);
-        this.table.priceHex[di] = thex;
-      }
-      const slot = new NamedContainer(`p_${pName}`)
-      slot.x = wh * .6;
-      slot.y = wh * .3 + i * rowh;
-      this.addChild(slot)
-      tokenShape();
-      if (i == 4) {
-        tokenShape(wh * 1.1, 'LAST');
-        // cross link for isLegalHex:
-        this.table.priceHex[4].otherMoveHex = this.table.priceHex[5];
-        this.table.priceHex[5].otherMoveHex = this.table.priceHex[4];
-      }
-      const label = new CenterText(pName, fs, C.white )
-      label.textAlign = 'left';
-      label.textBaseline = 'bottom'
-      const name = new TextInRect(label, { bgColor: CO.mauve })
-      name.x = -wh * .1;
-      name.y = -wh * .07;     // ~fs/2;
-      slot.addChild(name);    // TODO: show Phase Icons!
-    })
-  }
-
   /** set faction's ResearchLevel on each phase */
   initializeResearchCells(faction: Faction, level = 0) {
-    const cells = faction.player.gamePlay.neutralPlayer.panel.researchCells; // initialized in [neutral] Panel.addResearchLines()
+    const neutralPanel = faction.player.gamePlay.neutralPlayer.panel as NeutralPanel;
+    const cells = neutralPanel.researchCells; // initialized in [neutral] Panel.addResearchLines()
     return cells.map((phaseRow, n) => new ResearchLevel(faction, phaseRow, pricePhases[n], level))
   }
 
@@ -509,56 +438,7 @@ export class Panel extends PlayerPanel {
     // Array of RLs for each Phase: Discovery, Build, Harvest, Recruit, Move
     const researchLevelsByPhase = faction.player.panel.initializeResearchCells(faction);
     const [Discovery, Build, Harvest, Recruit, Move] = researchLevelsByPhase;
-    faction.researchLevelOfPhase = { Discovery, Build, Harvest, Recruit, Move };  }
-
-  /** (only on neutralPanel) Array[][] of all the ResearchCells: [row=phase][col=level] */
-  researchCells!: ResearchCell[][];
-  /** (only on neutralPanel) Container of all the ResearchCells; parent = neutralPanel */
-  researchLines!: NamedContainer;
-
-  /** (only on neutralPanel) A Container with a row of ResearchCells for each PricePhase */
-  addResearchLines() {
-    this.researchCells = [];
-    const rls = this.researchLines = new NamedContainer('ResLines');
-    const wh = this.wh;
-    const dy = wh * this.rowh;
-    const dx = wh * 1.35;
-    pricePhases.forEach((pName, i) => {
-      const phaseRow = this.researchCells[i] = [] as ResearchCell[];
-      const resSpecs = ResGrid[pName];
-      resSpecs.forEach((rs, j) => {
-        rs[3] ||=  (j == 4);   // add gemLock to level-4
-        const cell = new ResearchCell(pName, j, rs, { width: wh * 1.2, height: wh * 1.2 })
-        phaseRow.push(cell);        // cell into next column
-        cell.x = j * dx;
-        cell.y = i * dy;
-        rls.addChild(cell);
-      })
-    })
-    this.addChild(rls);
-    rls.x = wh * 3;
-    rls.y = wh * .9;
-
-    return rls;
-  }
-
-  /** (only on neutralPanel) Container of dragable ProdToken */
-  addProdTokenPool(x = 40, y = 20) {
-    const cont = new NamedContainer('ProdTokenPool', x, y)
-    this.addChild(cont); // show pool on Panel
-    this.table.newHex2(-.5, 5.9, 'ProdTokenPool', Hex2, this); // allow return to pool
-
-    const dx = this.wh * .67, dy = dx;
-    const table = this.table;
-    baseProdTokenIds.forEach((pid, n) => {
-      const pt: ProdToken = new ProdToken(pid, cont);
-      const yn = Math.floor(n/3), xn = n % 3;
-      pt.homeXY = { x: dx * xn, y: dy * yn } // ??? or localToLocal?
-      pt.sendHome();
-      // pt.makeDragable(this.table); // does not matter; table.startGame runs makeDragable on everything.
-      // pt.mouseEnabled = true;
-    })
-
+    faction.researchLevelOfPhase = { Discovery, Build, Harvest, Recruit, Move };
   }
 
   /**
@@ -1049,6 +929,132 @@ export class Panel extends PlayerPanel {
     }
     return rv;
   }
+}
+
+export class NeutralPanel extends Panel {
+
+  /** special Panel with Pricing & ResearchCell matrix */
+  override layoutPanel(table: ChaosTable) {
+    this.setOutline(4, 'rgba(241, 226, 165, 0.3)');
+    const np = table.gamePlay.allPlayers.length, wh = this.wh;
+    const ptIds = [[],[], [5, 3], [5, 4, 3, 2], [5, 3], [], []][np];
+    this.addPriceTokens(table, -1.16, ptIds); // make the row, then stack them on the edge:
+    const y = wh * (.55 - 1.16); // row = -1.16
+    const x = wh * .55;  // stack the Neutral tiles above phase pricing slots
+    // stack in order (TODO: two stacks for 3-player)
+    ptIds.forEach(pid => {
+      const pt = this.priceTokens[pid];
+      pt.homeXY = { ...pt.homeXY, x };
+      pt.sendHome()
+    });
+    this.addPriceSlots()
+    this.addResearchLines()
+    this.localToLocal(wh * 2.93, y, table.vault.parent, table.vault); // position vault above Panel
+    this.addProdTokenPool(wh * 10, wh * .5)
+    return [];
+  }
+
+  rowh = 1.35;    // includes space for PhaseName label
+  /** NeutralPanel: column of TokenHex to hold 'inplay' PriceToken */
+  addPriceSlots() {
+    const wh = this.wh, fs = wh * .15, x0 = wh * .5, y0 = wh * .5, rowh = this.rowh * wh;
+    pricePhases.forEach((pName, i) => {
+      // place a tokenShape suitable for PricingToken
+      const tokenShape = (dy = 0, label4 = (i == 4) ? 'FIRST' : '') => {
+        const isLast = (label4 == 'LAST');   // as given parametar
+        const tShape = new PTokenShape(wh, C.white);
+        tShape.paint(C.grey224);
+        slot.addChild(tShape);
+        const cx = tShape.x = x0;
+        const cy = tShape.y = y0 + dy; // 'LAST' is moved down on slot
+        const bonusTxt = PriceBonus[i];
+        if (bonusTxt && !isLast) {
+          const bonus = bonusIcon(bonusTxt as HARVEST, fs);
+          bonus.x = cx;
+          bonus.y = cy - wh * .2;
+          slot.addChild(bonus)
+        }
+        if (label4) {   // 'FIRST' or 'LAST' aka: (i == 4)
+          const mtext = new CenterText(label4, fs);
+          mtext.x = cx;
+          mtext.y = cy + wh * .2;
+          slot.addChild(mtext)
+        }
+        const thex = this.table.makeTokenHexForObj(tShape, `${label4 ?? pName}`);
+        const di = (isLast ? i + 1 : i);
+        this.table.priceHex[di] = thex;
+      }
+      const slot = new NamedContainer(`p_${pName}`)
+      slot.x = wh * .6;
+      slot.y = wh * .3 + i * rowh;
+      this.addChild(slot)
+      tokenShape();
+      if (i == 4) {
+        tokenShape(wh * 1.1, 'LAST');
+        // cross link for isLegalHex:
+        this.table.priceHex[4].otherMoveHex = this.table.priceHex[5];
+        this.table.priceHex[5].otherMoveHex = this.table.priceHex[4];
+      }
+      const label = new CenterText(pName, fs, C.white )
+      label.textAlign = 'left';
+      label.textBaseline = 'bottom'
+      const name = new TextInRect(label, { bgColor: CO.mauve })
+      name.x = -wh * .1;
+      name.y = -wh * .07;     // ~fs/2;
+      slot.addChild(name);    // TODO: show Phase Icons!
+    })
+  }
+
+  /** (only on neutralPanel) Array[][] of all the ResearchCells: [row=phase][col=level] */
+  researchCells!: ResearchCell[][];
+  /** (only on neutralPanel) Container of all the ResearchCells; parent = neutralPanel */
+  researchLines!: NamedContainer;
+
+  /** (only on neutralPanel) A Container with a row of ResearchCells for each PricePhase */
+  addResearchLines() {
+    this.researchCells = [];
+    const rls = this.researchLines = new NamedContainer('ResLines');
+    const wh = this.wh;
+    const dy = wh * this.rowh;
+    const dx = wh * 1.35;
+    pricePhases.forEach((pName, i) => {
+      const phaseRow = this.researchCells[i] = [] as ResearchCell[];
+      const resSpecs = ResGrid[pName];
+      resSpecs.forEach((rs, j) => {
+        rs[3] ||=  (j == 4);   // add gemLock to level-4
+        const cell = new ResearchCell(pName, j, rs, { width: wh * 1.2, height: wh * 1.2 })
+        phaseRow.push(cell);        // cell into next column
+        cell.x = j * dx;
+        cell.y = i * dy;
+        rls.addChild(cell);
+      })
+    })
+    this.addChild(rls);
+    rls.x = wh * 3;
+    rls.y = wh * .9;
+
+    return rls;
+  }
+
+  /** (only on neutralPanel) Container of dragable ProdToken */
+  addProdTokenPool(x = 40, y = 20) {
+    const cont = new NamedContainer('ProdTokenPool', x, y)
+    this.addChild(cont); // show pool on Panel
+    this.table.newHex2(-.5, 5.9, 'ProdTokenPool', Hex2, this); // allow return to pool
+
+    const dx = this.wh * .67, dy = dx;
+    const table = this.table;
+    baseProdTokenIds.forEach((pid, n) => {
+      const pt: ProdToken = new ProdToken(pid, cont);
+      const yn = Math.floor(n/3), xn = n % 3;
+      pt.homeXY = { x: dx * xn, y: dy * yn } // ??? or localToLocal?
+      pt.sendHome();
+      // pt.makeDragable(this.table); // does not matter; table.startGame runs makeDragable on everything.
+      // pt.mouseEnabled = true;
+    })
+
+  }
+
 }
 
 /** Player uses a MovePoint to move Units from srcTile to toRegion .
