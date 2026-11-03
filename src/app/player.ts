@@ -837,18 +837,19 @@ export class Panel extends PlayerPanel {
     const { dydr, dxdc } = this.panelMap.xywh();
     const cardH = CardBack.bounds.height;
     const { width, height } = this.getBounds();
-    const high = cardH * 1.05 / dydr;  // units of hex.dydr
+    const high = cardH * 1.01 / dydr;  // units of hex.dydr (a bit larger than cardH)
     const wide = table.panelWidth;
-    const cardPanel = new CardPanel(this.panelMap, high, wide, row, 0); // directly on table.mapCont! (so localToLocal works?)
-    row = (row !== 0) ? row : - high * 1.045;   // up by high, align CardPanel bottom to Panel bottom
-    cardPanel.y = (row < 0 ? row + height/dydr : row) * dydr;
+    row = (row != 0) ? row : - high;   // up by high, align CardPanel bottom to Panel bottom
+    row = (row >= 0) ? row : row + (height-8)/dydr;  // -8 border width
+    const cardPanel = new CardPanel(table, high, wide, row, 0); // directly on table.mapCont! (so localToLocal works?)
     cardPanel.makeDragable(table);
-    this.panelMap.mapCont = cardPanel;  // replace panelMap.mapCont
-    this.addChild(cardPanel);
-    cardPanel.fillAryWithCardHex(this, this.cardRack, high/2, ncols)
     cardPanel.visible = false;
+    this.addChild(cardPanel);
+
+    cardPanel.fillAryWithCardHex(this, this.cardRack, high/2, ncols)
     this.battleCardHex = cardPanel.fillAryWithCardHex(this, [], -1, 1)[0];
     this.battleCardHex.Aname = 'battleCardHex';
+
     // a Button to toggle visibility:
     const cButton = this.cButton = new UtilButton('Cards', { active: true, corner: .1, fontSize: dxdc * .2, border: [.1, .1, .2, 0] });
     cButton.x = x0 + s1 * 1;
@@ -893,46 +894,6 @@ export class Panel extends PlayerPanel {
       pt.sendHome()
       this.priceTokens[i] = pt;
     })
-  }
-
-  // maybe a super-class of CardPanel? *any* mapCont? see game-setup where we Panel.mixin(HexMap2, PlayerPanel)
-  /**
-   * array[colN] of newHex2 across the width of mapCont (CardPanel is the mapCont of ChaosPlayerPanel);
-   *
-   * Uses mapCont.getBounds(), so that must be set.
-   *
-   * cPanel: panel to hold the row of hexes (this.panelMap).mapCont
-   *
-   * @param row0 y coordinate of the row of hexes
-   * @param colN number of hexes in the row
-   * @param hexC class of hexes to create
-   * @param opts { vis, gap }
-   * @param gap - [0] either absolute dx OR per-unit fraction of dxdc
-   * @param vis - [false] set hex.visibility
-   * @returns IHex2[]
-   */
-  hexesOnMapCont(row0 = .75, colN = 4, hexC: Constructor<IHex2>, opts?: { vis?: boolean, gap?: number }) {
-    const { vis, gap } = { vis: false, gap: 0, ...opts };
-    const rv = [];
-    const map = this.panelMap;// this as any as Panel & HexMap<Hex2>; // put hexes here
-    const cPanel = map.mapCont; // this.cardPanel as MapCont
-    const table = this.player.gamePlay.table;
-
-    const { width: panelw } = cPanel.getBounds();
-    const { x: xn, dydr, dxdc } = this.hexMap.xywh(undefined, 0, colN - 1); // x of last cell
-    const gpix = gap < 1 ? gap * dxdc : gap;
-    const dx = (panelw - xn - (colN - 1) * gpix) / 2; // allocate any extra space (width-xn) to either side
-    const dy = row0 * dydr;   // y for row0
-    for (let col = 0; col < colN; col++) {
-        // make hex at row=0, then offset by dx; constant dy (vs per-column displacement)
-        const hex = table.newHex2(0, col, `CardSlot`, hexC, map); // child of map.mapCont.hexCont
-        rv.push(hex);
-        hex.cont.x += (dx + col * gpix);
-        hex.cont.y = (dy);
-        hex.cont.visible = vis;
-        hex.legalMark.setOnHex(hex);
-    }
-    return rv;
   }
 }
 

@@ -1,5 +1,5 @@
-import { C, F, permute, S, type XY } from "@thegraid/common-lib";
-import { AliasLoader, CenterText, NamedContainer, RectShape, type CountClaz, type DragInfo, type NamedObject, type Paintable } from "@thegraid/easeljs-lib";
+import { C, F, permute, S, type Constructor, type XY } from "@thegraid/common-lib";
+import { AliasLoader, CenterText, NamedContainer, RectShape, type CountClaz, type DragInfo, type Paintable } from "@thegraid/easeljs-lib";
 import type { Bitmap, Container, Text } from "@thegraid/easeljs-module";
 import { DisplayObject, Graphics, MouseEvent } from "@thegraid/easeljs-module";
 import { H, LegalMark, MapCont, NumCounter, Tile, TileSource, TP, type DragContext, type HasDragger, type IHex2 } from "@thegraid/hexlib";
@@ -384,7 +384,7 @@ export class TacticsCard extends Tile {
 
   /** look for LegalMark in curPlayer.panel.cardPanel */
   hexUnderObj(dragObj: DisplayObject, legalOnly = true) {
-    const markCont = this.gamePlay.curPlayer.panel.panelMap.mapCont.markCont;   // == panel.cardPanel
+    const markCont = this.gamePlay.curPlayer.panel.cardPanel.markCont;  // cardPanel ISA MapCont
     const dragCont = dragObj.parent; //= this.gamePlay.table.dragger.dragCont;
     const pt = dragCont.parent.localToLocal(dragCont.x, dragCont.y, markCont); // mouse coords on markCont
     // as if (panel as HexMap).hexUnderPoint(py.x, pt.y, legalOnly) {
@@ -633,27 +633,36 @@ export class CardHex extends Hex2 {
 export class CardPanel extends MapCont {
   // QQQ: include panel in constructor?
   get panel() { return (this.parent as Panel) }
+  /** a HexMap to enable table.drag/drop on CardPanel */
+  panelMap: HexMap2 & { mapCont: MapCont };
+  /** for table.newHex2(...) */
+  table: Table;
 
   /**
-   * A Container on table.map.mapCont.hexMap
-   * @param hexMap
+   * A MapCont for its own panelMap
+   * @param table - to access makeHexMap
    * @param high rows high
    * @param wide columns wide
    * @param row place panel at [row, col]
    * @param col
    */
-  constructor( hexMap: HexMap2, public high: number, public wide: number, row = 0, col = 0) {
+  constructor( table: Table, public high: number, public wide: number, row = 0, col = 0) {
     super(`CardPanel`)
     this.addContainers(['hexCont', 'tileCont', 'markCont']);
+    this.table = table;
+    this.panelMap = table.gamePlay.gameSetup.makeHexMap();
+    this.panelMap.mapCont = this;
 
-    const { dxdc, dydr } = hexMap.xywh()
+    const { dxdc, dydr } = this.panelMap.xywh()
+    // row = (row !== 0) ? row : - high * 1.045;   // up by high, align CardPanel bottom to Panel bottom
+    // this.y = (row < 0 ? row : row) * dydr;
+
+    this.x = dxdc * col;
+    this.y = dydr * row;
     const w = dxdc * wide, h = dydr * high;
     this.disp = new RectShape({ w, h }, 'rgba(224,224,224,.5)', ''); // handle to grab and drag this CardPanel
     this.disp.name = 'dragCardPanel';
-    this.addChildAt(this.disp, 0);
-    this.y = row * dydr;
-    this.x = col * dxdc;
-    hexMap.mapCont.addChild(this);
+    this.addChildAt(this.disp, 0);    // behind the other MapCont Containers
   }
 
   // readonly cardRack: CardHex[] = [];
@@ -679,17 +688,53 @@ export class CardPanel extends MapCont {
   // then updates ctx.targetHex when object[0,0] is over a legal target.
   // using hex.hexUnderObj(x,y,legalOnly) <--- specialize to look at playerPanel.cardPanel (then super for discard on markCont)
 
-  // treat cardPanel as a mapCont, with sub-cont for hexCont & markCont
+  // CardPanel is a MapCont, with sub-cont for hexCont & markCont
 
 
   /** fill hexAry with row of CardHex above panel */
   fillAryWithCardHex(panel: Panel, hexAry: IHex2[], row = 0, ncols = 4) {
-    const { w } = panel.hexMap.xywh(); // hex WH (per hexRad & topoNS/EW)
-    const { width } = (new CardShape()).getBounds(); // TacticsCard.onScreenRadius
-    const gap = .1 + (width / w) - 1;  // allocate space to fill
-    const hexes = panel.hexesOnMapCont(row, ncols, CardHex, { gap }); // was hexesOnPanel()
+    const { width: cardW } = (new CardShape()).getBounds(); // TacticsCard.onScreenRadius
+    const gap = ncols <= 1 ? 0 : (this.getBounds().width - ncols * cardW)/(ncols-1);  // allocate space to fill
+    const hexes = this.hexesOnMapCont(row, ncols, CardHex, { gap, cardW }); // was hexesOnPanel()
     hexAry.splice(0, hexAry.length, ...hexes);
     return hexes as CardHex[];
+  }
+
+  /**
+   * array[colN] of newHex2 across the width of mapCont (CardPanel is the mapCont of ChaosPlayerPanel);
+   *
+   * Uses this.getBounds(), so that must be set.
+   *
+   * this CardPanel holds the row of hexes; this == this.panelMap.mapCont
+   *
+   * @param row0 y coordinate of the row of hexes
+   * @param colN number of hexes in the row
+   * @param hexC class of hexes to create
+   * @param opts { vis, gap }
+   * @param gap - [0] either absolute dx OR per-unit fraction of dxdc
+   * @param vis - [false] set hex.visibility
+   * @returns T[]
+   */
+  hexesOnMapCont<T extends IHex2>(row0 = .75, colN = 4, hexC: Constructor<T>, opts?: { vis?: boolean, gap?: number, cardW?: number }) {
+    const cardW0 = opts?.cardW ?? ((new CardShape).getBounds().width);
+    const { vis, gap, cardW } = { vis: false, gap: 0, cardW: cardW0, ...opts };
+    const { width: panelw } = this.getBounds();
+    const dx = (cardW + gap);
+    const x0 = (panelw - colN * dx) / 2 + cardW / 2;
+    const { x: xn, dydr, dxdc } = this.panelMap.xywh(undefined, 0, colN - 1); // x of last cell
+    const dy = row0 * dydr;   // y for row0
+
+    const rv = [];
+    for (let col = 0; col < colN; col++) {
+      // make hex at row=0, then offset by dx; constant dy (vs per-column displacement)
+      const hex = this.table.newHex2(0, col, `CardSlot`, hexC, this.panelMap); // on this.panelMap
+      hex.cont.x = (x0 + col * dx);
+      hex.cont.y = (dy);
+      hex.cont.visible = vis;
+      hex.legalMark.setOnHex(hex);
+      rv.push(hex);
+    }
+    return rv;
   }
 
   isCardHex(hex: Hex2): hex is CardHex {
