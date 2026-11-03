@@ -57,7 +57,7 @@ export class ChaosTable extends Table {
     name = 'tileSource', row = 1, col = 1, counterXY?: Partial<XY>,
     hexC = this.hexC,
   ) {
-    const hex = this.newHex2(row, col, name, hexC) as IHex2;
+    const hex = this.newHex2(row, col, name, hexC);
     this.setToRowCol(hex.cont, row, col); // on hexCont!??
     const source = ms(hex);     // some overload of Tile.makeSource0()
     source.permuteAvailable();
@@ -107,7 +107,7 @@ export class ChaosTable extends Table {
   }
 
   override get panelHeight() { return Math.max(super.panelHeight, 3.8) }
-  override get panelWidth() { return 7 }
+  override get panelWidth() { return 7.0 }
 
   override panelLocsForNp(np: number): number[] {
     return [[], [0], [0, 1], [0, 3, 2], [0, 3, 5, 2], [0, 3, 4, 5, 2], [0, 3, 4, 5, 2, 1]][np];
@@ -149,7 +149,7 @@ export class ChaosTable extends Table {
   }
 
   /**
-   * Make a new HexC() on the given map.mapCont
+   * Overriding to make a new HexC() [--> on the given map.mapCont]
    * @param row
    * @param col
    * @param name hex.Aname
@@ -158,7 +158,7 @@ export class ChaosTable extends Table {
    * @returns
    */
   override newHex2<T extends IHex2>(row = 0, col = 0, name: string, HexC: Constructor<T> = this.hexC as Constructor<T>, map: { mapCont: MapCont } = this.hexMap) {
-    const hex = new HexC(map, row, col, name) as T;
+    const hex = new HexC(map, row, col, name);
     hex.distText.text = name; // district text
     this.newHexes.push(hex);
     return hex
