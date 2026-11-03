@@ -683,7 +683,7 @@ export class LeaderCard extends PaintableCont {
     cardShape.paint(color, true);
     this.addChild(cardShape);
     this.addChild(nText);
-    this.addStats(leader, fontSize, 1.25 * fontSize + top, upgraded);
+    this.addStats(leader, fontSize, 2.1 * fontSize + top, upgraded);
     const plGem = upgraded ? leader.upPlace : leader.plGem;
     if (plGem) this.addChild(plGemIcon(plGem, fontSize, top, left))
     if (upgraded ? false : leader.upGem) this.addChild(upGemIcon(leader.upGem, fontSize, top, left))
@@ -1014,7 +1014,7 @@ export class ChaosBuilding extends ChaosPresence {
       }
       fnd.onTile!.addBuilding(this, true);
     } else {
-      if (this.isNewlyBuilt) { // return bonus if able:
+      if (this.isNewlyBuilt) { // return bonus if able: (un-doImmediateBonus)
         const fnd = this.found;
         if (fnd.bonus == 'E2') this.player.coins -= 2;
         else if (fnd.bonus == 'G1') this.player.gems -= 1;
