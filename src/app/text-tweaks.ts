@@ -265,7 +265,7 @@ export class TextTweaks {
       frags?.forEach(frag => {              // ASSERT: frag has no newline and no glyph
         fragT = this.setTextFrag(frag, fontStr, tweaks);  // may do multi-line: update dx, dy
         tweaks.maxLH = Math.max(tweaks.maxLH, fragT.getMeasuredHeight());   // record maxLH
-        const fragWrap = (tweaks.dx == tweaks.x0);  // setFrag wrapped, putting '' on new line (trimmed a space)
+        const fragWrap = (!!frag && tweaks.dx == tweaks.x0);  // setFrag wrapped, putting '' on new line (trimmed a space)
         const fragn = glyphs?.shift();  // the portion of line that matched glyphRE (eg: '$2')
         if (fragn) {                     // ASSERT: a fragn between each fragt
           const glyph = this.setGlyph(this.cont, fragT, fragn, tweaks); // there's a glyphRE, so set it:
