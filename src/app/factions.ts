@@ -346,7 +346,8 @@ export class Faction {
   };   // pvcb()
 
   /** allow Build Action (pv times) then run cb() */
-  offerBuildAction(pv: number, cb?: CB) {
+  offerBuildAction(pv: number, cb?: CB, log?: any) {
+    if (log) { console.log(stime(this, `.offerBuildAction:`), log)}
     this.newlyBuilt.length = 0;    // reset for this Player's turn.
     this.pv = pv;                  // allow pv Build actions:
     this.buildingDoneCB = cb;      // not used at this time. (the cb arg is supplied: () => {})
@@ -411,9 +412,8 @@ export class Faction {
     } else if (bs == '%') {
       this.offerDiscoveryAction(iv, cb)
     } else if (bs == 'F') {
-      console.log(stime(this, `.doImmediateBonus: this.offerPlaceFoundation(cb)`));
       this.onlyFoundation = true;
-      this.offerBuildAction(1, () => { this.onlyFoundation = false; cb() }); // TODO: restrict to Foundation
+      this.offerBuildAction(1, () => { this.onlyFoundation = false; cb() }, 'doImmediateBonus.onlyFoundation');
     } else if (bs == 'PT') {
       console.log(stime(this, `.doImmediateBonus: this.offerProdToken(cb)`));
       this.allowProdTokenPoolCB = cb;

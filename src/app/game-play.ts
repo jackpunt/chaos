@@ -301,7 +301,7 @@ export class GamePlay extends GamePlayLib {
       if (die == 1) def += 1;
     }
     this;
-    card?.phaseEffect?.eFunc()
+    card?.pFunc?.();   // TODO: all of this...
     console.log(stime(this, `.Wheel: ${fot.facId}`), { wheel, str, atk, def, die, cstr, txt })
     return { str, atk, def, die, wheel, card }
   }
@@ -372,7 +372,7 @@ export class GamePlay extends GamePlayLib {
       const scale = TP.cacheTiles
       table.reCacheTiles()}
     )
-    KeyBinder.keyBinder.setKey('B', () => this.curPlayer.faction.offerBuildAction(2, ()=>{}))
+    KeyBinder.keyBinder.setKey('B', () => this.curPlayer.faction.offerBuildAction(2, ()=>{}, 'B key'))
     KeyBinder.keyBinder.setKey('R', () => this.curPlayer.faction.offerRecruit(2, ()=>{}))
     KeyBinder.keyBinder.setKey('H', () => this.curPlayer.faction.offerHarvestActions(2, ()=>{}))
     KeyBinder.keyBinder.setKey('M', () => this.curPlayer.faction.moveFaction()); // use nPrimary()
