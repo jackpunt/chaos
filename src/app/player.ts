@@ -239,7 +239,11 @@ export class Player extends PlayerLib {
   /** take Card from deck and add to hand.  TODO: enforce hand limit */
   gainCard() {
     const card = this.gamePlay.table.takeCard();
-    this.panel.cardPanel.addCard(card);
+    const hex = this.panel.cardPanel.addCard(card);
+    if (card && !hex) {
+      const { width, height } = card.getBounds()
+      this.gamePlay.table.startDragging(card, { x: width * .75, y: height * .75 } )
+    }
   }
 
   addCard(card?: TacticsCard) {
@@ -395,6 +399,7 @@ export class Panel extends PlayerPanel {
   /** the 'hand' of TacticsCards */
   readonly cardRack: CardHex[] = [];
   cardPanel!: CardPanel;
+  battlePanel!: BattlePanel;
   avail: NamedContainer;
   vault: NamedContainer;
 
@@ -461,7 +466,6 @@ export class Panel extends PlayerPanel {
   layoutPanel(table: ChaosTable) {
     const faction = this.faction;
     this.wh = TP.meepleRad; // TODO: integrate with panel.metrics (so counters align with wh & gap)
-    this.cardPanel = this.addCardPanel(table);
     this.addRelics(faction);
     this.addBuildings(faction);
     this.addFoundations(faction, table);
@@ -471,6 +475,11 @@ export class Panel extends PlayerPanel {
     this.makeLeaders();
     if (this.factionId == 4) this.addRhyzu();
     this.addButtons(this.player.color);
+
+    this.cardPanel = this.addCardPanel(table);
+    this.battlePanel = new BattlePanel(this);
+    this.addChild(this.battlePanel);
+
     faction.factionPanel(this);
     return this.children;
   }
@@ -832,23 +841,20 @@ export class Panel extends PlayerPanel {
    * @returns
    */
   addCardPanel(table: Table, row = 0, ncols = 6) {
+    const table0 = this.table;
     // ChaosPlayerPanel { this.mapCont = new CardPanel(table); this.addChild(this.mapCont); }
     const wh = this.wh, x0 = wh * .55, y0 = wh * .55, s1 = wh * 1.1;
     const { dydr, dxdc } = this.panelMap.xywh();
     const cardH = CardBack.bounds.height;
-    const { width, height } = this.getBounds();
     const high = cardH * 1.01 / dydr;  // units of hex.dydr (a bit larger than cardH)
     const wide = table.panelWidth;
     row = (row != 0) ? row : - high;   // up by high, align CardPanel bottom to Panel bottom
-    row = (row >= 0) ? row : row + (height-8)/dydr;  // -8 border width
-    const cardPanel = new CardPanel(table, high, wide, row, 0); // directly on table.mapCont! (so localToLocal works?)
+    row = (row >= 0) ? row : row + (this.getBounds().height - 8)/dydr;  // up for border width
+    const cardPanel = new CardPanel(this, high, wide, row, 0); // becomes the MapCont its own hexMap
     cardPanel.makeDragable(table);
     cardPanel.visible = false;
     this.addChild(cardPanel);
-
     cardPanel.fillAryWithCardHex(this, this.cardRack, high/2, ncols)
-    this.battleCardHex = cardPanel.fillAryWithCardHex(this, [], -1, 1)[0];
-    this.battleCardHex.Aname = 'battleCardHex';
 
     // a Button to toggle visibility:
     const cButton = this.cButton = new UtilButton('Cards', { active: true, corner: .1, fontSize: dxdc * .2, border: [.1, .1, .2, 0] });
@@ -1018,9 +1024,23 @@ export class NeutralPanel extends Panel {
       // pt.makeDragable(this.table); // does not matter; table.startGame runs makeDragable on everything.
       // pt.mouseEnabled = true;
     })
-
   }
+}
 
+class BattlePanel extends CardPanel {
+  battleCardHex: CardHex;
+  // TODO: add wheel selector; 'Commit' button
+  // TODO: include this.battleCardHex in TacticsCard.isLegalTarget (when this.visible)
+  constructor(panel: Panel) {
+    const col = panel.table.panelWidth / 2;
+    const dydr = panel.panelMap.xywh().dydr;
+    const { height, width } = CardBack.bounds;
+    super(panel, 1.3 * height / dydr, 1.2, 0, col);
+    this.x -= width / 2;
+    this.battleCardHex = this.fillAryWithCardHex(panel, [], 0, 1)[0];
+    this.battleCardHex.Aname = 'battleCardHex';
+    this.visible = false;
+  }
 }
 
 /** Player uses a MovePoint to move Units from srcTile to toRegion .

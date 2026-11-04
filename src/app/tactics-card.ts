@@ -632,11 +632,9 @@ export class CardHex extends Hex2 {
 // TODO: move to player.ts (coresident with its parent ChaosPlayerPanel)
 export class CardPanel extends MapCont {
   // QQQ: include panel in constructor?
-  get panel() { return (this.parent as Panel) }
+  panel: Panel;
   /** a HexMap to enable table.drag/drop on CardPanel */
   panelMap: HexMap2 & { mapCont: MapCont };
-  /** for table.newHex2(...) */
-  table: Table;
 
   /**
    * A MapCont for its own panelMap
@@ -646,11 +644,11 @@ export class CardPanel extends MapCont {
    * @param row place panel at [row, col]
    * @param col
    */
-  constructor( table: Table, public high: number, public wide: number, row = 0, col = 0) {
+  constructor( panel: Panel, public high: number, public wide: number, row = 0, col = 0) {
     super(`CardPanel`)
     this.addContainers(['hexCont', 'tileCont', 'markCont']);
-    this.table = table;
-    this.panelMap = table.gamePlay.gameSetup.makeHexMap();
+    this.panel = panel;
+    this.panelMap = panel.table.gamePlay.gameSetup.makeHexMap();
     this.panelMap.mapCont = this;
 
     const { dxdc, dydr } = this.panelMap.xywh()
@@ -723,11 +721,12 @@ export class CardPanel extends MapCont {
     const x0 = (panelw - colN * dx) / 2 + cardW / 2;
     const { x: xn, dydr, dxdc } = this.panelMap.xywh(undefined, 0, colN - 1); // x of last cell
     const dy = row0 * dydr;   // y for row0
+    const table = this.panel.table;
 
     const rv = [];
     for (let col = 0; col < colN; col++) {
       // make hex at row=0, then offset by dx; constant dy (vs per-column displacement)
-      const hex = this.table.newHex2(0, col, `CardSlot`, hexC, this.panelMap); // on this.panelMap
+      const hex = table.newHex2(0, col, `CardSlot`, hexC, this.panelMap); // on this.panelMap
       hex.cont.x = (x0 + col * dx);
       hex.cont.y = (dy);
       hex.cont.visible = vis;
@@ -782,6 +781,7 @@ export class CardPanel extends MapCont {
     this.panel.cButton.label_text = `${nCards} Card${nCards == 1 ? '' : 's'}`;
     // TODO: set 'Cards' label button to include number of cards
     // TODO: auxillary hex for new card (> hand limit) & choose
+    return hex;   // where the card (if any) was placed
   }
 
   /** discard Cards not included in cards */
