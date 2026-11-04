@@ -245,7 +245,7 @@ export class ResearchCell extends NamedContainer {
         return pvcb();
       }
       case 'B': {
-        return faction.offerBuildAction(pv, cb); // Build: pv actions; TODO; check Foundation placement
+        return faction.offerBuildAction(pv, cb, 'primary'); // Build: pv actions; TODO; check Foundation placement
       }
       case 'E': {
         player.coins += pv;                   // Harvest: pv Energy & hv actions
@@ -285,12 +285,12 @@ export class ResearchCell extends NamedContainer {
     this.stage.update();
   }
 
-  // TODO: exception for Oxataya (TODO: only once when 2-player)
-  /** enable doing aux action; pay Bank */
+  // TODO: exception for Oxataya (TODO: only once when 2-player; allow choice)
+  /** aButton.onClick: try pay Bank & do aux action */
   auxillary(faction: Faction, cb: () => void = () => {}) {
     const player = faction.player;
     const pt = this.getPriceToken(faction);
-    const fao = TP.freeAuxForOxataya && (faction.facId == 5) && (pt.facId == 5);
+    const maybeFree = !!TP.freeAuxForOxataya && (faction.facId == 5) && (pt.facId == 5);
 
     // use match to determine cost(c) and benefit(b)
     let match: RegExpMatchArray | null, cv!: number, bv!: number;
@@ -307,61 +307,48 @@ export class ResearchCell extends NamedContainer {
       console.log(stime(this, `.aux: ${this.as} no pay! ${v}`), faction.name);
       cb();
     }
+    const payForAux = (payEnergy: boolean, aux: () => void,  cb: CB) => {
+      const normal = () => {
+        if (payEnergy ? player.payEnergy(cv) : player.payGems(cv)) {
+          aux();
+        } else {
+          npcb(cv);
+        }
+      }
+      if (maybeFree) {
+        const free = () => { TP.freeAuxForOxataya = ''; aux() }  // only once per round
+        if (TP.freeAuxForOxataya == 'ask') {
+          player.panel.popupChoice('Yes', 'No', free, normal, `Use free Auxillary action?`)
+        } else {
+          free();
+        }
+      } else {
+        normal()
+      }
+    }
     this.aButton.activate(false);
     // parse as; do it;
     console.log(stime(this, `.auxillary: as=${this.as}`));
-    if (matchv('G', '%')) {
-      if (fao || faction.player.payGems(cv)) {
-        setTimeout(() => faction.offerDiscoveryAction(1, cb), 10); // QQQ: do we *need* setTimeout?
-      } else {
-        npcb(cv);
-      }
-    } else if (matchv('G','C')) {
-      if (fao || player.payGems(cv)) {
-        player.gainCard();
-        cb();
-      } else {
-        npcb(cv);
-      }
-      // Aux Build
-    } else if (matchv('E', 'B')) {
-      if (fao || player.payEnergy(cv)) {
-        console.log(stime(this, `.auxillary: faction.offerBuildAction(1, cb)`));
-        faction.offerBuildAction(1, cb);
-      } else {
-        npcb(cv);
-      }
-    } else if (matchv('E', 'C')) {
-      if (fao || player.payEnergy(cv)) {
-        player.gainCard();
-        cb();
-      } else {
-        npcb(cv);
-      }
-      // Aux Harvest
-    } else if (matchv('E', 'G')) {  // En:Gm
-      if (fao || player.payEnergy(cv)) {
-        player.gems += bv;
-        cb();
-      } else {
-        npcb(cv);
-      }
-      // Aux Recruit
-    } else if (matchv('E', 'L')) {
-      if (fao || player.payEnergy(cv)) {
-        console.log(stime(this, `.auxillary: faction.offerRecruitLeader(1, cb)`));
-        cb();
-      } else {
-        npcb(cv);
-      }
-      // Aux Move
-    } else if (matchv ('E', 'U')) {
-      if (fao || player.payEnergy(cv)) {
-        // faction.offerUpgradLeader(cb);
-        cb();
-      } else {
-        npcb(cv);
-      }
+    if (matchv('G', '%')) {       // Discovery
+      payForAux(false, () => faction.offerDiscoveryAction(1, cb), cb)
+
+    } else if (matchv('G','C')) {  // Discovey @ 4
+      payForAux(false, () => { player.gainCard(); cb() }, cb);
+
+    } else if (matchv('E', 'B')) { // Aux Build
+      payForAux(true, () => faction.offerBuildAction(1, cb, 'auxillary'), cb)
+
+    } else if (matchv('E', 'C')) {  // Aux Discovery | Build @ level 4
+      payForAux(true, () => { player.gainCard(); cb() }, cb)
+
+    } else if (matchv('E', 'G')) {  // Aux Harvest En:Gm
+      payForAux(true, () => { player.gems += bv; cb() }, cb)
+
+    } else if (matchv('E', 'L')) {  // Aux Recruit
+      payForAux(true, () => { console.log(stime(this, `.auxillary: TODO faction.offerRecruitLeader(1, cb)`))}, cb)
+
+    } else if (matchv ('E', 'U')) { // Aux Move
+      payForAux(true, () => {console.log(stime(this, `.auxillary: TODO faction.offerUpgradeLeader(1, cb)`))}, cb)
     }
   }
 

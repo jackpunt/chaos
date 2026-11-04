@@ -1,5 +1,5 @@
 import { arrayN, C, stime } from "@thegraid/common-lib";
-import { GameState as GameStateLib, TP, type Phase } from "@thegraid/hexlib";
+import { GameState as GameStateLib, type Phase } from "@thegraid/hexlib";
 import type { ChaosTable as Table } from "./chaos-table";
 import type { FactionOnTile } from "./chaos-tile";
 import { factionNames, type FactionId } from "./factions";
@@ -7,7 +7,7 @@ import { pentagon } from "./functions";
 import type { Battle, GamePlay } from "./game-play";
 import { Relic, type PriceToken } from "./meeples";
 import type { Player } from "./player";
-import { priceNames, pricePhases, type CB, type PhaseName, type PriceName, type PricePhase } from "./table-params";
+import { priceNames, pricePhases, TP, type CB, type PhaseName, type PriceName, type PricePhase } from "./table-params";
 
 export type BattleFoTs = [FactionOnTile, FactionOnTile];
 declare module '@thegraid/hexlib' {
@@ -111,10 +111,10 @@ export class GameState extends GameStateLib {
   stateNdx(phase: string) { return Object.keys(this.states).indexOf(phase)}
 
   // autoPhases: string[] = ['PlaceBase', 'PlaceRelic', 'DeployLeaders', 'BeginRound', 'SetPrices', 'Discovery'];
-  autoDiscover: PricePhase[] = ['Build', 'Recruit', 'Move'];
-  autoPhases: string[] = ['Harvest', 'Recruit', 'Build'];
+  autoDiscover: PricePhase[] = []// ['Build', 'Recruit'];
+  autoPhases: string[] = [] //['Harvest', 'Recruit', 'Build'];
   /** run auto placements until autoPhase */
-  autoPhaseX?: string = 'Combat';    // undefined for normal --> 'PlaceRelic'
+  autoPhaseX?: string = 'BeginRound';    // undefined for normal --> 'PlaceRelic'
   isAutoPhase(phase = this.state.Aname!) {
     // autoPhases implicitly includes all phase up to autoPhase:
     if (this.autoPhaseX && this.stateNdx(phase) < this.stateNdx(this.autoPhaseX)) return true;
@@ -314,6 +314,7 @@ export class GameState extends GameStateLib {
       // start(1)
       start: (round = this.roundNum) => {
         this._round = round;   // 'PlaceBase' & 'Relics' invoke with new roundNum
+        TP.freeAuxForOxataya = (this.nPlayers == 2) ? 'ask' : 'use';
         this.gamePlay.saveGame();
         this.doneButton(`Begin Round: ${this.roundNum}`); // activate
         if (this.isAutoPhase()) this.state.done!();

@@ -24,8 +24,8 @@ export class TP extends TPLib {
     tp.cacheTiles = 4;
     PaintableShape.defaultRadius = tp.hexRad;
   }
-  /** reset each round */
-  static freeAuxForOxataya = true;
+  /** reset each round; whether to use free auxillary action */
+  static freeAuxForOxataya: '' | 'use' | 'ask' = '';  // 0, 1, 2
   static aButtonEvent?: MouseEvent = undefined;
   // timeout: see also 'autoEvent'
   static stepDwell:  number = 150
