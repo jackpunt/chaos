@@ -348,7 +348,7 @@ export class TacticsCard extends Tile {
   // TacticsCard.discard is Legal; here we add/include empty spots on curPlayer.cardRack
   override markLegal(table: Table, setLegal = (hex: Hex2) => { hex.setIsLegal(false); }, ctx?: DragContext): void {
     table.gamePlay.curPlayer.cardRack.forEach(setLegal)
-    setLegal(table.gamePlay.curPlayer.panel.battleCardHex);
+    setLegal(table.gamePlay.curPlayer.panel.battlePanel.battleCardHex);
     setLegal(TacticsCard.discards.hex as Hex2)
   }
 
@@ -382,17 +382,14 @@ export class TacticsCard extends Tile {
     table.dragger.clickToDrag(this, true); // also enable clickToDrag;
   }
 
-  /** look for LegalMark in curPlayer.panel.cardPanel */
+  /** look for LegalMark in curPlayer.panel.cardPanel & curPlayer.panel.battlePanel & table */
   hexUnderObj(dragObj: DisplayObject, legalOnly = true) {
-    const markCont = this.gamePlay.curPlayer.panel.cardPanel.markCont;  // cardPanel ISA MapCont
-    const dragCont = dragObj.parent; //= this.gamePlay.table.dragger.dragCont;
-    const pt = dragCont.parent.localToLocal(dragCont.x, dragCont.y, markCont); // mouse coords on markCont
-    // as if (panel as HexMap).hexUnderPoint(py.x, pt.y, legalOnly) {
-    const mark = markCont.getObjectUnderPoint(pt.x, pt.y, 1); // find mark on PlayerPanel.cardPanel
-    if (mark instanceof LegalMark) return mark.hex2;
-    // check table.hexMap for discard (or other) suitable hex;
-    const rv = this.gamePlay.table.hexUnderObj(dragCont, legalOnly);
-    return rv
+    const hexMap0 = this.gamePlay.table.hexMap;
+    const hexMap1 = this.gamePlay.curPlayer.panel.cardPanel.panelMap;
+    const hexMap2 = this.gamePlay.curPlayer.panel.battlePanel.panelMap;
+    return hexMap0.hexUnderObj(dragObj, legalOnly)
+    ?? hexMap1.hexUnderObj(dragObj, legalOnly)
+    ?? hexMap2.hexUnderObj(dragObj, legalOnly)
   }
 
   /** drag object curPlayer.panel.cardPanel */

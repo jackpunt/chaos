@@ -865,9 +865,6 @@ export class Panel extends PlayerPanel {
     return cardPanel;
   }
 
-  battleCardHex!: CardHex;
-
-
   /** button to show/hide CardPanel */
   cButton!: UtilButton;
   toggleCards(vis = !this.cardPanel.visible) {
@@ -1035,11 +1032,12 @@ class BattlePanel extends CardPanel {
     const col = panel.table.panelWidth / 2;
     const dydr = panel.panelMap.xywh().dydr;
     const { height, width } = CardBack.bounds;
-    super(panel, 1.3 * height / dydr, 1.2, 0, col);
+    const high = 1.3 * height / dydr;
+    super(panel, high, 1.2, 0, col);
     this.x -= width / 2;
-    this.battleCardHex = this.fillAryWithCardHex(panel, [], 0, 1)[0];
+    this.battleCardHex = this.fillAryWithCardHex(panel, [], high / 2, 1)[0];
     this.battleCardHex.Aname = 'battleCardHex';
-    this.visible = false;
+    this.visible = true;
   }
 }
 
