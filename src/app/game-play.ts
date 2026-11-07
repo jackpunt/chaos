@@ -14,7 +14,7 @@ import { ScenarioParser } from "./scenario-parser";
 import { priceNames, TP } from "./table-params";
 import type { SpecGen, TacticsCard } from "./tactics-card";
 
-export type Wheel =   'ds0' | 'sa0' | 'aa4' |'asd' | 'sdd' | 'ddr';
+export type Wheel =   'd_s' | 's_a' | 'a4a' |'aDs' | 'sDd' | 'dRd';
 export type BattleSAD = {str: number, atk: number, def: number, die: number, wheel: Wheel, card?: TacticsCard}
 /** a Region in conflict and 2 contestant Player */
 export class Battle {
@@ -279,22 +279,22 @@ export class GamePlay extends GamePlayLib {
     let die = 0, cstr = 0;
     const nleft = card?.nLeft ?? 0, nright = card?.nRight ?? 0;
 
-    if (wheel == 'ddr') {
+    if (wheel == 'dRd') {
       def = nleft + nright - 2;
-    } else if (wheel == 'ds0') {
+    } else if (wheel == 'd_s') {
       def = nleft;
       str += (cstr = nright);
-    } else if (wheel == 'sa0') {
+    } else if (wheel == 's_a') {
       str += (cstr = nleft);
       atk = nright;
-    } else if (wheel == 'aa4') {
+    } else if (wheel == 'a4a') {
       atk = nleft + nright;
-    } else if (wheel == 'asd') { if (fot.player.gems < 1) debugger;
+    } else if (wheel == 'aDs') { if (fot.player.gems < 1) debugger;
       fot.player.gems -= 1;
       atk = nleft;
       str += (cstr = nright) + (die = this.dieRoll);
       if (die == 1) def += 1;
-    } else if (wheel == 'sdd') {
+    } else if (wheel == 'sDd') {
       fot.player.gems -= 1;
       str += (cstr = nleft) + (die = this.dieRoll);
       def = nright
@@ -313,8 +313,10 @@ export class GamePlay extends GamePlayLib {
     })
     // TODO: Oachra
     const maxStr = sad[0].str >= sad[1].str ? 0 : 1;
-    const retreat = (sad[0].wheel == 'ddr' && sad[1].wheel == 'ddr') ? maxStr
-                  : sad[0].wheel == 'ddr' ? 0 : sad[1].wheel == 'ddr' ? 1 : undefined;
+    const retreat = (sad[0].wheel == 'dRd' && sad[1].wheel == 'dRd') ? maxStr // stronger retreats
+                  : sad[0].wheel == 'dRd' ? 0    // initiator
+                  : sad[1].wheel == 'dRd' ? 1    // defender
+                  : undefined;                   // nobody
     const [fot0, fot1] = battle.fots;
     const winner = (retreat != undefined ? (1 - retreat) : maxStr) as 0 | 1;
     const wound0 = Math.min(4, fot0.fighters, Math.max(0, sad[1].atk - sad[0].def));

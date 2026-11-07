@@ -1,22 +1,21 @@
 import { arrayN, C, Constructor, permute, removeEltFromArray, S, stime } from "@thegraid/common-lib";
-import { AliasLoader, CenterText, CircleShape, NamedContainer, PathShape, RectShape, TextInRect, UtilButton, type Paintable } from "@thegraid/easeljs-lib";
-import type { DisplayObject } from "@thegraid/easeljs-module";
-import { Graphics } from "@thegraid/easeljs-module";
-import { H, HexMap, LegalMark, newPlanner, NumCounter, Player as PlayerLib, PlayerPanel, TP, type HexDir, type IHex2, type MapCont } from "@thegraid/hexlib";
+import { AliasLoader, CenterText, CircleShape, DropdownButton, DropdownChoice, NamedContainer, PathShape, RectShape, TextInRect, UtilButton, type ChoiceItem, type DropdownItem, type DropdownStyle, type Paintable } from "@thegraid/easeljs-lib";
+import type { Container, DisplayObject, MouseEvent } from "@thegraid/easeljs-module";
+import { Bitmap, Graphics, Rectangle, Shape } from "@thegraid/easeljs-module";
+import { H, LegalMark, newPlanner, NumCounter, Player as PlayerLib, PlayerPanel, TP, type HexDir, type IHex2, type MapCont } from "@thegraid/hexlib";
 import { CardShape } from "./card-shape";
-import { ChaosHex2 as Hex2, HexMap2, type ChaosHex2 } from "./chaos-hex";
+import { ChaosHex2 as Hex2, HexMap2 } from "./chaos-hex";
 import { type ChaosTable, type ChaosTable as Table } from "./chaos-table";
 import { BaseTile, ChaosTile, FighterCounter, LeaderTile, PairTarget, type BONUS, type FactionOnTile, type HARVEST, type HexPair } from "./chaos-tile";
 import { EdgeMark, Faction, factionColors, factionNeutral, type FactionId, type FactionName } from "./factions";
 import { BgFound, Foundation } from "./foundation";
 import { bonusIcon, dist, pentagon, pointsAtDistance } from "./functions";
-import { type Battle, type GamePlay } from "./game-play";
+import { type Battle, type GamePlay, type Wheel } from "./game-play";
 import { type BattleFoTs, type PlayerId } from "./game-state";
 import { baseProdTokenIds, buildingCbyName, ChaosBuilding, ChaosUnit, Factory, Leader, Outpost, PriceToken, ProdToken, PTokenShape, Rhyzu, type ChaosUnitType, type PriceId } from "./meeples";
 import { ResearchCell, ResearchLevel, ResGrid } from "./research-cell";
 import { CO, pricePhases, type CB, type PhaseName } from "./table-params";
 import { CardBack, CardHex, CardPanel, TacticsCard } from "./tactics-card";
-import type { Container } from "@thegraid/easeljs-module";
 
 /** Canonical Faction colors, aligned with gameSetup.factionNames.
  *
@@ -343,7 +342,7 @@ export class Player extends PlayerLib {
     // oh, sure: plyr2 can see the stat1.wheel & card...
     const fot = (battle.fots[0].player == this) ? battle.fots[0] : battle.fots[1];
     // dummy reply:
-    fot.wheel = (this.gems > 0) ? 'asd' : 'ds0';    // or whatever
+    fot.wheel = (this.gems > 0) ? 'aDs' : 'd_s';    // or whatever
     fot.card = this.rmCard(0);   // take random-ish Card if available
     setTimeout(cb, 50)
   }
@@ -1024,20 +1023,136 @@ export class NeutralPanel extends Panel {
   }
 }
 
-class BattlePanel extends CardPanel {
+export class BattlePanel extends CardPanel {
+  static fnames: Wheel[] = ["d_s" , "s_a" , "a4a" , "aDs" , "sDd" , "dRd"].reverse() as Wheel[];
   battleCardHex: CardHex;
+  bitmapByName: Map<Wheel, Bitmap> = new Map();
+
   // TODO: add wheel selector; 'Commit' button
   // TODO: include this.battleCardHex in TacticsCard.isLegalTarget (when this.visible)
   constructor(panel: Panel) {
     const col = panel.table.panelWidth / 2;
     const dydr = panel.panelMap.xywh().dydr;
     const { height, width } = CardBack.bounds;
-    const high = 1.3 * height / dydr;
-    super(panel, high, 1.2, 0, col);
+    const high = height / dydr, dHigh = 1.191;
+    super(panel, dHigh * high, 1.2, 0, col);
+    this.Aname = 'BattlePanel';
     this.x -= width / 2;
-    this.battleCardHex = this.fillAryWithCardHex(panel, [], high / 2, 1)[0];
+    this.battleCardHex = this.fillAryWithCardHex(panel, [], (dHigh - .5) * high, 1)[0];
     this.battleCardHex.Aname = 'battleCardHex';
     this.visible = true;
+    this.addWheel()
+  }
+
+  getBitmaps(sizeX: number, trimy?: number) {
+    const bm0 = AliasLoader.loader.getBitmap('BattleWheel', 0); // full scale
+    const wheels: Wheel[] = BattlePanel.fnames;
+    const { x, y, height, width } = bm0.getBounds();
+    const dy = height / 6, bmh = trimy ?? dy;
+    return wheels.map((name, n) => {
+      const bm = new Bitmap(bm0.image)
+      bm.name = name;
+      bm.sourceRect = new Rectangle(x, y + dy * n, width, bmh)
+      // bm.regX = width/2;
+      // bm.regY = height/2;
+      bm.scaleX = bm.scaleY = sizeX/width;
+      this.bitmapByName.set(name, bm);
+      return bm;
+    })
+  }
+
+  addWheel() {
+    // "d_s" | "s_a" | "a4a" | "aDs" | "sDd" | "dRd"
+    const wheels: Wheel[] = BattlePanel.fnames;
+    const { width, height } = this.getBounds(), high = .15 * height;
+    const bitmaps = this.getBitmaps(width, 250);
+    const items = wheels.map((wheel, n) => {
+      const bm = bitmaps[n];
+      const button = new DropdownBitmap(wheel, width, 20, 0);
+      const item: DropdownItem = { text: wheel, value: bm, button: button }
+      return item;
+    })
+    const style: DropdownStyle = { fillColor: 'lightblue', fontSize: 16, spacing: 2, arrowColor: '0' }
+    const choice = new BitmapChoice(items, width, high, style)
+    choice.onItemChanged((item) => this.itemChanged(item))
+    this.addChild(choice);
+  }
+
+  itemChanged(item: ChoiceItem) {
+    console.log(stime(this, `.itemChanged:`), item.text);
+  }
+}
+
+class DDBwtshape extends DropdownButton {
+  tshape?: Shape;  // do not intitilize?
+}
+
+class DropdownBitmap extends DropdownButton {
+  // this.shape: target for all the listeners:
+  static override makeShape(): DisplayObject {
+    return new NamedContainer('ddBitmap')
+  }
+
+  declare shape: Container;
+  declare tshape: Shape;     // RoundRect or RectShape; QQQ: DropdownaButton could be UtilButton w/TextInRect + Arrow ?
+  bitmap!: Bitmap;    // BattleWheel.png
+
+  constructor(text: string, w: number, h: number, r: number, click?:(e: MouseEvent)=>any, style?: DropdownStyle) {
+    super(text, w, h, r, click, style)
+    // shape is already initialized by super(); tshape = shape.getChildAt(0)
+    this.tshape = this.shape.getChildAt(0) as Shape;
+    this.shape.removeAllEventListeners(S.pressup);     // do not re-render...
+    // this.bitmap will be added by BitmapChoice.constructor
+  }
+
+  override renderShape(shape = this.shape, andUpdate = true): void {
+    if (!this.tshape) {
+      // super constructor initialization; _rootbutton needs a clickable Shape:
+      const tshape = DropdownButton.makeShape() as Shape; // new Shape();
+      super.renderShape(tshape, false); // drawRoundedRect(fillColor?fillColorOver)
+      shape.addChild(tshape);      // this.tshape not yet available; this.constructor resets tshape?.
+    } else {
+      shape.addChild(this.bitmap);
+      andUpdate && this.stage?.update();
+    }
+  }
+}
+
+class BitmapChoice extends DropdownChoice {  // CycleChoice or maybe DropupChoice?
+
+  static override makeButton(text: string, w: number, h: number, r: number, click?: ((e: MouseEvent) => any) | undefined, style?: DropdownStyle): DropdownButton {
+    return new DropdownBitmap(text, w, h, r, click, style);
+  }
+
+  constructor(items: DropdownItem[], item_w: number, item_h: number, style?: DropdownStyle) {
+    super(items, item_w, item_h, style);  // set _rootButton
+    this._rootButton.text.visible = false;
+    items.forEach(item => {
+      const ddBitmap = item.button as DropdownBitmap;
+      const bm = item.value;
+      item.button!.text.visible = false; // hide the text name;
+      ddBitmap.bitmap = bm;  // put bitmap into DropdownButton
+      if (!ddBitmap.bitmap) debugger;
+      ddBitmap.shape.addChild(bm); // above the other children
+    })
+  }
+  override select(item: DropdownItem): DropdownItem {
+    const rv = super.select(item); // new item, changed(item)->_itemChanged(item); _rootButton.text; update()
+    const rootShape = this._rootButton.shape as Container;
+    if (rootShape.numChildren < 2) {
+      rootShape.addChild(rv.value); // show selected item in rootbutton
+      this.stage?.update();
+    }
+    return rv
+  }
+
+  protected override dropdown(expand?: boolean): void {
+    super.dropdown(expand);
+    this.stage?.update();
+  }
+
+  override changed(item: ChoiceItem): void {
+    super.changed(item);
   }
 }
 

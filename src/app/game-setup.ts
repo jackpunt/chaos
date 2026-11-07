@@ -7,8 +7,7 @@ import { ChaosTable as Table } from './chaos-table';
 import { ChaosTile } from './chaos-tile';
 import { FactionId, FactionName, factionNames } from './factions';
 import { GamePlay } from './game-play';
-import { mixins } from './mixins';
-import { Panel, Player } from './player';
+import { Player } from './player';
 import { ChaosTweaker, TacticsCard } from './tactics-card';
 
 // TODO: you can run a tool like dpdm or madge from your terminal window
@@ -78,7 +77,7 @@ class NullGameSetup extends GameSetupLib {
 
   override loadImagesThenStartup() {
     const fnames: string[] = ['Gemlock', ...factionNames];
-    AliasLoader.loader.fnames = [...fnames, ...ChaosTweaker.fnames];
+    AliasLoader.loader.fnames = [...fnames, ...ChaosTweaker.fnames, 'BattleWheel'];
     super.loadImagesThenStartup();    // loader.loadImages(() => this.startup(qParams));
   }
 
@@ -243,7 +242,7 @@ export class GameSetup extends NullGameSetup {
   declare gamePlay: GamePlay;
 
   constructor(canvasId?: string, qParam?: Params) {
-    super(canvasId, { f: '0,3', ...qParam })
+    super(canvasId, { f: '0,5', ...qParam })
   }
 
   override makeGamePlay(startElt: SetupElt): GamePlay {
