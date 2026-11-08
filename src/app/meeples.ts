@@ -1311,7 +1311,7 @@ export class AI_Trap extends ChaosToken implements Special {
 
 
 export type PriceId = 1 | 2 | 3 | 4 | 5 | 6;
-export type PriceBonus = '^'|'C'|'>'|'%';
+export type PriceBonus = '^'|'C'|'%';
 type VDIST = [ toFac: number, toBank: number, toLeft?: number, toRight?: number, expire?: number ];
 type PT_Status = 'avail' | 'inplay' | 'invault' | 'pending'; // pending-->avail at end of round (or: after SetPrices phase)
 // Auto-move during SetPrices phase (just click on track, place token)
@@ -1319,24 +1319,24 @@ type PT_Status = 'avail' | 'inplay' | 'invault' | 'pending'; // pending-->avail 
 
 export class PriceToken extends ChaosMeeple {
 
-  static bonus35 = [ ['^', 'C'], ['', '> %']] as PriceBonus[][];
+  static bonus35 = [ ['^', 'C'], ['', '%']] as PriceBonus[][];
   static bonus_2 = [ ['^'], ['^']] as PriceBonus[][];
 
   // distinguish for number of players;
   // 3-5 players: 1 & 2 contribnute to player; only 1 has '^' retrieval bonus
   static dist35 = [
-    // ^ C [> %]    3      4      5     [6]
+    // ^ C  [%]     3      4      5     [6]
     [1,0], [1,1], [1,2], [2,2], [2,3], [3,3],
   ]
   // 2 players: 1 & 2 vdist --> Bank; have '^' retreival bonus
   static dist2 = [
-    // ^     [^]     3      4      5     [6]
+    // ^    [^]     3      4      5     [6]
     [0,1], [0,2], [1,2], [2,2], [2,3], [3,3],
   ]
   // elt 4 = eject: round when token is removed; coded in 'gamePlay.setPriceNeutral()'
   static neutral = [
-      [], [0, 0, 1, 1, 2], [0, 3, 0, 0, 4], [0, 2, 1 ,1], [0, 5, 0, 0], [],
-  ]
+      [], [0, 0, 1, 1, 2], [0, 3, 0, 0, 4], [0, 2, 1 ,1, 6], [0, 5, 0, 0, 6] , [],
+  ] as VDIST[]; // [ toPlayer, toBank, toLeft, toRight, expire ]
 
   declare baseShape: PTokenShape;
 
@@ -1450,10 +1450,10 @@ export class PriceToken extends ChaosMeeple {
       const tir = textBlock(`x${eject}`, C.transparent, s * .3)
       setTR(tir, s*.7, 0, toBank > 0 ? y2 : y1)
     }
-    // static bonus35 = [ ['^', 'C'], ['', '> %']]
+    // static bonus35 = [ ['^', 'C'], ['', '%']]
     // static bonus_2 = [ ['^'],      ['^']]
     // place '^' in slot for Player or Bank, whichever is otherwise 0
-    // place 'C' to right (cardIcon?), place '> %' in center
+    // place 'C' to right (cardIcon?), place '%' in center
     // bTexts[(pt#1), (pt#2)]  -- bonus_2 or bonus35
     if (!neutral && this.bTexts?.[1]) {
       const text = this.bTexts[1];
@@ -1538,16 +1538,11 @@ export class PriceToken extends ChaosMeeple {
     this.onPhase = priceName;
     this.status = 'inplay';
     this.gamePlay.gameState.tokenOnPhase[priceName] = this;
-    if (priceName.startsWith('Move')) this.advanceGun();
-
+    if (priceName.startsWith('Move')) this.gamePlay.gameState.advanceGun();
+    if (this.bTexts?.[0] == '^') {
+      this.player.panel.priceTokens.filter(pt => pt.status == 'invault').forEach(pt => pt.retrieveFromVault())
+    }
     console.log(stime(this, `.setTokenOnPhase: ${this.facName} w/${this.Aname} ->`), priceName )
-  }
-
-  advanceGun() {
-    const gs = this.gamePlay.gameState;
-    const pnxt = gs.nextNdx(this.player.index);
-    const pndx = (pnxt != gs.gunPlayer.index) ? pnxt : gs.nextNdx(pnxt);
-    gs.gunPlayer = this.gamePlay.allPlayers[pndx];
   }
 
   /** remove from pricing, place in vault */
@@ -1556,7 +1551,9 @@ export class PriceToken extends ChaosMeeple {
     this.x = this.y = 0;
     this.player.panel.vault.addChild(this);
     this.status = 'invault';
-    this.visible = false;
+    const round = this.gamePlay.gameState.roundNum;
+    const vis = (this.facId <= 5 ? false : (round < this.vdist[4]!));
+    this.visible = (this.facId <= 5 ? false : (round < this.vdist[4]!));
     this.stage.update();
   }
 
@@ -1565,6 +1562,8 @@ export class PriceToken extends ChaosMeeple {
     this.sendHome();
     this.status = 'pending';  // flipped down...
     this.visible = true;      // TODO: visually dim, disable mouse
+    this.mouseEnabled = false;
+    this.rotation = 10;
     this.faceUp(false)
   }
 
@@ -1572,6 +1571,8 @@ export class PriceToken extends ChaosMeeple {
   setAvailable() {
     this.status = 'avail';
     // TODO: full visiblitiy & mouse enable
+    this.mouseEnabled = true;
+    this.rotation = 0;
     this.faceUp(true);
   }
 

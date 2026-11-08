@@ -71,6 +71,7 @@ export class GamePlay extends GamePlayLib {
   }
 
   // used during initial bringup: Faction chooses a PricePhase
+  // TODO: implement retrieval from vault
   autoSetPrices(ndx: PlayerId) {
     const plyr = this.allPlayers[ndx];
     const tokens = plyr.panel.priceTokens;
@@ -114,7 +115,7 @@ export class GamePlay extends GamePlayLib {
   movePendingToAvail() {
     this.allPlayers.forEach(plyr => {
       plyr.panel.priceTokens.forEach(pt => {
-        if (pt.status == 'pending') pt.status = 'avail';
+        if (pt.status == 'pending') pt.setAvailable();
       })
     })
   }
@@ -123,9 +124,7 @@ export class GamePlay extends GamePlayLib {
     priceNames.forEach(pn => {
       const pt = this.gameState.tokenOnPhase[pn];
       this.gameState.tokenOnPhase[pn] = undefined;
-      if (!pt) return;
-      pt.status = 'invault';
-      pt.moveToVault();
+      pt?.moveToVault();
     })
   }
 

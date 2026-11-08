@@ -39,6 +39,11 @@ export class GameState extends GameStateLib {
     plyr.panel.stage.update();
   }
 
+  advanceGun() {
+    const pnxt = this.nextNdx(this.curPlayerNdx);
+    const pndx = (pnxt != this.gunPlayer.index) ? pnxt : this.nextNdx(pnxt);
+    this.gunPlayer = this.gamePlay.allPlayers[pndx];
+  }
   // presumably this highlights the proper Faction/Panel
   // TODO: ChaosTable should override setNextPlayer() hexlib does way too much.
   setCurPlayerNdx(ndx = this.gunPlayer.index) {

@@ -341,6 +341,11 @@ export class Player extends PlayerLib {
   setBattlePlan(battle: Battle, cb: () => void) {
     // oh, sure: plyr2 can see the stat1.wheel & card...
     const fot = (battle.fots[0].player == this) ? battle.fots[0] : battle.fots[1];
+    const bp = this.panel.battlePanel;
+    bp.visible = true;
+    bp.doneButton.activate()
+    // TODO: put up a 'Commit' button, maybe even areYouSure?
+
     // dummy reply:
     fot.wheel = (this.gems > 0) ? 'aDs' : 'd_s';    // or whatever
     fot.card = this.rmCard(0);   // take random-ish Card if available
@@ -1027,6 +1032,7 @@ export class BattlePanel extends CardPanel {
   static fnames: Wheel[] = ["d_s" , "s_a" , "a4a" , "aDs" , "sDd" , "dRd"].reverse() as Wheel[];
   battleCardHex: CardHex;
   bitmapByName: Map<Wheel, Bitmap> = new Map();
+  doneButton = new UtilButton('Commit');
 
   // TODO: add wheel selector; 'Commit' button
   // TODO: include this.battleCardHex in TacticsCard.isLegalTarget (when this.visible)
@@ -1040,8 +1046,10 @@ export class BattlePanel extends CardPanel {
     this.x -= width / 2;
     this.battleCardHex = this.fillAryWithCardHex(panel, [], (dHigh - .5) * high, 1)[0];
     this.battleCardHex.Aname = 'battleCardHex';
-    this.visible = true;
+    this.visible = false;
     this.addWheel()
+    this.doneButton.y = -30; this.doneButton.x = 50;
+    this.addChild(this.doneButton)
   }
 
   getBitmaps(sizeX: number, trimy?: number) {
