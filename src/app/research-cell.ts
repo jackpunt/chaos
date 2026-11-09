@@ -100,9 +100,9 @@ export class ResearchCell extends NamedContainer {
   gemlock = false; // true if gemLock req'd to achieve
   gemlockIcon?: DisplayObject;
 
-  pButton: UtilButton;
-  iButton: UtilButton;
-  aButton: UtilButton;
+  pButton: RC_Button;
+  iButton: RC_Button;
+  aButton: RC_Button;
 
   constructor(pName: PricePhase, level: number, spec: ResSpec, public wh: WH = { width: TP.hexRad * .8, height: TP.hexRad*1 }) {
     super(`RC${pName}_${level}`);
@@ -146,7 +146,9 @@ export class ResearchCell extends NamedContainer {
         this.pButton.activate(false);
         this.primary(faction, pcb);
       }, this, true)
-      this.pButton.activate(true);
+      const cost = this.primaryCost(faction);
+      const activateX = faction.player.canPayEnergy(cost) || 'x';
+      this.pButton.activate(activateX);
     } else {
       this.pButton.activate(false);
     }
@@ -184,7 +186,14 @@ export class ResearchCell extends NamedContainer {
     this.iButton.activate(activate);
   }
 
-  payAction(pt: PriceToken, player: Player) {
+  primaryCost(faction: Faction) {
+    const player = faction.player;
+    const gamePlay = player.gamePlay;
+    const pt = this.getPriceToken(faction);
+    return (pt.facId == faction.facId) ? 0 : pt.vid;
+  }
+
+  payPrimaryCost(pt: PriceToken, player: Player) {
     const gamePlay = pt.gamePlay;
     // pay for action
     const [toFac, toBank, toLeft, toRight] = pt.vdist;
@@ -223,12 +232,14 @@ export class ResearchCell extends NamedContainer {
     const pt = this.getPriceToken(faction);
     console.log(stime(this, `.primary(${faction.name}) ${this.pName}: ${this.ps}`));
     // pt.facId gets the primary action for free:
-    if (pt.facId !== faction.facId) {
-      if (pt.vid > player.coins) {
+    const cost = this.primaryCost(faction);
+    if (cost > 0) {
+      if (cost > player.coins) {
         console.log(stime(this, `.primary: unable to pay (${pt.vid} > ${player.coins})`))
+        this.aButton.activate(false);
         return; // unable to pay
       }
-      this.payAction(pt, player)
+      this.payPrimaryCost(pt, player)
     }
     // % B E H R M
     const { p, pv, hv } = this.matchv();
@@ -355,14 +366,7 @@ export class ResearchCell extends NamedContainer {
   makeButton(xywh: XYWH) {
     // use UtilButton, but tweak the borders to get the desired size. (see also LeaderIcon: TextInBox)
     const { x, y, w, h } = xywh;
-    const bgColor = 'rgba(255, 255, 255, 0.3)';
-    const button = new class RC_Button extends UtilButton {
-      override activate(active?: boolean, vis?: boolean, update?: boolean): this {
-        super.activate(active, vis, update);
-        if (!active) this.removeAllEventListeners(S.click);
-        return this;
-      }
-    } ('', { bgColor, fontSize: 1, border: [w/2, w/2, h/2, h/2] })
+    const button = new RC_Button('', { bgColor: 'white', fontSize: 1, border: [w/2, w/2, h/2, h/2] })
     button.x = x; button.y = y;
     return button;
   }
@@ -397,3 +401,14 @@ export class ResearchCell extends NamedContainer {
   }
 }
 
+export class RC_Button extends UtilButton {
+  bgColor0 = 'rgba(200, 200, 200, 0.3)';
+  bgColorX = 'rgba(255, 200, 200, 0.3)';
+  // activate('x') uses alternate color
+  override activate(active?: (boolean | 'x'), vis?: boolean, update?: boolean): this {
+    this.paint((active == 'x') ? this.bgColorX : this.bgColor0);
+    super.activate(!!active, vis, update);
+    if (!active) this.removeAllEventListeners(S.click);
+    return this;
+  }
+}

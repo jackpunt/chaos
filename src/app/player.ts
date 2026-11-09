@@ -148,6 +148,8 @@ export class Player extends PlayerLib {
     }
   }
 
+  canPayEnergy(n = 0) { return (this.coins >= n) }
+
   payEnergy(n = 1, toPlayer?: Player) {
     if (this.coins >= n) {
       this.coins -= n;
