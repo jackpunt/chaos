@@ -124,7 +124,6 @@ export class ChaosTable extends Table {
     const nPlayer = this.gamePlay.neutralPlayer;
     const neutralPanel = this.neutralPanel = this.makePlayerPanel(this, nPlayer, this.panelHeight, this.panelWidth-.6, row, col+.5, dir)
     neutralPanel.vault.visible = false;
-    neutralPanel.layoutPanel(this)
 }
 
   // established by Panel.addPriceSlots()

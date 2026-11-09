@@ -96,7 +96,7 @@ export class GamePlay extends GamePlayLib {
   setPriceNeutral() {
     const plyr = this.neutralPlayer;
     // plyr.panel.priceTokens; // [5,3] or [5,4,3,2]
-    const p2a = [3], p2b = [5], p3a = [2, 4], p3b = [3, 4], p3c = [4, 5], p4a = [3], p4b = [5];
+    const p2a = [3], p2b = [5], p3a = [2, 3], p3b = [3, 4], p3c = [4, 5], p4a = [3], p4b = [5];
     // vs looking for a special attribute on the token:
     const plan = [[p2a, p2a, p2a, p2a, p2b, p2b], [p3a, p3a, p3b, p3b, p3c, p3c], [p4a, p4a, p4a, p4a, p4b, p4b]];
     const np2 = TP.numPlayers - 2, rn = this.gameState.roundNum;

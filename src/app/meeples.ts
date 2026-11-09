@@ -1335,7 +1335,7 @@ export class PriceToken extends ChaosMeeple {
   ]
   // elt 4 = eject: round when token is removed; coded in 'gamePlay.setPriceNeutral()'
   static neutral = [
-      [], [0, 0, 1, 1, 2], [0, 3, 0, 0, 4], [0, 2, 1 ,1, 6], [0, 5, 0, 0, 6] , [],
+      [], [0, 0, 1, 1, 2], [0, 3, 0, 0, 4], [0, 2, 1 ,1], [0, 5, 0, 0] , [],
   ] as VDIST[]; // [ toPlayer, toBank, toLeft, toRight, expire ]
 
   declare baseShape: PTokenShape;
@@ -1416,7 +1416,7 @@ export class PriceToken extends ChaosMeeple {
       tr.paint(tr.bgColor, true);  // repaint with new width
     }
     const [ toFac, toBank, left, right, eject ] = this.vdist ?? [];
-    const s = size*.92, x1 = -s/4, x2 = +s/4, y1 = +s/4, y2 = -s/4;
+    const s = size*.92, x1 = -s/4, x2 = +s/4, y1 = +s/4, y2 = -s/4; // y1: lower, y2: upper
     const neutral = (left !== undefined);
     if (neutral && left > 0) {
       const lt = textBlock(`${left}`, C.BLACK)
@@ -1442,13 +1442,19 @@ export class PriceToken extends ChaosMeeple {
     } else if (toFac > 0) {  // single payment to Faction:
       const tf = textBlock(`${toFac}`, this.pColor!)
       setTR(tf, s*.7, 0, y1)
-    } else if (toBank > 0) { // single payment to Bank
+    } else if (!neutral && toBank > 0) { // single payment to Bank
       const tb = textBlock(`${toBank}`, CO.bColor)
       setTR(tb, s*.7, 0, y1)
     }
-    if (neutral && eject !== undefined) {
-      const tir = textBlock(`x${eject}`, C.transparent, s * .3)
-      setTR(tir, s*.7, 0, toBank > 0 ? y2 : y1)
+    if (neutral) {
+      if (toBank > 0) {
+        const tb = textBlock(`${toBank}`, CO.bColor, s * .4)
+        setTR(tb, s*.7, 0, y1)
+      }
+      if (eject !== undefined) {  // LR / E+B or E / B
+        const tir = textBlock(`x${eject}`, C.transparent, s * .3); // smaller font
+        setTR(tir, s*.4, 0, left > 0 ? y1 : y2) // y1 (lower), y2 (upper)
+      }
     }
     // static bonus35 = [ ['^', 'C'], ['', '%']]
     // static bonus_2 = [ ['^'],      ['^']]
