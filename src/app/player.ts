@@ -690,14 +690,18 @@ export class Panel extends PlayerPanel {
     const wh = this.wh, x0 = wh * .55, y0 = wh * .55, s1 = wh * 1.1;
     const nr = spec.nr, ft = spec.ft, c = this.pColor, fs = wh * .5, bfs = wh * .25;
     const dx = tw / (nr.length - 1), base = nr.length - 1;
+    const bdr = [.3, .2, .3, .0];
+    const bx = wh * .45;
     const by = - wh * .6;
     const cont = new NamedContainer(`recruits`, x0 + s1 * 3, y0 + s1 * 3);
     this.addChild(cont);     // A black bar to hold the recruit counters & buttons:
     cont.addChild(new RectShape({ x: -wh/2, y: -y0, w: tw + wh, h: 2 * y0 }, 'black', ''))
-    const addButton = (name: string, x: number, y: number) => {
-      const button = new UtilButton(name, { bgColor: CO.orange, active: true, fontSize: bfs});
-      button.x = x;
-      button.y = y;
+    const addButton = (name: string, x0: number, y0: number, border0: (number | (number|undefined)[]) = .3) => {
+      const border = border0 as [number | undefined, number | undefined, number | undefined, number | undefined];
+      const button = new UtilButton(name, { bgColor: CO.orange, active: true, fontSize: bfs, border });
+      const { width } = button.getBounds();
+      button.x = x0 + (y0 == 0 ? 0 : width/2); // mainline centered, button above: align left
+      button.y = y0;           // align center
       cont.addChild(button);
       return button;
     }
@@ -708,8 +712,8 @@ export class Panel extends PlayerPanel {
     ravail.y = by;
     cont.addChild(ravail)
 
-    // Exchange 3 recruits for a Card:
-    const r3button = addButton(`R3->${spec.r3}`, wh, by);
+    // Exchange 3 recruits for a Card or Gem:
+    const r3button = addButton(`R3 -> ${spec.r3}`, bx, by - wh * .4, bdr);
     r3button.on('click', () => {
       if (ravail.value >= 3) {
         ravail.incValue(-3);
@@ -725,7 +729,7 @@ export class Panel extends PlayerPanel {
     })
     // Fast track:
     if (ft > 0) { // AI does not have a FT button.
-      const ft_button = addButton(`FT:${ft}`, wh * 2, by);
+      const ft_button = addButton(`R1 + E${ft}  ----->    `, bx, by, bdr);
       const ftc = spec.ft;      // fast track cost
       ft_button.on('click', () => {
         if (ravail.value > 0 && this.player.coins >= ftc) {
