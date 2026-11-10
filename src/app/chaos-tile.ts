@@ -46,7 +46,7 @@ export class PairTarget extends NamedContainer {
   static targets: PairTarget[] = [];
 
   /** Container with dObj; add to PairTarget.targets; rotate to align with edge; show on overCont. */
-  constructor(public pair: HexPair, public dObj: DisplayObject, isTarget = true) {
+  constructor(public pair: HexPair, public dObj: DisplayObject, isTarget = true, rad = 1) {
     const [fHex, tHex] = pair;
     const dir01 = fHex.findLinkHex(hex => (hex == tHex));
     if (!dir01) {
@@ -57,7 +57,7 @@ export class PairTarget extends NamedContainer {
     if (isTarget) PairTarget.targets.push(this);
 
     this.rotation = (H.dirRot[dir01]);
-    fHex.edgePoint(dir01, 1, this);      // set RectShape on edge of Hex
+    fHex.edgePoint(dir01, rad, this);      // set RectShape on edge of Hex
     fHex.map.mapCont.overCont.addChild(this); // place on top of other tiles
   }
 }

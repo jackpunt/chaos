@@ -1257,16 +1257,15 @@ export class MoveInPlay extends NamedContainer {
       // AdjGraphic: container(pent, counter)
       const color = C.nameToRgbaString(this.player.color, .5);
       const pent = pentagon(TP.hexRad * .16, TP.hexRad * .1, color, 0, '');
-      pent.y -= TP.hexRad * .2;
+      pent.y -= TP.hexRad * .15;
       // Borrow PairTarget to get edge location and rotation:
-      const edgeCont = new PairTarget(pair, pent, false); // PT -> fHex.map...overCont @ fHex.edgePoint()
+      const edgeCont = new PairTarget(pair, pent, false, .95); // PT -> fHex.map...overCont @ fHex.edgePoint()
       // put this @ edgeCont; put edgeCont in this
       this.x = edgeCont.x; this.y = edgeCont.y;
       edgeCont.parent.addChild(this);   // on overCont
       edgeCont.x = 0; edgeCont.y = 0;
       this.addChildAt(edgeCont, 0);     // under the counter
 
-      this.counter.y += TP.hexRad * -.05;
       // overcont->PairTarget->this->[Arrow, Counter]
       // this.counter.rotation = -pairGraphic.rotation; // Arrow tilts, Counter stays vertical
     } else {
