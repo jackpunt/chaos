@@ -1317,6 +1317,14 @@ type PT_Status = 'avail' | 'inplay' | 'invault' | 'pending'; // pending-->avail 
 // Auto-move during SetPrices phase (just click on track, place token)
 
 
+class PTOverShape extends RectShape {
+  override rscgf(fillc: string, g = new Graphics()): Graphics {
+    const { x, y, width, height } = this.getBounds();
+    g.lf([fillc, CO.dColor], [.2, .9], 0, y, 0, y+height).dr(x, y, width, height);
+    return g;
+  }
+}
+
 export class PriceToken extends ChaosMeeple {
 
   static bonus35 = [ ['^', 'C'], ['', '%']] as PriceBonus[][];
@@ -1385,6 +1393,7 @@ export class PriceToken extends ChaosMeeple {
     } else {
       this.vdist = (PriceToken.neutral)[vid-1] as VDIST;
     }
+    this.baseShape.paint(player.color);
     this.bTexts = ((np == 2) ? PriceToken.bonus_2 : PriceToken.bonus35)[this.vid-1];
     this.fillCont(this);
     this.status = ['avail', 'invault', 'avail', 'avail', 'avail', 'invault'][vid-1] as PT_Status;
@@ -1396,11 +1405,8 @@ export class PriceToken extends ChaosMeeple {
 
   // add content above the PricingToken baseShape:
   fillCont(cont: NamedContainer, size = (this.baseShape).getBounds().width) {
-    const bgcolor = C.nameToRgbaString(this.player!.color, .7)
-    const base = this.baseShape;
-    const over = new RectShape(base._rect)
-    const bTexts = this.bTexts;
-    over.paint(bgcolor, true);
+    const over = new PTOverShape(this.baseShape._rect);
+    over.paint(this.pColor, true);
     cont.addChild(over)
 
     const textBlock = (text: string, bgColor: string, fs = s * .5) => {
@@ -1415,6 +1421,7 @@ export class PriceToken extends ChaosMeeple {
       cont.addChild(tr);
       tr.paint(tr.bgColor, true);  // repaint with new width
     }
+    const [ bText0, bText1 ] = this.bTexts ?? ['', ''];
     const [ toFac, toBank, left, right, eject ] = this.vdist ?? [];
     const s = size*.92, x1 = -s/4, x2 = +s/4, y1 = +s/4, y2 = -s/4; // y1: lower, y2: upper
     const neutral = (left !== undefined);
@@ -1429,12 +1436,12 @@ export class PriceToken extends ChaosMeeple {
       setTR(tf, s*.45, x1, y1);
       const tb = textBlock(`${toBank}`, CO.bColor)
       setTR(tb, s*.45, x2, y1);
-    } else if (toFac > 0 && bTexts?.[0] == '^') {
+    } else if (toFac > 0 && bText0 == '^') {
       const tf = textBlock(`${toFac}`, this.pColor!)
       setTR(tf, s*.45, x1, y1)
       const tb = textBlock(`^`, CO.bColor)
       setTR(tb, s*.45, x2, y1);
-    } else if (toBank > 0 && bTexts?.[0] == '^') {
+    } else if (toBank > 0 && bText0 == '^') {
       const tf = textBlock(`^`, this.pColor!)
       setTR(tf, s*.45, x1, y1)
       const tb = textBlock(`${toBank}`, CO.bColor)
@@ -1461,12 +1468,11 @@ export class PriceToken extends ChaosMeeple {
     // place '^' in slot for Player or Bank, whichever is otherwise 0
     // place 'C' to right (cardIcon?), place '%' in center
     // bTexts[(pt#1), (pt#2)]  -- bonus_2 or bonus35
-    if (!neutral && this.bTexts?.[1]) {
-      const text = this.bTexts[1];
-      const tir = textBlock(text, C.nameToRgbaString(this.pColor!, .6), s * .4)
-      setTR(tir, s*.7, 0, y2);
+    if (!neutral && bText1) {
+      const bi = bonusIcon(bText1)
+      bi.x = 0, bi.y = y2 * 1.1;
+      cont.addChild(bi);
     }
-    // TODO: use bonusIcon(^, C, >, %)
     return cont;
   }
   override makeShape(size = TP.meepleRad): Paintable {
