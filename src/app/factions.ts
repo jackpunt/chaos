@@ -833,7 +833,7 @@ export class Circadian extends Faction {
 
   override defenceInRegion(region: ChaosTile): [number, string] {
     const [str, txt] = super.defenceInRegion(region)
-    const [dstr, dtxt] = this.dropship.strengthInRegion(region)
+    const [dstr, dtxt] = this.dropship.defenceInRegion(region)
     return dstr ? [str + dstr, `${txt}\n${dtxt}`] : [str, txt];
   }
 }

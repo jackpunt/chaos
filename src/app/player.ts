@@ -256,14 +256,14 @@ export class Player extends PlayerLib {
   }
   /** remove the indicated TacticsCard from cardRack */
   rmCard(ndx: number) {
-    const hex = this.cardRack[ndx], card = hex?.card;
-    if (!card) return undefined;
-    card.moveTo(undefined);   // vacate the hex
-    return card;
+    const hex = this.cardRack[ndx], tcard = hex?.tcard;
+    if (!tcard) return undefined;
+    tcard.moveTo(undefined);   // vacate the hex
+    return tcard;
   }
 
   /** for ScenarioParser.saveState() */ // TODO: code cards with index, or string->card
-  get cards() { return this.cardRack.map(hex => hex.card).filter(card => !!card) }
+  get cards() { return this.cardRack.map(hex => hex.tcard).filter(card => !!card) }
 
   addNewMove(newMove: MoveInPlay) {
     this.movesInPlay.push(newMove);   // moveInPlay.length is "MovePoints consumed".
@@ -339,19 +339,23 @@ export class Player extends PlayerLib {
     })
   }
 
-  /** select wheel & card for the given Battle */
+  /** select fot.wheel & fot.card for the given Battle, then invoke cb() */
   setBattlePlan(battle: Battle, cb: () => void) {
     // oh, sure: plyr2 can see the stat1.wheel & card...
     const fot = (battle.fots[0].player == this) ? battle.fots[0] : battle.fots[1];
     const bp = this.panel.battlePanel;
+    const db = bp.doneButton;
+    const done = () => {
+      fot.wheel = bp.wheel;
+      fot.tcard = this.panel.battlePanel.battleCardHex.tcard;
+      db.activate(false);
+      cb();
+    }
+    db.on(S.click, done, bp, true);
     bp.visible = true;
-    bp.doneButton.activate()
+    bp.doneButton.activate();
+    // player select Card & Wheel; click Commit --> gameState.cb()
     // TODO: put up a 'Commit' button, maybe even areYouSure?
-
-    // dummy reply:
-    fot.wheel = (this.gems > 0) ? 'aDs' : 'd_s';    // or whatever
-    fot.card = this.rmCard(0);   // take random-ish Card if available
-    setTimeout(cb, 50)
   }
 
   /** true to restrict movement for Redeploy */
@@ -1040,6 +1044,8 @@ export class BattlePanel extends CardPanel {
   bitmapByName: Map<Wheel, Bitmap> = new Map();
   doneButton = new UtilButton('Commit');
 
+  wheel!: Wheel;
+
   // TODO: add wheel selector; 'Commit' button
   // TODO: include this.battleCardHex in TacticsCard.isLegalTarget (when this.visible)
   constructor(panel: Panel) {
@@ -1093,6 +1099,7 @@ export class BattlePanel extends CardPanel {
   }
 
   itemChanged(item: ChoiceItem) {
+    this.wheel = item.text as Wheel;
     console.log(stime(this, `.itemChanged:`), item.text);
   }
 }

@@ -239,7 +239,7 @@ export class TacticsCard extends Tile {
   }
 
   override get radius() { return (this?._radius !== undefined) ? this._radius : TacticsCard.nextRadius }
-  override get isMeep() { return true; }
+  override get isMeep() { return false; }
   declare gamePlay: GamePlay;
 
   idText!: Text;            // descriptive text, name? id?
@@ -369,7 +369,7 @@ export class TacticsCard extends Tile {
   override showTargetMark(hex: IHex2 | undefined, ctx: DragContext) {
     const cardMark = TacticsCard.cardMark
     ctx.targetHex?.map.showMark(ctx.targetHex, cardMark); // if no targetHex: leave prev mark still showing
-    cardMark.parent.addChildAt(cardMark, 0);              // do not occlude any LegalMark.hitArea
+    cardMark.parent?.addChildAt(cardMark, 0);             // do not occlude any LegalMark.hitArea
   }
 
   /**
@@ -400,6 +400,10 @@ export class TacticsCard extends Tile {
   /** enlarge for click and drag */
   scaleXY = 1.8;
   override dragStart(ctx: DragContext): void {
+    this.moveTo(undefined);   // remove from fromHex
+    if (this.fromHex.map.mapCont instanceof CardPanel) {
+      (this.fromHex.map.mapCont as CardPanel).updateButtonLabel();
+    }
     this.x *=  this.scaleXY;
     this.y *=  this.scaleXY;
     this.scaleX = this.scaleY = this.scaleXY;
@@ -428,11 +432,14 @@ export class TacticsCard extends Tile {
   //
   override dropFunc(targetHex: IHex2, ctx: DragContext): void {
     const cardHex = (targetHex as CardHex);
-    const card = cardHex?.card;
+    const card = cardHex?.tcard;
     if (card && card !== this) card.moveCard(cardHex, ctx);
     super.dropFunc(targetHex ?? TacticsCard.discards.hex, ctx);
     if (this.hex === TacticsCard.discards.hex) {
       TacticsCard.discards.availUnit(this);
+    }
+    if (cardHex.map.mapCont instanceof CardPanel) {
+      (cardHex.map.mapCont as CardPanel).updateButtonLabel();
     }
     if (!TacticsCard.discards.sourceHexUnit) TacticsCard.discards.nextUnit(); // reveal discard
     TacticsCard.discards.updateCounter();
@@ -452,7 +459,7 @@ export class TacticsCard extends Tile {
     if (hex == TacticsCard.discards.hex) return;
     const plyr = ctx.gameState?.curPlayer as Player | undefined;
     if (plyr?.cardRack.includes(hex)) {
-      const alt = plyr.cardRack.findIndex(hex => !hex.card)
+      const alt = plyr.cardRack.findIndex(hex => !hex.tcard)
       if (alt < 0) {
         this.sendHome(); // move player card to discards
       } else {
@@ -619,8 +626,8 @@ export class CardHex extends Hex2 {
   // TacticsCard is modeled as a Tile, placed on CardHex [tactics-card.ts] (from HexPath);
   // hexcity uses the way old CardContainer and card.useDropFunc
   // See CardPanel.makeDragable(table) -> table.dragger.makeDragable(... dropFunc)
-  get card() { return super.meep as TacticsCard | undefined }
-  set card(card) { super.meep = card; }
+  get tcard() { return super.tile as TacticsCard | undefined }
+  set tcard(tcard) { super.tile = tcard; }
 }
 
 
@@ -662,7 +669,7 @@ export class CardPanel extends MapCont {
 
   // readonly cardRack: CardHex[] = [];
   get cardRack() { return this.panel.cardRack }
-  get cards() { return this.cardRack.map(hex=> hex.card).filter(card => !!card) }
+  get cards() { return this.cardRack.map(hex=> hex.tcard).filter(card => !!card) }
 
   /** background shape, so one can see the panel and drag it. */
   disp!: RectShape;
@@ -770,20 +777,24 @@ export class CardPanel extends MapCont {
     this.scaleX = this.scaleY = 1.0;  // return to original scale
   }
 
-  addCard(card?: TacticsCard) {
-    const cardRack = this.cardRack;
-    const hex = cardRack.find(hex => !hex.card)
-    card?.placeTile(hex);
-    const nCards = cardRack.filter(h => !!h.card).length;
-    this.panel.cButton.label_text = `${nCards} Card${nCards == 1 ? '' : 's'}`;
+  addCard(tcard?: TacticsCard) {
+    const hex = this.cardRack.find(hex => !hex.tcard)
+    tcard?.placeTile(hex);
+    this.updateButtonLabel();
     // TODO: set 'Cards' label button to include number of cards
     // TODO: auxillary hex for new card (> hand limit) & choose
     return hex;   // where the card (if any) was placed
   }
 
+  updateButtonLabel() {
+    const nCards = this.cardRack.filter(h => !!h.tcard).length;
+    this.panel.cButton.label_text = `${nCards} Card${nCards == 1 ? '' : 's'}`;
+    this.panelMap.update();
+  }
+
   /** discard Cards not included in cards */
   resetCards(cards: TacticsCard[]) {
-      this.cards.forEach(card => (cards.includes(card) || card.sendHome())); // discard extra cards
-
+    this.cards.forEach(card => (cards.includes(card) || card.sendHome())); // discard extra cards
+    this.updateButtonLabel();
   }
 }

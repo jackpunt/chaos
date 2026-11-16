@@ -44,6 +44,7 @@ export class GameState extends GameStateLib {
     const pndx = (pnxt != this.gunPlayer.index) ? pnxt : this.nextNdx(pnxt);
     this.gunPlayer = this.gamePlay.allPlayers[pndx];
   }
+
   // presumably this highlights the proper Faction/Panel
   // TODO: ChaosTable should override setNextPlayer() hexlib does way too much.
   setCurPlayerNdx(ndx = this.gunPlayer.index) {
@@ -116,10 +117,10 @@ export class GameState extends GameStateLib {
   stateNdx(phase: string) { return Object.keys(this.states).indexOf(phase)}
 
   // autoPhases: string[] = ['PlaceBase', 'PlaceRelic', 'DeployLeaders', 'BeginRound', 'SetPrices', 'Discovery'];
-  autoDiscover: PricePhase[] = []// ['Build', 'Recruit'];
-  autoPhases: string[] = [] //['Harvest', 'Recruit', 'Build'];
+  autoDiscover: PricePhase[] = ['Move', 'Recruit'];
+  autoPhases: string[] = ['Recruit'] //['Build', 'Harvest', 'Recruit'];
   /** run auto placements until autoPhase */
-  autoPhaseX?: string = 'BeginRound';    // undefined for normal --> 'PlaceRelic'
+  autoPhaseX?: string = 'Recruit';    // undefined for normal --> 'PlaceRelic' [manual Move is broken!]
   isAutoPhase(phase = this.state.Aname!) {
     // autoPhases implicitly includes all phase up to autoPhase:
     if (this.autoPhaseX && this.stateNdx(phase) < this.stateNdx(this.autoPhaseX)) return true;
@@ -321,6 +322,7 @@ export class GameState extends GameStateLib {
         this._round = round;   // 'PlaceBase' & 'Relics' invoke with new roundNum
         TP.freeAuxForOxataya = (this.nPlayers == 2) ? 'ask' : 'use';
         this.gamePlay.saveGame();
+        this.gamePlay.logWriterLine0('round', { time: stime.fs(), round: this.roundNum, gunPlayer: this.gunPlayer.facName });
         this.doneButton(`Begin Round: ${this.roundNum}`); // activate
         if (this.isAutoPhase()) this.state.done!();
       },
@@ -428,7 +430,7 @@ export class GameState extends GameStateLib {
         this.setCurPlayerNdx(ndx);
         this.curPlayer.faction.offerPrimaryAndAux(this.pricePhase); // 'Recruit'
         this.doneButton();
-        if (this.isAutoPhase()) this.state.done!(); // nobody buys this Phase
+        if (this.isAutoPhase()) this.state.done!(); // nobody buys this Phase <-- TODO Fix: per-Faction auto-Recruit!
        },
       done: () => {
         this.startOrPhase('Move')
@@ -487,8 +489,9 @@ export class GameState extends GameStateLib {
         const confTiles = this.gamePlay.conflictTiles(facId);
         const battleFoTs = this.state.battleFoTS = this.gamePlay.battleFoTs(confTiles, facId);
         if (battleFoTs.length > 0) {
+          const doBattle = (bf: BattleFoTs) => this.phase('Battle', this.gamePlay.newBattle(bf))
           // curPlayer select a Battle; choose Tile & Opponent; then each Player selects Wheel & Card; resolve
-          this.curPlayer.chooseBattleFoT(battleFoTs, (bf: BattleFoTs) => this.phase('Battle', this.gamePlay.newBattle(bf)))
+          this.curPlayer.chooseBattleFoT(battleFoTs, doBattle)
         } else if (this.lastBattleInitiator == this.curPlayerNdx) {
           // all the way around and last player to initiate has no more battles;
           this.phase('Income');
@@ -506,25 +509,26 @@ export class GameState extends GameStateLib {
         // battle has { fots, result }
         // Player selects fot.wheel (w/Gem) & fot.card;
         // alternate checking: first 0 & 1; then 1 & 0;  (so Oachra can defer)
-        const cb = () => super.phase('Battle', battle, 1-i);  // no prevPhase/phaseLeader
-        if (!battle.fots[i].wheel) battle.fots[i].player.setBattlePlan(battle, cb);
-        else if (!battle.fots[1-i].wheel) cb();
+        const checkOtherPlayer = () => super.phase('Battle', battle, 1-i);  // no prevPhase/phaseLeader; loop to restart
+        if (!battle.fots[i].wheel) {
+          this.gamePlay.setCurPlayer(battle.fots[i].player);
+          battle.fots[i].player.setBattlePlan(battle, checkOtherPlayer);
+        }
+        else if (!battle.fots[1-i].wheel) checkOtherPlayer(); // loop to re-check other player [again]
         else this.state.done!(battle);
       },
       done: (battle: Battle) => {
-        const strs = battle.fots.map(fot => `${fot.faction.facName}(${fot.strength[0]})` );
-        console.log(stime(this, `.Battle: resolve`), strs[0], 'vs', strs[1], battle);
-        this.gamePlay.resolveBattle(battle);
-        // resolve battle
-        // commit and resolve (lose: Leaders, Fighters, Buildings) (retreat: Leader, redeploy)
-        // -- auto if no choices [or no conflict]
-        // after Battle: advance Fame for Oxataya, JRayek, [Zcharo, AI, Leyrien]
-        // -- test for WIN
-        this.lastBattleInitiator = battle.fots[0].player.index;
+        this.gamePlay.setCurPlayer(battle.fots[0].player);  // reset from setBattlePlan()
+        this.lastBattleInitiator = this.curPlayerNdx;
+
         const nextNdx = this.nextNdx(this.lastBattleInitiator);
-        this.phase('Combat', nextNdx);    // sets phaseIndex, but we ignore that and use lastBattleInitiator
-        // this.state = this.states['Combat'];
-        // this.state.start(this.nextNdx(this.lastBattleInitiator));
+        const cb = () => {
+          this.phase('Combat', nextNdx);    // sets phaseIndex, but we ignore that and use lastBattleInitiator
+        }
+        const strength = (fot: FactionOnTile) => fot.faction.strengthInRegion(fot.tile)[0];
+        const strs = battle.fots.map(fot => `${fot.faction.facName}(${strength(fot)})` );
+        console.log(stime(this, `.Battle: resolve`), strs[0], 'vs', strs[1], battle);
+        this.gamePlay.resolveBattle(battle, cb);
       }
     },
     Income: {

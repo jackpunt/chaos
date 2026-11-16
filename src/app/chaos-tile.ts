@@ -247,11 +247,6 @@ export class FactionOnTile extends NamedContainer {
     return this.player.faction.pins(this);
   }
 
-  // Apparent strength of Faction, and text explainer
-  get strength() {
-    return this.player.faction.strengthInRegion(this.tile);
-  }
-
   get facId() { return this.player.facId; }
   get index() { return this.player.index; }
 
@@ -264,8 +259,8 @@ export class FactionOnTile extends NamedContainer {
   strText: TextInRect;  // 'card' showing sources of strength
   // when this FoT is engaged in combat:
   wheel?: Wheel;
-  card?: TacticsCard;
-  get clearWheel() { return (this.wheel = this.card = undefined, this) }
+  tcard?: TacticsCard;
+  get clearWheel() { return (this.wheel = this.tcard = undefined, this) }
 
   constructor(player: Player, tile: ChaosTile) {
     super(`FoT_${player.facId}-${tile.Aname}`);
@@ -438,7 +433,7 @@ export class FactionOnTile extends NamedContainer {
     this.stage.update();
   }
   showStrength(yl: number) {
-    const [str, txt] = this.player.faction.strengthInRegion(this.tile);
+    const [str, txt] = this.faction.strengthInRegion(this.tile);
     this.strIcon.label_text = `${str}`;
     this.strIcon.y = -yl * .81;
     this.strIcon.visible = (str > 0);

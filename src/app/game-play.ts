@@ -1,5 +1,5 @@
-import { permute, stime } from "@thegraid/common-lib";
-import { KeyBinder } from "@thegraid/easeljs-lib";
+import { permute, S, stime } from "@thegraid/common-lib";
+import { KeyBinder, TextInRect } from "@thegraid/easeljs-lib";
 import { GamePlay as GamePlayLib, SetupElt, TP as TPLib } from "@thegraid/hexlib";
 import type { ChaosHex2 as Hex2, HexMap2 } from "./chaos-hex";
 import type { ChaosTable } from "./chaos-table";
@@ -11,15 +11,16 @@ import { GameState, type BattleFoTs, type PlayerId } from "./game-state";
 import { Relic } from "./meeples";
 import type { Player } from "./player";
 import { ScenarioParser } from "./scenario-parser";
-import { priceNames, TP } from "./table-params";
+import { priceNames, TP, type CB } from "./table-params";
 import type { SpecGen, TacticsCard } from "./tactics-card";
 
 export type Wheel =   'd_s' | 's_a' | 'a4a' |'aDs' | 'sDd' | 'dRd';
-export type BattleSAD = {str: number, atk: number, def: number, die: number, wheel: Wheel, card?: TacticsCard}
+export type BattleSAD = { str: number, atk: number, def: number, die: number, wheel: Wheel, card?: TacticsCard }
 /** a Region in conflict and 2 contestant Player */
 export class Battle {
   fots!: BattleFoTs;
-  result?: { winner: 0|1, retreat: 0|1|undefined, wounds: number[], sad: BattleSAD[] }
+  // result.txt has commentary; Leader or Faction effects
+  result?: { winner: 0|1, retreat: 0|1|undefined, wounds: number[], sad: BattleSAD[], txt: string }
   constructor(bf: BattleFoTs) {
     this.fots = bf;
   }
@@ -271,45 +272,50 @@ export class GamePlay extends GamePlayLib {
 
   /** return { strength, damage, shields } */
   resolveWheel(fot: FactionOnTile): BattleSAD {
-    const wheel = fot.wheel!, card = fot.card;
-    let [str, txt] = fot.strength;
+    const wheel = fot.wheel!, card = fot.tcard;
+    let [str, txt] = fot.faction.strengthInRegion(fot.tile);
     let [atk, atxt] = fot.faction.attackInRegion(fot.tile);
     let [def, dtxt] = fot.faction.defenceInRegion(fot.tile);
     let die = 0, cstr = 0;
-    const nleft = card?.nLeft ?? 0, nright = card?.nRight ?? 0;
+    const nleft = card?.nLeft ?? 1, nright = card?.nRight ?? 1;
+    const dieRoll = this.dieRoll;
 
     if (wheel == 'dRd') {
-      def = nleft + nright - 2;
+      def += card ? (nleft + nright) : - 2;
     } else if (wheel == 'd_s') {
-      def = nleft;
+      def += nleft;
       str += (cstr = nright);
     } else if (wheel == 's_a') {
       str += (cstr = nleft);
-      atk = nright;
+      atk += nright;
     } else if (wheel == 'a4a') {
-      atk = nleft + nright;
+      atk += nleft + nright;
     } else if (wheel == 'aDs') { if (fot.player.gems < 1) debugger;
       fot.player.gems -= 1;
-      atk = nleft;
-      str += (cstr = nright) + (die = this.dieRoll);
-      if (die == 1) def += 1;
+      atk += nleft;
+      str += (cstr = nright) + (die = dieRoll);
     } else if (wheel == 'sDd') {
       fot.player.gems -= 1;
-      str += (cstr = nleft) + (die = this.dieRoll);
-      def = nright
-      if (die == 1) def += 1;
+      str += (cstr = nleft) + (die = dieRoll);
+      def += nright;
     }
-    this;
+    if (die == 1) def += 1;
+    def = Math.max(0, def);
+    atk = Math.max(0, atk);
     card?.pFunc?.();   // TODO: all of this...
     console.log(stime(this, `.Wheel: ${fot.facId}`), { wheel, str, atk, def, die, cstr, txt })
     return { str, atk, def, die, wheel, card }
   }
 
+        // resolve battle
+        // commit and resolve (lose: Leaders, Fighters, Buildings) (retreat: Leader, redeploy)
+        // -- auto if no choices [or no conflict]
+        // after Battle: advance Fame for Oxataya, JRayek, [Zcharo, AI, Leyrien]
+        // -- test for WIN
   /** resolve strength, damage-shields, remove losing units/buildings */
-  resolveBattle(battle: Battle) {
-    const sad = battle.fots.map((fot, n) => {
-      return this.resolveWheel(fot); // includes w: wheel & c: card
-    })
+  resolveBattle(battle: Battle, cb: CB) {
+    // BattleSAD[]: wheel, card, str, atk, def, die, cstr, txt
+    const sad = battle.fots.map(fot => this.resolveWheel(fot));
     // TODO: Oachra
     const maxStr = sad[0].str >= sad[1].str ? 0 : 1;
     const retreat = (sad[0].wheel == 'dRd' && sad[1].wheel == 'dRd') ? maxStr // stronger retreats
@@ -318,16 +324,23 @@ export class GamePlay extends GamePlayLib {
                   : undefined;                   // nobody
     const [fot0, fot1] = battle.fots;
     const winner = (retreat != undefined ? (1 - retreat) : maxStr) as 0 | 1;
-    const wound0 = Math.min(4, fot0.fighters, Math.max(0, sad[1].atk - sad[0].def));
+    const wound0 = Math.min(4, fot0.fighters, Math.max(0, sad[1].atk - sad[0].def)); // wounds received
     const wound1 = Math.min(4, fot1.fighters, Math.max(0, sad[0].atk - sad[1].def));
+    battle.result = { winner, retreat, wounds: [wound0, wound1], sad, txt: '' }
+    console.log(stime(this, `.Battle: result =`), { winner, retreat, w0: wound0, w1: wound1, sad } );
+    battle.fots.forEach(fot => fot.battleResult(battle));
+    this.displayResult(battle, () => {
+      battle.fots.forEach(fot => {
+        fot.player.panel.battlePanel.visible = false;
+        fot.tcard?.moveTo(this.table.cardDiscard.hex as Hex2)
+      });
+
+      // now: inflict the damage:
     fot0.faction.woundOtherFighters(wound1, fot1); // AI may override/augment; Jrayek.aggressive
     fot1.faction.woundOtherFighters(wound0, fot0);
     // remove buildings of loser:
     const loserFoT = [fot1, fot0][winner];
     const loserBldgs = loserFoT.buildings.slice();
-    battle.result = { winner, retreat, wounds: [wound0, wound1], sad }
-    console.log(stime(this, `.Battle: result =`), { winner, retreat, w0: wound0, w1: wound1, sad } );
-    battle.fots.forEach(fot => fot.battleResult(battle));
 
     loserFoT.buildings.length = 0;
     loserBldgs.forEach(bldg => {
@@ -352,6 +365,41 @@ export class GamePlay extends GamePlayLib {
       loserFoT.leaders.length = 0;
       loserFoT.player.panel.baseTile.getFoT(loserFoT.player).addFighter(loserFoT.fighters, loserFoT);
     }
+    cb();
+  })
+  }
+
+  displayResult(battle: Battle, cb: CB) {
+    // show: winner [retreat]
+    // fac0: str, 1.atk - def, battel.result.wounds0
+    // fac1: str, 0.atk - def, battel.result.wounds1
+    // const resultPanel = new NamedContainer('result')
+    const { fots, result } = battle;
+    const { winner, retreat, wounds, sad, txt } = result!;
+    let str = `Victor: ${fots[winner].faction.facName}`;
+    if (retreat !== undefined) {
+      str = `${str} [${fots[retreat].faction.facName} retreats]`
+    }
+    const f0 = fots[0], f1 = fots[1], n0 = f0.faction.facName, n1 = f1.faction.facName;
+    const pn =  20 - (n0.length + n1.length)
+    const padn = ''.padStart(pn)
+    const padk = ''.padStart((n0.length + n1.length)/2);
+    const padw = ''.padStart(pn-3);
+    str = `${str}\n${n0}${padn}${n1}`
+
+    const keys = ['str', 'die', 'atk', 'def'] as (keyof BattleSAD)[];
+    keys.forEach(k => {
+      str = `${str}\n${sad[0][k] ?? 0}${padk}:${k}:${padk}${sad[1][k] ?? 0}`
+    })
+    str = `${str}\nwounded: ${wounds[0]}${padw}wounded: ${wounds[1]}`;
+    const resultText = new TextInRect(str, { bgColor: 'rgba(194, 194, 194, 0.75)' })
+    resultText.x  = f0.tile.x; resultText.y = f0.tile.y;
+    this.table.hexMap.mapCont.overCont.addChild(resultText);
+    const done = () => {
+      resultText.parent.removeChild(resultText);
+      cb();
+    }
+    resultText.on(S.click, done, resultText, true);
   }
 
   brake = false; // for debugger
