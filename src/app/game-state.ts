@@ -117,10 +117,10 @@ export class GameState extends GameStateLib {
   stateNdx(phase: string) { return Object.keys(this.states).indexOf(phase)}
 
   // autoPhases: string[] = ['PlaceBase', 'PlaceRelic', 'DeployLeaders', 'BeginRound', 'SetPrices', 'Discovery'];
-  autoDiscover: PricePhase[] = ['Move', 'Recruit'];
-  autoPhases: string[] = ['Recruit'] //['Build', 'Harvest', 'Recruit'];
+  autoDiscover: PricePhase[] = [];
+  autoPhases: string[] = [''] //['Build', 'Harvest', 'Recruit'];
   /** run auto placements until autoPhase */
-  autoPhaseX?: string = 'Recruit';    // undefined for normal --> 'PlaceRelic' [manual Move is broken!]
+  autoPhaseX?: string = '';    // undefined for normal --> 'PlaceRelic'
   isAutoPhase(phase = this.state.Aname!) {
     // autoPhases implicitly includes all phase up to autoPhase:
     if (this.autoPhaseX && this.stateNdx(phase) < this.stateNdx(this.autoPhaseX)) return true;
