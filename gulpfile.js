@@ -73,8 +73,8 @@ gulp.task('embed-favicon', (done) => {
 // Task 2: Inject inline attributes into the compiled Angular script and style tags
 gulp.task('insert-inline-attrs', () => {
     return gulp.src('./dist/chaos/index.html')
-        .pipe(replace('type="module"', 'type="module" inline'))
-        .pipe(replace('rel="stylesheet"', 'rel="stylesheet" inline'))
+        .pipe(replace(/type="module"(?! inline)/, 'type="module" inline'))
+        .pipe(replace(/rel="stylesheet"(?! inline)/, 'rel="stylesheet" inline'))
         .pipe(gulp.dest('./dist/chaos/'));
 });
 

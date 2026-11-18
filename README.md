@@ -20,5 +20,6 @@ Tell angular.json to use: architect.build.defaultConfiguration: "development"
 
 That gets optimization: "false" so vite will not rewrite & break the sourcemap.
 
-## Easier
-Real soon now (Nov 2026), I'll publish a downloadable chaos.html image.
+## Single file image, ready to run:
+
+View and download [this Google Drive file](https://drive.google.com/file/d/1Hn5uczmDzhxmq8bJLgXx6IWjCHJgOJCK/view), saving it locally as chaos.html; Then click that file to open it in Chrome.
