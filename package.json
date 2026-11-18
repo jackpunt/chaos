@@ -6,7 +6,7 @@
     "start": "ng serve",
     "build": "ng build",
     "builds": "ng build --configuration standalone",
-    "buildsd": "ng build --configuration standalone --optimization=true --source-map=true",
+    "buildsd": "ng build --configuration standalone --optimization=false --source-map=true",
     "assets": "npx gulp asset-tags",
     "note": "mkdir dist-standalone; also npm run assets to set the list of images",
     "buildin": "gulp insert-inline-attrs && npx inline-source-cli --root ./dist/chaos/ ./dist/chaos/index.html ./dist-standalone/chaos.html",
