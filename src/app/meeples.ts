@@ -584,7 +584,8 @@ export class Leader extends ChaosUnit implements LeaderSpec {
     const gameState = ctx!.gameState as GameState;
     if (gameState.isPhase('DeployLeaders')) {
       // Note: Rhyzu(neutralPlayer) has no baseTile, so: false (deploy during SetPrices)
-      if (!this.player.panel.baseTile?.baseRegions!.includes(toHex)) return false;
+      if (this.player.panel.baseTile?.baseRegions!.includes(toHex)) return true;
+      return false;
     }
     // from Panel (any phase, but intentionally for: SetPrices and Recruit)
     if (!this.fromHex.isOnMap ) return this.isaRhyzu() ? true : (toHex.ctile == this.player.panel.baseTile);

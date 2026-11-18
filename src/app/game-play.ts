@@ -179,6 +179,7 @@ export class GamePlay extends GamePlayLib {
   // Each Phase: start with Pricer (or Neutral --> gunPlayer) [8/26]
   // Each Phase: player to pay or pass; pay for auxillary [~9/23]
   // Setup: display Production Tokens [10/1]
+  // Any Phase: Zcharo offerAction one level higher
   // Discover: advancement bonus; give E,G,C; Move(3) R2; doImmediate: [10/1]
   // Discover: present Production Tokens, allow selection & placement for Harvest(2); Build(1,3) Foundation [10/1]
   // Discover: click to select Primary & Auxillary Research. (inc ResearchLevel) [~9/28]
