@@ -5,6 +5,10 @@
 /tmp
 /out-tsc
 /bazel-out
+/dist
+/dist-standalone
+# until we get them edited
+/src/assets2
 
 # Node
 /node_modules

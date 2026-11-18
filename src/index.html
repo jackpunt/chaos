@@ -1,6 +1,7 @@
 <!doctype html>
 <html lang="en">
 <head>
+  <meta name="build-date" content="BUILD_DATE">
   <meta charset="utf-8">
   <title>Chaos</title>
   <base href="/">
@@ -9,5 +10,8 @@
 </head>
 <body>
   <app-root></app-root>
+  <!-- gulp will insert references to assets/images here; inline-source will insert base64 -->
+  <div id="assets-image-registry" style="display:none;">
+</div>
 </body>
 </html>

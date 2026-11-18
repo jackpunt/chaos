@@ -13,7 +13,12 @@
         "build": {
           "builder": "@angular/build:application",
           "options": {
-            "browser": "src/main.ts",
+            "outputPath": {
+              "base": "dist/chaos",
+              "browser": ""
+            },
+            "index": "src/index.html",
+            "polyfills": [],
             "tsConfig": "tsconfig.app.json",
             "assets": [
               "src/assets",
@@ -41,6 +46,26 @@
                 }
               ],
               "outputHashing": "all"
+            },
+            "standalone": {
+              "baseHref": "./",
+              "optimization": true,
+              "extractLicenses": true,
+              "sourceMap": false,
+              "namedChunks": false,
+              "outputHashing": "none",
+              "budgets": [
+                {
+                  "type": "initial",
+                  "maximumWarning": "5MB",
+                  "maximumError": "6MB"
+                },
+                {
+                  "type": "anyComponentStyle",
+                  "maximumWarning": "4kb",
+                  "maximumError": "8kb"
+                }
+              ]
             },
             "development": {
               "optimization": false,

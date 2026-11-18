@@ -78,6 +78,7 @@ class NullGameSetup extends GameSetupLib {
   override loadImagesThenStartup() {
     const fnames: string[] = ['Gemlock', ...factionNames];
     AliasLoader.loader.fnames = [...fnames, ...ChaosTweaker.fnames, 'BattleWheel'];
+    AliasLoader.loader.imageArgs.inline = this.qParams['inline'];  // force decode inline images if no 'src/assets'
     super.loadImagesThenStartup();    // loader.loadImages(() => this.startup(qParams));
   }
 
@@ -105,8 +106,11 @@ class NullGameSetup extends GameSetupLib {
     return this.facIds.length;
   }
 
-  override startup(scenario: Scenario): void {
-    super.startup(scenario);        // --> startScenario(StartElt: this.initialScenario(qParms)) -->
+  override startup(qParams: Params | SetupElt): void {
+    const msImage = AliasLoader.loader.getImage('Gemlock'); // just to show we can
+    if (!msImage || msImage.width == 0) debugger;
+    console.log(stime(this, `.startup: Gemlock.width =`), msImage.width);
+    super.startup(qParams);        // --> startScenario(StartElt: this.initialScenario(qParms)) -->
     Tile.gamePlay = this.gamePlay;  // so Tile drags can find gamePlay
     // super.startup(scenario) {
     //   const startElt = this.initialScenario(qParams); // produces a StartupElt from qParams (which could be a SetupElt)
