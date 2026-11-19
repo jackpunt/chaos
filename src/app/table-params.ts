@@ -26,6 +26,8 @@ export class TP extends TPLib {
   }
   /** reset each round; whether to use free auxillary action */
   static freeAuxForOxataya: '' | 'use' | 'ask' = '';  // 0, 1, 2
+  /** reset each round; whether up-level this [priced] phase */
+  static upLevelForZcharo: '' | 'use' | 'ask' = '';  // 0, 1, 2
   static aButtonEvent?: MouseEvent = undefined;
   // timeout: see also 'autoEvent'
   static stepDwell:  number = 150

@@ -120,7 +120,7 @@ export class GameState extends GameStateLib {
   autoDiscover: PricePhase[] = [];
   autoPhases: string[] = [''] //['Build', 'Harvest', 'Recruit'];
   /** run auto placements until autoPhase */
-  autoPhaseX?: string = '';    // undefined for normal --> 'PlaceRelic'
+  autoPhaseX?: string = 'Discovery';    // undefined for normal --> 'PlaceRelic'
   isAutoPhase(phase = this.state.Aname!) {
     // autoPhases implicitly includes all phase up to autoPhase:
     if (this.autoPhaseX && this.stateNdx(phase) < this.stateNdx(this.autoPhaseX)) return true;
@@ -321,6 +321,7 @@ export class GameState extends GameStateLib {
       start: (round = this.roundNum) => {
         this._round = round;   // 'PlaceBase' & 'Relics' invoke with new roundNum
         TP.freeAuxForOxataya = (this.nPlayers == 2) ? 'ask' : 'use';
+        TP.upLevelForZcharo = (this.nPlayers == 2) ? 'ask' : 'use';
         this.gamePlay.saveGame();
         this.gamePlay.logWriterLine0('round', { time: stime.fs(), round: this.roundNum, gunPlayer: this.gunPlayer.facName });
         this.doneButton(`Begin Round: ${this.roundNum}`); // activate

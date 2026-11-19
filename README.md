@@ -57,6 +57,9 @@ Ctrl Left-click to decrement. Shift to incr/decr by 10.
 
 Holding down shift before clicking to move will generally override some move/placement constraints.
 
+Drag & Drop the ResearchLevel cubes to fix or cheat.  
+During Discovery or for a Research Bonus, buttons appear to advance legitimately.
+
 ### other keyboard bindings
 * t - show/hide Region labels (coordinates)
 * c - recache some graphics

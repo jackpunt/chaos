@@ -8,7 +8,7 @@ import type { Foundation } from "./foundation";
 import { rotationAtPoint } from "./functions";
 import { ChaosMeeple, Leader, Morale, Outpost, PathShapeMeeple, Stronghold, type ChaosBuilding } from "./meeples";
 import { type Panel, type Player, type SwampTile } from "./player";
-import { type ResearchLevel } from "./research-cell";
+import { type ResearchCell, type ResearchLevel } from "./research-cell";
 import { pricePhases, TP, type CB, type PricePhase } from "./table-params";
 //
 function expandArray<T>(rec: Record<number, T>): (T | undefined)[] {
@@ -243,37 +243,38 @@ export class Faction {
 
   // for given Phase: offer primary and aux;
   offerPrimaryAndAux(pName: PricePhase, activate = true) {
-    const { phaseRow, level } = this.researchLevelOfPhase[pName];
-    if (level < phaseRow.length) {
-      const rc = phaseRow[level];
+    const { researchCell: rc } = this.researchLevelOfPhase[pName];
       if (activate) {
         rc.activateForAction(this, () => {}, () => {} ); // primary(this, cb), auxillary(this, cb)
       } else {
         rc.activateForAction(this);
       }
-    }
   }
 
   // offer a Discovery action ('%')
+  // when someone buys 'Discovery' phase OR when recieve a %-Bonus
   // for each phase, activate mid-row of next level; then turn them all off
-  offerDiscoveryAction(pv = 1, cb: CB = () => {}) {
+  /**
+   * @param primary true if invoked as paid/primary action, false if Aux or Bonus
+   * @param cb continuation after player's choice
+   */
+  offerDiscoveryAction(primary = false, cb: CB = () => {}) {
     pricePhases.forEach(pName => {
-      const { phaseRow, level } = this.researchLevelOfPhase[pName];
-      // in Discovery phase: augment activation of researching 'Discovery'
-      const mcb =  (this.player.gamePlay.gameState.isPhase('Discovery') && pName == 'Discovery')
+      const { phaseRow, level, researchCell: rc0 } = this.researchLevelOfPhase[pName];
+      console.log(stime(this, `.offerDiscoveryAction: primary=${primary}, pName=${pName} level=`), level)
+      // in Discovery phase: if primary action advances Discovery --> advance auxillary
+      const mcb = primary
         ? () => {
-          const nlevel = this.researchLevelOfPhase[pName].level;
-          if (nlevel !== level) {
-            // Note: if Discovery advances, there is not a second Discovery action!
-            // If there IS a second Discovery action, Discovery cannot advance!
-            phaseRow[level].aButton.activate(false); // disable lower-level Discovery
-            phaseRow[nlevel].activateForAction(this, undefined, () => {}); // enable nlevel Aux-Discovery
+          const { level: nlevel, researchCell: rc1 } = this.researchLevelOfPhase[pName];
+          if (rc1 != rc0) {
+            rc0.aButton.activate(false);                    // disable orig Aux-Discovery
+            rc1.activateForAction(this, undefined, () => {}); // enable new Aux-Discovery
           }
           this.deactivateDiscovery(cb);
         }
         : () => this.deactivateDiscovery(cb);
 
-      if (level < phaseRow.length - 1) {
+      if (level+1 < phaseRow.length) {
         // TODO: stash & 'restore/recompute' status of enabled aButton
         // click -> rl.level = rc.level
         // TODO: do not activate if gemlock && player can't pay?
@@ -410,7 +411,7 @@ export class Faction {
       player.gainCard();
       cb();
     } else if (bs == '%') {
-      this.offerDiscoveryAction(iv, cb)
+      this.offerDiscoveryAction(false, cb)
     } else if (bs == 'F') {
       this.onlyFoundation = true;
       this.offerBuildAction(1, () => { this.onlyFoundation = false; cb() }, 'doImmediateBonus.onlyFoundation');
@@ -842,6 +843,33 @@ class AI extends Faction {
 
 }
 class Zcharo extends Faction {
+  up_rc?: ResearchCell;  // deactivate this cell
+
+  override offerPrimaryAndAux(pName: PricePhase, activate?: boolean): void {
+    const { phaseRow, level } = this.researchLevelOfPhase[pName];
+    const myPrice = this.player.gamePlay.gameState.priceToken(pName)?.player == this.player;
+    if (activate && myPrice && (level < phaseRow.length - 1) && !!TP.upLevelForZcharo) {
+        const normal = () => {
+          TP.upLevelForZcharo = 'use';   // next time we just use it
+          super.offerPrimaryAndAux(pName, activate);
+        };
+        const uplevel = () => {
+          TP.upLevelForZcharo = '';  // use or ask only once per round
+          this.up_rc = phaseRow[level + 1];
+          this.up_rc.activateForAction(this, () => {}, () => {} );
+        }
+      if (TP.upLevelForZcharo == 'use') {
+        uplevel();
+      } else {
+        this.player.panel.popupChoice('Uplevel', 'Normal', uplevel, normal, 'Use up-level Research?')
+      }
+    } else if (!activate && this.up_rc) {
+      this.up_rc.activateForAction(this);
+      this.up_rc = undefined;
+    } else {
+      super.offerPrimaryAndAux(pName, activate)
+    }
+  }
 
   override strengthInRegion(region: ChaosTile) {
     const [str, txt] = super.strengthInRegion(region)

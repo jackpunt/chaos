@@ -56,8 +56,7 @@ export class ResearchLevel extends RectShape {
     const dx = TP.hexRad * .9/5-2, dy = dx;
     super({ x: -dx/2, y: -dy/2, w: dx, h: dy });
     this.level = level;    // place in ResearchCell per level
-    // TODO: just click to advance curPlayer's token to next level
-    this.makeDragable(faction.player.gamePlay.table); // maybe not
+    this.makeDragable(faction.player.gamePlay.table); // maybe not (cheat and fix)
     this.paint(faction.player.color);
   }
 
@@ -86,9 +85,10 @@ export class ResearchLevel extends RectShape {
 
 }
 
+/** Container of Primary, Immediate, Auxillary Icons, and whichever [ResearchLevel of Faction]s */
 export class ResearchCell extends NamedContainer {
   pName: PricePhase;
-  level = 0;
+  level = 0;       // 0 -- 4; indicates column in neutal panel AND nPrimaryActions
 
   ps: string;      // primary
   as: string;      // auxilliary
@@ -248,7 +248,7 @@ export class ResearchCell extends NamedContainer {
         let pvv = pv;
         const pvcb = () => {
           if (pvv-- > 0) {
-            faction.offerDiscoveryAction(1, pvcb); // TODO: set Panel Buttons (ex: use only 1 of 2 Discovery)
+            faction.offerDiscoveryAction(true, pvcb); // TODO: set Panel Buttons (ex: use only 1 of 2 Discovery)
           } else {
             cb();
           }
@@ -318,7 +318,7 @@ export class ResearchCell extends NamedContainer {
       console.log(stime(this, `.aux: ${this.as} no pay! ${v}`), faction.name);
       cb();
     }
-    const payForAux = (payEnergy: boolean, aux: () => void,  cb: CB) => {
+    const payForAux = (payEnergy: boolean, aux: () => void) => {
       const normal = () => {
         if (payEnergy ? player.payEnergy(cv) : player.payGems(cv)) {
           aux();
@@ -341,25 +341,25 @@ export class ResearchCell extends NamedContainer {
     // parse as; do it;
     console.log(stime(this, `.auxillary: as=${this.as}`));
     if (matchv('G', '%')) {       // Discovery
-      payForAux(false, () => faction.offerDiscoveryAction(1, cb), cb)
+      payForAux(false, () => faction.offerDiscoveryAction(false, cb))
 
     } else if (matchv('G','C')) {  // Discovey @ 4
-      payForAux(false, () => { player.gainCard(); cb() }, cb);
+      payForAux(false, () => { player.gainCard(); cb() });
 
     } else if (matchv('E', 'B')) { // Aux Build
-      payForAux(true, () => faction.offerBuildAction(1, cb, 'auxillary'), cb)
+      payForAux(true, () => faction.offerBuildAction(1, cb, 'auxillary'))
 
     } else if (matchv('E', 'C')) {  // Aux Discovery | Build @ level 4
-      payForAux(true, () => { player.gainCard(); cb() }, cb)
+      payForAux(true, () => { player.gainCard(); cb() })
 
     } else if (matchv('E', 'G')) {  // Aux Harvest En:Gm
-      payForAux(true, () => { player.gems += bv; cb() }, cb)
+      payForAux(true, () => { player.gems += bv; cb() })
 
     } else if (matchv('E', 'L')) {  // Aux Recruit
-      payForAux(true, () => { console.log(stime(this, `.auxillary: TODO faction.offerRecruitLeader(1, cb)`))}, cb)
+      payForAux(true, () => { console.log(stime(this, `.auxillary: TODO faction.offerRecruitLeader(1, cb)`))})
 
     } else if (matchv ('E', 'U')) { // Aux Move
-      payForAux(true, () => {console.log(stime(this, `.auxillary: TODO faction.offerUpgradeLeader(1, cb)`))}, cb)
+      payForAux(true, () => {console.log(stime(this, `.auxillary: TODO faction.offerUpgradeLeader(1, cb)`))})
     }
   }
 
