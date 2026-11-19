@@ -53,7 +53,7 @@ The gui will generally highlight the legal target locations, and shade the curre
 ### Counters and other "cheats"
 
 Left-click a counter (energy, gems, recruits, movePoints) to increment the counter.  
-Right-click to decrement. Shift to incr/decr by 5.
+Ctrl Left-click to decrement. Shift to incr/decr by 10.
 
 Holding down shift before clicking to move will generally override some move/placement constraints.
 
@@ -61,6 +61,8 @@ Holding down shift before clicking to move will generally override some move/pla
 * t - show/hide Region labels (coordinates)
 * c - recache some graphics
 * esc - if click does not drop, esc should drop & reset
+  
+If you are in the source code, search for KeyBinder.keyBinder to find other key-driven actions.
 
 ### Advancing through turns & Phases
 
