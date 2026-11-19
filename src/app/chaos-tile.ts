@@ -932,10 +932,10 @@ export class LeaderTile extends ChaosTile {
     fot.setXY(-this.radius * .66);    // Note: fot.isBase == true; --> x = 0; set y to place Icon btw stats & PhaseIcon
   }
 
-  override newFoT(plyr: Player): FactionOnTile {
+  override newFoT(plyr: Player, tile: ChaosTile): FactionOnTile {
     return new class extends FactionOnTile {
       override showStrength(yl: number): void { }
-    } (plyr, this)
+    } (plyr, tile).setFighterVis(false)
   }
 
   // disable cache, need full zoom/resolution
