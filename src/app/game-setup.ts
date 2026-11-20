@@ -246,7 +246,7 @@ export class GameSetup extends NullGameSetup {
   declare gamePlay: GamePlay;
 
   constructor(canvasId?: string, qParam?: Params) {
-    super(canvasId, { f: '0,5', ...qParam })
+    super(canvasId, { f: '0,2', ...qParam })
   }
 
   override makeGamePlay(startElt: SetupElt): GamePlay {
